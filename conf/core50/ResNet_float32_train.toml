@@ -1,0 +1,82 @@
+[bench]
+name = "CORe50_ResNet_float32_train"
+seed = 2
+first_run = 1
+last_run = 1
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['int16']
+optimize = ['']
+
+[dataset]
+kind = "CORe50"
+params.path = "data/core50"
+params.variant = 'category'
+#params.sessions = ['s1']
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+#[[preprocessing]]
+#kind = "Normalize"
+#params.method = 'z-score'
+#params.method = 'min-max'
+#params.axis = 0
+#params.debug = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+#[[postprocessing]]
+#kind = "QuantizationAwareTraining"
+#export = true
+#params.width = 16
+#params.epochs = 0
+#params.batch_size = 128
+#params.model.params.quantize_bias	= true
+#params.model.params.quantize_linear	= true
+#params.force_q = 9
+
+[model_template]
+kind = "ResNet"
+epochs = 30
+batch_size = 128
+params.prepool 		= 2
+params.batch_norm	= true
+params.dims		= 2
+
+[model_template.optimizer]
+#kind = "SGD"
+#params.lr               = 0.05
+#params.momentum		= 0.9
+params.weight_decay	= 5e-4
+kind = "Adam"
+params.lr = 0.005
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+#params.milestones	= [15, 30, 45]
+params.milestones       = [10, 20, 25]
+params.gamma		= 0.1
+
+# https://pytorch.org/tutorials/intermediate/speech_command_recognition_with_torchaudio.html
+# https://arxiv.org/pdf/1610.00087.pdf
+
+[[model]]
+name = "core50_resnet"
+params.prepool 		= 1
+params.strides		= [2, 1, 2, 2, 2]
+params.num_blocks	= [2, 2, 2, 2]
+params.filters 		= [64, 64, 128, 256, 512]
+params.kernel_sizes 	= [7, 3, 3, 3, 3, 3]
+params.paddings		= [3, 1, 1, 1, 1, 1]
+params.batch_norm 	= true
+params.bn_momentum	= 0.1
+disabled = false
+#disabled = true

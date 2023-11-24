@@ -1,0 +1,60 @@
+[bench]
+name = "CIFAR10_TorchVisionResNet_float32_train"
+seed = 2
+first_run = 1
+last_run = 1
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['int16']
+optimize = ['']
+
+[dataset]
+kind = "CIFAR10"
+params.path = "data/cifar-10-batches-py/"
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'z-score'
+params.axis = 0
+params.debug = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+[model_template]
+kind = "TorchVisionModel"
+epochs = 180
+batch_size = 256
+
+[model_template.optimizer]
+kind = "Adam"
+#params.weight_decay	= 5e-4
+params.lr = 0.01
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+params.milestones       = [50, 100, 125, 150, 165, 170]
+params.gamma		= 0.1
+
+[[model]]
+name = "core50_torchvisionresnet18"
+params.model = 'resnet18'
+params.pretrained = true
+disabled = false
+#disabled = true
+
+[[model]]
+name = "core50_torchvisionresnet152"
+params.model = 'resnet152'
+params.pretrained = true
+disabled = false
+#disabled = true

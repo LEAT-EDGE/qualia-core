@@ -1,0 +1,111 @@
+[bench]
+name = "UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32_evaluate"
+seed = 2
+first_run = 1
+last_run = 15
+
+[learningframework]
+kind = 'pytorch'
+
+[deploy]
+target = 'NucleoL452REP'
+evaluator.params.dev = '/dev/ttyACM0'
+converter.kind = 'Keras2TFLite'
+quantize = ['float32']
+optimize = ['cmsis-nn']
+compress = [1]
+limit = 50
+
+[dataset]
+kind = "UCI_HAR"
+params.variant = "raw"
+params.path = "data/UCI HAR Dataset/"
+
+[[preprocessing]]
+kind = "DatamodelConverter"
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'z-score'
+params.axis = 0
+params.debug = true
+
+[[data_augmentation]]
+kind = "Mixup"
+
+[[postprocessing]]
+kind = "Torch2Keras"
+params.mapping = 'conf/torch2keras/resnetv1-6.toml'
+
+[[postprocessing]]
+kind = "RemoveKerasSoftmax"
+export = true
+
+[model_template]
+kind = "ResNet"
+epochs = 0
+batch_size = 64
+params.prepool 		= 1
+params.strides		= [1, 2]
+params.num_blocks	= [2]
+train = false
+load = true
+
+[[model]]
+name = "uci-har_resnetv1_16"
+params.filters 		= [16, 16]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_24"
+params.filters 		= [24, 24]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_32"
+params.filters 		= [32, 32]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_40"
+params.filters 		= [40, 40]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_48"
+params.filters 		= [48, 48]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_64"
+params.filters 		= [64, 64]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+
+[[model]]
+name = "uci-har_resnetv1_80"
+params.filters 		= [80, 80]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false

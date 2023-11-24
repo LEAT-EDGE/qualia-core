@@ -1,0 +1,138 @@
+[bench]
+name = "GTSRB_ResNetv1_int16_evaluate"
+seed = 2
+first_run = 1
+last_run = 1
+
+[learningframework]
+kind = 'pytorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['int16']
+optimize = ['']
+compress = [1]
+#limit = 50
+
+[dataset]
+kind = "GTSRB"
+params.path = "data/GTSRB/"
+params.width = 32
+params.height = 32
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'z-score'
+params.axis = 0
+params.debug = true
+
+[[data_augmentation]]
+kind = "Mixup"
+
+[[postprocessing]]
+kind = "QuantizationAwareTraining"
+export = true
+params.width = 16
+params.epochs = 0
+params.batch_size = 512
+params.model.params.quantize_bias	= true
+params.model.params.quantize_linear	= true
+params.model.params.quantize_add	= true
+params.force_q = 9
+
+[model_template]
+kind = "ResNet"
+epochs = 0
+batch_size = 128
+params.prepool 		= 1
+params.strides		= [1, 2]
+params.num_blocks	= [2]
+params.dims		= 2
+train = false
+load = true
+
+[model_template.optimizer]
+kind = "SGD"
+params.lr               = 0.01
+params.momentum		= 0.9
+params.weight_decay	= 5e-4
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+params.milestones	= [40, 80, 100]
+params.gamma		= 0.1
+
+[[model]]
+name = "gtsrb_resnetv1_8"
+params.filters 		= [8, 8]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false
+#disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_16"
+params.filters 		= [16, 16]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_24"
+params.filters 		= [24, 24]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_32"
+params.filters 		= [32, 32]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_40"
+params.filters 		= [40, 40]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_48"
+params.filters 		= [48, 48]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_64"
+params.filters 		= [64, 64]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+#disabled = false
+disabled = true
+
+[[model]]
+name = "gtsrb_resnetv1_80"
+params.filters 		= [80, 80]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = true

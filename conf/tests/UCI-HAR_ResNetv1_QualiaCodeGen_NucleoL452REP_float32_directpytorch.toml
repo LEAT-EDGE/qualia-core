@@ -1,0 +1,59 @@
+[bench]
+name = "UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32"
+first_run = 1
+last_run = 1
+seed = 2
+
+[learningframework]
+kind = 'PyTorch'
+params.enable_progress_bar = false
+
+[deploy]
+target = 'NucleoL452REP'
+evaluator.params.dev = '/dev/ttyACM0'
+converter.kind = 'QualiaCodeGen'
+quantize = ['float32']
+optimize = ['']
+compress = [1]
+limit = 50
+
+[dataset]
+kind = "UCI_HAR"
+params.variant = "raw"
+params.path = "data/UCI HAR Dataset/"
+
+[[preprocessing]]
+kind = "DatamodelConverter"
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'z-score'
+params.axis = 0
+params.debug = true
+
+[[data_augmentation]]
+kind = "Mixup"
+
+[model_template]
+kind = "ResNet"
+epochs = 0
+batch_size = 32
+params.prepool 		= 1
+params.strides		= [1, 2]
+params.num_blocks	= [2]
+load = true
+train = false
+
+[model_template.optimizer]
+kind = "Adam"
+
+[[model]]
+name = "uci-har_resnetv1_8"
+params.filters 		= [8, 8]
+params.kernel_sizes 	= [3, 3]
+params.paddings		= [1, 1]
+params.batch_norm 	= false
+disabled = false

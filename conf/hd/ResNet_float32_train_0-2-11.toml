@@ -1,0 +1,83 @@
+[bench]
+name = "HD_ResNet_float32_train_0-2-11"
+seed = 2
+first_run = 1
+last_run = 15
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['int16']
+optimize = ['']
+
+[dataset]
+kind = "HD"
+params.path = "data/hd_audio"
+params.variant = 'by-subject'
+params.test_subjects = [0, 2, 11]
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+#[[preprocessing]]
+#kind = "Normalize"
+#params.method = 'z-score'
+#params.method = 'min-max'
+#params.axis = 0
+#params.debug = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+#[[postprocessing]]
+#kind = "QuantizationAwareTraining"
+#export = true
+#params.width = 16
+#params.epochs = 0
+#params.batch_size = 128
+#params.model.params.quantize_bias	= true
+#params.model.params.quantize_linear	= true
+#params.force_q = 9
+
+[model_template]
+kind = "ResNet"
+epochs = 175
+batch_size = 192
+params.prepool 		= 2
+params.batch_norm	= true
+params.dims		= 1
+
+[model_template.optimizer]
+#kind = "SGD"
+#params.lr               = 0.05
+#params.momentum		= 0.9
+params.weight_decay	= 5e-4
+kind = "Adam"
+params.lr = 0.005
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+#params.milestones	= [15, 30, 45]
+params.milestones       = [50, 100, 125, 150, 165, 170]
+params.gamma		= 0.1
+
+# https://pytorch.org/tutorials/intermediate/speech_command_recognition_with_torchaudio.html
+# https://arxiv.org/pdf/1610.00087.pdf
+
+[[model]]
+name = "hd_resnet_0-2-11"
+params.prepool 		= 4
+params.strides		= [8, 4, 4, 4]
+params.num_blocks	= [1, 1, 1]
+params.filters 		= [16, 16, 32, 64]
+params.kernel_sizes 	= [40, 3, 3, 3, 3]
+params.paddings		= [20, 1, 1, 1, 1]
+params.batch_norm 	= true
+params.bn_momentum	= 0.1
+params.force_projection_with_stride = true
+disabled = false
+#disabled = true

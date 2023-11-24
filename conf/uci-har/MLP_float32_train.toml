@@ -1,0 +1,59 @@
+[bench]
+name = "UCI-HAR_MLP_float32_train"
+seed = 2
+first_run = 1
+last_run = 15
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['float32']
+optimize = ['']
+compress = [1]
+
+[dataset]
+kind = "UCI_HAR"
+params.variant = "raw"
+params.path = "data/UCI HAR Dataset/"
+
+[[preprocessing]]
+kind = "DatamodelConverter"
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[model_template]
+kind = "MLP"
+epochs = 120
+batch_size = 32
+
+[model_template.optimizer]
+kind = "Adam"
+params.lr               = 0.001
+
+#M1 11706 params 0.801832377910614
+[[model]]
+name = "uci-har_mlp_10-10"
+params.units 		= [10, 10]
+disabled = false
+
+#M2 11816 params 0.8079403042793274
+[[model]]
+name = "uci-har_mlp_10-10-10"
+params.units 		= [10, 10, 10]
+disabled = false
+
+#M3 23606 params 0.8547675609588623
+[[model]]
+name = "uci-har_mlp_20-20"
+params.units 		= [20, 20]
+disabled = false
+
+#M4 138246 0.8924329876899719
+[[model]]
+name = "uci-har_mlp_100-100-120"
+params.units 		= [100, 100, 120]
+disabled = false

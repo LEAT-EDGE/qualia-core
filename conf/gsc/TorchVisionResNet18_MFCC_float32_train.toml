@@ -1,0 +1,77 @@
+[bench]
+name = "GSC_ResNetv1_MFCC_float32_train"
+seed = 2
+first_run = 1
+last_run = 1
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['float32']
+optimize = ['']
+compress = [1]
+
+[dataset]
+kind = "GSC"
+params.variant = "v2"
+params.path = "data/speech_commands_v0.02/"
+params.subset = "no_background_noise"
+
+[[preprocessing]]
+kind = "MFCC"
+params.sample_rate = 16000
+params.n_mfcc = 64
+params.log_mels = true
+params.melkwargs.n_fft = 1024
+params.melkwargs.n_mels = 128
+params.melkwargs.win_length = 1024
+params.melkwargs.hop_length = 128
+params.melkwargs.f_min = 20
+params.melkwargs.f_max = 8000
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'z-score'
+params.axis = 0
+params.debug = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+[model_template]
+kind = "TorchVisionModel"
+epochs = 120
+batch_size = 768
+
+[model_template.optimizer]
+kind = "RAdam"
+params.lr               = 0.1
+#params.momentum		= 0.9
+params.weight_decay	= 5e-4
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+params.milestones	= [15, 30, 45, 60, 80]
+params.gamma		= 0.1
+
+[[model]]
+name = "gscmfcc_torchvisionresnet18"
+params.model = 'resnet18'
+params.pretrained = true
+disabled = false
+#disabled = true
+
+[[model]]
+name = "gscmfcc_torchvisionresnet152"
+params.model = 'resnet152'
+params.pretrained = true
+#disabled = false
+disabled = true
+

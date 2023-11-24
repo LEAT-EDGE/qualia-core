@@ -1,0 +1,113 @@
+[bench]
+name = "UCI-HAR_CNN_float32_train"
+seed = 2
+first_run = 1
+last_run = 15
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'SparkFunEdge'
+deployer.params.dev = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-*'
+evaluator.params.dev = '/dev/serial/by-id/usb-1a86_USB2.0-Serial-*'
+converter.kind = 'QualiaCodeGen'
+quantize = ['float32']
+optimize = ['']
+limit = 50
+
+[dataset]
+kind = "UCI_HAR"
+params.variant = "raw"
+params.path = "data/UCI HAR Dataset/"
+
+[[preprocessing]]
+kind = "DatamodelConverter"
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+[model_template]
+kind = "CNN"
+#epochs = 120
+epochs = 2 
+batch_size = 32
+params.batch_norm = true
+
+[model_template.optimizer]
+kind = "Adam"
+params.lr               = 0.001
+
+#C1 11066 params 0.8744485974311829
+[[model]]
+name = "uci-har_cnn_2_2-2_2"
+params.filters = [2, 2]
+params.kernel_sizes = [2, 2]
+params.pool_sizes = [2, 0]
+disabled = false
+
+#C2 26804 0.9100780487060547
+[[model]]
+name = "uci-har_cnn_5_2-5-2"
+params.filters = [5, 5]
+params.kernel_sizes = [2, 2]
+params.pool_sizes = [2, 0]
+disabled = false
+
+#C3 16407 0.9121140241622925
+[[model]]
+name = "uci-har_cnn_5_3-3_2"
+params.filters = [5, 3]
+params.kernel_sizes = [3, 2]
+params.pool_sizes = [2, 0]
+disabled = false
+
+#C4 38216 0.9158466458320618
+[[model]]
+name = "uci-har_cnn_5_2-5_2_120"
+params.filters = [5, 5]
+params.kernel_sizes = [2, 2]
+params.fc_units = [120]
+params.pool_sizes = [2, 0]
+disabled = false
+
+#C5 74676 0.9043094515800476
+[[model]]
+name = "uci-har_cnn_10_3-10_3_120"
+params.filters = [10, 10]
+params.kernel_sizes = [3, 3]
+params.fc_units = [120]
+params.pool_sizes = [2, 0]
+disabled = false
+
+#C6 149106 0.9399389028549194
+[[model]]
+name = "uci-har_cnn_20_3-20_3_120"
+params.filters = [20, 20]
+params.kernel_sizes = [3, 3]
+params.fc_units = [120]
+params.pool_sizes = [2, 0]
+disabled = false
+
+
+#C7 119214 0.9501187801361084
+[[model]]
+name = "uci-har_cnn_48_5-32_3_120"
+params.filters = [48, 32]
+params.kernel_sizes = [5, 3]
+params.fc_units = [120]
+params.pool_sizes = [4, 0]
+disabled = false
+
+#C8 170334 0.9494401216506958
+[[model]]
+name = "uci-har_cnn_64_7-48_5_120"
+params.filters = [64, 48]
+params.kernel_sizes = [7, 5]
+params.fc_units = [120]
+params.pool_sizes = [4, 0]
+disabled = false

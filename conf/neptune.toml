@@ -1,0 +1,4 @@
+[neptune]
+project_namespace = ""
+api_key = ""
+source_files = ['src/qualia_core/**/*.py', 'bin/qualia']
