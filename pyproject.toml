@@ -28,7 +28,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-homepage = "https://naixtech.unice.fr/gitlab/qualia/qualia-core"
+homepage = "https://github.com/LEAT-EDGE/qualia-core"
+documentation = "https://leat-edge.github.io/qualia-core"
 
 [project.optional-dependencies]
 codegen = ['qualia_codegen_core']
