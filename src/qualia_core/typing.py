@@ -104,15 +104,15 @@ class QuantizationConfigDict(QuantizerConfigDict):
     bias: NotRequired[QuantizerConfigDict]
 
 class ModelParamsConfigDict(TypedDict):
-    input_shape: list[int] | tuple[int, ...]
-    output_shape: list[int] | tuple[int, ...]
+    input_shape: typing.Union[list[int], tuple[int, ...]]
+    output_shape: typing.Union[list[int], tuple[int, ...]]
     quant_params: NotRequired[QuantizationConfigDict]
 
 class UpdateConfigDict(TypedDict):
     quant_params: NotRequired[QuantizationConfigDict]
 
 class ModelCommonConfigDict(TypedDict):
-    params: NotRequired[RecursiveConfigDict | ModelParamsConfigDict]
+    params: NotRequired[typing.Union[RecursiveConfigDict, ModelParamsConfigDict]]
     epochs: NotRequired[int]
     batch_size: NotRequired[int]
     load: NotRequired[bool]
