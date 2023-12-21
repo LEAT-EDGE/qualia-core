@@ -1,30 +1,64 @@
+from __future__ import annotations
+
 import math
-import torch.nn as nn
-from qualia_core.learningmodel.pytorch.layers.quantized_layers import QuantizedLinear
+import sys
+from collections import OrderedDict
 
-class QuantizedMLP(nn.Sequential):
+from torch import nn
+
+from qualia_core.learningmodel.pytorch.layers.quantized_layers import QuantizedIdentity, QuantizedLinear
+from qualia_core.learningmodel.pytorch.LearningModelPyTorch import LearningModelPyTorch
+from qualia_core.typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
+
+    from qualia_core.typing import QuantizationConfigDict
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+class QuantizedMLP(LearningModelPyTorch):
     def __init__(self,
-        input_shape,
-        output_shape,
-        units: tuple=(100, 100, 100),
-        bits: int=0,
-        quantize_bias: bool=True,
-        force_q: int=None):
-
-        bits = int(bits) # Conver TOML integer to Python integer
-        print('force_q', force_q, 'bits', bits)
+                 input_shape: tuple[int, ...],
+                 output_shape: tuple[int, ...],
+                 units: list[int],
+                 quant_params: QuantizationConfigDict) -> None:
+        super().__init__(input_shape=input_shape, output_shape=output_shape)
 
         self.input_shape = input_shape
         self.output_shape = output_shape
 
-        layers = [nn.Flatten(),
-                  QuantizedLinear(math.prod(input_shape), units[0], quantize_bias=quantize_bias, bits=bits, force_q=force_q),
-                  nn.ReLU()]
+        layers: OrderedDict[str, nn.Module] = OrderedDict()
 
-        for in_units, out_units in zip(units, units[1:]):
-            layers.append(QuantizedLinear(in_units, out_units, quantize_bias=quantize_bias, bits=bits, force_q=force_q))
-            layers.append(nn.ReLU())
+        layers['identity1'] = QuantizedIdentity(quant_params=quant_params)
+        layers['flatten1'] = nn.Flatten()
 
-        layers.append(QuantizedLinear(units[-1], output_shape[0], quantize_bias=quantize_bias, bits=bits, force_q=force_q))
+        i = 1
+        for in_units, out_units in zip([math.prod(input_shape), *units], units[:-1]):
+            layers[f'fc{i}'] = QuantizedLinear(in_units,
+                                          out_units,
+                                          quant_params=quant_params,
+                                          activation=nn.ReLU())
+            i += 1
 
-        super().__init__(*layers)
+        layers[f'fc{i}'] = QuantizedLinear(units[-1] if len(units) > 1 else math.prod(input_shape),
+                                      output_shape[0],
+                                      quant_params=quant_params)
+
+        self.layers = nn.ModuleDict(layers)
+
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+        """Forward calls each of the SCNN :attr:`layers` sequentially.
+
+        :param input: Input tensor
+        :return: Output tensor
+        """
+        x = input
+        for layer in self.layers:
+            x = self.layers[layer](x)
+
+        return x

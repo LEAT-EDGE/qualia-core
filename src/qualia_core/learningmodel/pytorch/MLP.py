@@ -1,23 +1,56 @@
-import math
-import torch.nn as nn
+from __future__ import annotations
 
-class MLP(nn.Sequential):
-    def __init__(self, input_shape, output_shape, units: tuple=(100, 100, 100)):
+import math
+import sys
+from collections import OrderedDict
+
+from torch import nn
+
+from qualia_core.learningmodel.pytorch.LearningModelPyTorch import LearningModelPyTorch
+from qualia_core.typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+class MLP(LearningModelPyTorch):
+    def __init__(self,
+                 input_shape: tuple[int, ...],
+                 output_shape: tuple[int, ...],
+                 units: list[int]) -> None:
+        super().__init__(input_shape=input_shape, output_shape=output_shape)
 
         self.input_shape = input_shape
         self.output_shape = output_shape
 
-        layers = [nn.Flatten()]
-        if units:
-            layers.append(nn.Linear(math.prod(input_shape), units[0]))
-            layers.append(nn.ReLU())
+        layers: OrderedDict[str, nn.Module] = OrderedDict()
 
-            for in_units, out_units in zip(units, units[1:]):
-                layers.append(nn.Linear(in_units, out_units))
-                layers.append(nn.ReLU())
+        layers['flatten1'] = nn.Flatten()
 
-            layers.append(nn.Linear(units[-1], output_shape[0]))
-        else:
-            layers.append(nn.Linear(math.prod(input_shape), output_shape[0]))
+        i = 1
 
-        super().__init__(*layers)
+        for in_units, out_units in zip([math.prod(input_shape), *units], units[:-1]):
+            layers[f'fc{i}'] = nn.Linear(in_units, out_units)
+            layers[f'relu{i}'] = nn.ReLU()
+            i += 1
+
+        layers[f'fc{i}'] = nn.Linear(units[-1] if len(units) > 1 else math.prod(input_shape), output_shape[0])
+
+        self.layers = nn.ModuleDict(layers)
+
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+        """Forward calls each of the SCNN :attr:`layers` sequentially.
+
+        :param input: Input tensor
+        :return: Output tensor
+        """
+        x = input
+        for layer in self.layers:
+            x = self.layers[layer](x)
+
+        return x
