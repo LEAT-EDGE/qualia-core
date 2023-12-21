@@ -33,7 +33,7 @@ class MLP(LearningModelPyTorch):
 
         i = 1
 
-        for in_units, out_units in zip([math.prod(input_shape), *units], units[:-1]):
+        for in_units, out_units in zip([math.prod(input_shape), *units[:-1]], units):
             layers[f'fc{i}'] = nn.Linear(in_units, out_units)
             layers[f'relu{i}'] = nn.ReLU()
             i += 1
