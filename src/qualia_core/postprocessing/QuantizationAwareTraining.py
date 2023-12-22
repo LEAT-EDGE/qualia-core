@@ -11,8 +11,7 @@ from typing import Any, Callable, NamedTuple, cast
 from torch import nn
 
 from qualia_core.learningframework.PyTorch import PyTorch
-from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig
-from qualia_core.typing import TYPE_CHECKING, ModelConfigDict, ModelParamsConfigDict, OptimizerConfigDict, RecursiveConfigDict, GenericModuleConfigDict
+from qualia_core.typing import TYPE_CHECKING, ModelConfigDict, ModelParamsConfigDict, OptimizerConfigDict, RecursiveConfigDict
 from qualia_core.utils.logger import CSVLogger
 from qualia_core.utils.merge_dict import merge_dict
 
@@ -216,7 +215,8 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                     name = _snake_case(name) # convert module name to identifier, '.' replaced with '_', this is what torch.fx uses
                     name = namespace.create_name(name, m)
                 if isinstance(m, (QuantizedLayer, *quantized_layers)):
-                    q = f'{name},{m.quantizer_input.global_max},{m.quantizer_act.global_max},{m.input_q},{m.activation_q},{m.weights_q}'
+                    q = f'{name},{m.input_q},{m.activation_q},{m.weights_q}'
+                    q += f',{m.input_round_mode},{m.activation_round_mode},{m.weights_round_mode}'
                     print(q, file=f)
                     logger.info('%s', q)
                 elif not isinstance(m, Quantizer): # Skip Quantizer modules as they need no quantization themselves

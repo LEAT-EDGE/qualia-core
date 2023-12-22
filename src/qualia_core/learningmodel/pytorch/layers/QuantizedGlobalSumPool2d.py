@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import sys
-from .GlobalSumPool2d import GlobalSumPool2d
 
-import torch
 from qualia_core.learningmodel.pytorch.Quantizer import Quantizer, update_params
-from qualia_core.typing import RecursiveConfigDict
-from torch import nn
+from qualia_core.typing import TYPE_CHECKING
+
+from .GlobalSumPool2d import GlobalSumPool2d
+from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol
+
+if TYPE_CHECKING:
+    import torch  # noqa: TCH002
+    from torch import nn  # noqa: TCH002
+
+    from qualia_core.typing import RecursiveConfigDict
 
 if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
 
-class QuantizedGlobalSumPool2d(GlobalSumPool2d):
+class QuantizedGlobalSumPool2d(GlobalSumPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: RecursiveConfigDict | None = None, activation: nn.Module | None = None) -> None:
         super().__init__()
         self.activation = activation
@@ -31,18 +37,4 @@ class QuantizedGlobalSumPool2d(GlobalSumPool2d):
         if self.activation:
             y = self.activation(y)
 
-        q_output = self.quantizer_act(y)
-
-        return q_output
-
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
-
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return None
+        return self.quantizer_act(y)

@@ -11,6 +11,7 @@ else:
 
 class Add(nn.Module):
     def __init__(self) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
         self.functional = torch.nn.quantized.FloatFunctional()
 

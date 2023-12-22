@@ -31,6 +31,7 @@ class CustomBatchNorm(ABC, nn.Module):
                  use_fused_params: bool = True,
                  device: Any = None,
                  dtype: Any = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
 
         self.num_features = num_features
