@@ -1,26 +1,22 @@
 from __future__ import annotations
 
 import sys
-from typing import Optional, Union
 
 import torch
 import torch.nn
 from torch import nn
 
-from qualia_core.typing import TYPE_CHECKING
+from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import QuantizedLayer
 
 from .layers.quantized_layers import QuantizedBatchNorm
 from .Quantizer import QuantizationConfig, Quantizer, update_params
-
-if TYPE_CHECKING:
-    from qualia_core.typing import RecursiveConfigDict
 
 if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
 
-class QuantizedConv1d(nn.Conv1d):
+class QuantizedConv1d(nn.Conv1d, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  in_channels: int,
                  out_channels: int,
@@ -32,6 +28,7 @@ class QuantizedConv1d(nn.Conv1d):
                  groups: int = 1,
                  bias: bool = True,  # noqa: FBT001, FBT002
                  activation: nn.Module | None = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(in_channels,
                          out_channels,
                          kernel_size=kernel_size,
@@ -92,25 +89,15 @@ class QuantizedConv1d(nn.Conv1d):
 
         return self.quantizer_act(y)
 
-    @property
-    def input_q(self) ->int | None:
-        return self.quantizer_input.fractional_bits
 
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return self.quantizer_w.fractional_bits
-
-class QuantizedMaxPool1d(nn.MaxPool1d):
+class QuantizedMaxPool1d(nn.MaxPool1d, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  kernel_size: int,
                  quant_params: QuantizationConfig,
                  stride: int | None = None,
                  padding: int = 0,
                  activation: nn.Module | None = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(kernel_size, stride=stride, padding=padding)
         self.activation = activation
         quant_params_input = update_params(tensor_type= 'input', quant_params=quant_params)
@@ -130,30 +117,22 @@ class QuantizedMaxPool1d(nn.MaxPool1d):
 
         return self.quantizer_act(y)
 
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
 
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return None
-
-
-class QuantizedAdaptiveAvgPool1d(torch.nn.AdaptiveAvgPool1d):
-    def __init__(self, output_size, quant_params = None, activation=None):
+class QuantizedAdaptiveAvgPool1d(torch.nn.AdaptiveAvgPool1d, QuantizedLayer):
+    def __init__(self,
+                 output_size: int,
+                 quant_params: QuantizationConfig,
+                 activation: nn.Module | None = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(output_size)
         self.activation = activation
-        quant_params_input = update_params(tensor_type = "input", quant_params = quant_params)
-        quant_params_act = update_params(tensor_type = "act", quant_params = quant_params)
+        quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
+        quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
 
-    def forward(self, input):
-
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
         q_input = self.quantizer_input(input)
 
         y = super().forward(q_input)
@@ -161,34 +140,21 @@ class QuantizedAdaptiveAvgPool1d(torch.nn.AdaptiveAvgPool1d):
         if self.activation:
             y = self.activation(y)
 
-        q_output = self.quantizer_act(y)
-
-        return q_output
-
-    @property
-    def input_q(self) -> Optional[int]:
-        return self.quantizer_input.fractional_bits
-
-    @property
-    def activation_q(self) -> Optional[int]:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> Optional[int]:
-        return None
+        return self.quantizer_act(y)
 
 
 class QuantizedBatchNorm1d(QuantizedBatchNorm):
     ...
 
 
-class QuantizedAvgPool1d(torch.nn.AvgPool1d):
+class QuantizedAvgPool1d(torch.nn.AvgPool1d, QuantizedLayer):
     def __init__(self,
-                 kernel_size: Union[int, tuple[int]],
-                 stride: Optional[Union[int, tuple[int]]] = None,
-                 padding: Union[int, tuple[int]] = 0,
-                 quant_params: Optional[RecursiveConfigDict]=None,
-                 activation: Optional[torch.nn.Module]=None) -> None:
+                 kernel_size: int | tuple[int],
+                 quant_params: QuantizationConfig,
+                 stride: int | tuple[int] | None = None,
+                 padding: int | tuple[int] = 0,
+                 activation: nn.Module | None = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(kernel_size, stride=stride, padding=padding)
         self.activation = activation
         quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
@@ -197,7 +163,7 @@ class QuantizedAvgPool1d(torch.nn.AvgPool1d):
         self.quantizer_act = Quantizer(**quant_params_act)
 
     @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
         q_input = self.quantizer_input(input)
 
         y = super().forward(q_input)
@@ -205,18 +171,4 @@ class QuantizedAvgPool1d(torch.nn.AvgPool1d):
         if self.activation:
             y = self.activation(y)
 
-        q_output = self.quantizer_act(y)
-
-        return q_output
-
-    @property
-    def input_q(self) -> Optional[int]:
-        return self.quantizer_input.fractional_bits
-
-    @property
-    def activation_q(self) -> Optional[int]:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> Optional[int]:
-        return None
+        return self.quantizer_act(y)

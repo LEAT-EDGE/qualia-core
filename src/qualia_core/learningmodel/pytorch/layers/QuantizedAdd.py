@@ -7,6 +7,7 @@ from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quan
 from qualia_core.typing import TYPE_CHECKING
 
 from .Add import Add
+from .QuantizedLayer import QuantizedLayer
 
 if TYPE_CHECKING:
     import torch  # noqa: TCH002
@@ -21,7 +22,7 @@ else:
 class DummyInputQuantizer:
     global_max: None = None
 
-class QuantizedAdd(Add):
+class QuantizedAdd(Add, QuantizedLayer):
     def __init__(self,
                  quant_params: QuantizationConfig,
                  activation: nn.Module | None = None) -> None:
@@ -44,20 +45,3 @@ class QuantizedAdd(Add):
             y = self.activation(y)
 
         return self.quantizer_act(y)
-
-    @property
-    def quantizer_input(self) -> DummyInputQuantizer:
-        return DummyInputQuantizer()
-
-    @property
-    def input_q(self) -> int | None:
-        # No input scale factor to return because there can be different ones for each input
-        return None
-
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return None

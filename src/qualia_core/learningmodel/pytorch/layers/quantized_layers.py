@@ -9,13 +9,15 @@ from torch import nn
 from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quantizer, update_params
 
 from .CustomBatchNorm import CustomBatchNorm
+from .QuantizedLayer import QuantizedLayer
 
 if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
 
-class QuantizedLinear(nn.Linear):
+
+class QuantizedLinear(nn.Linear, QuantizedLayer):
     bias: torch.nn.Parameter | None
 
     def __init__(self,  # noqa: PLR0913
@@ -24,6 +26,7 @@ class QuantizedLinear(nn.Linear):
                  quant_params: QuantizationConfig,
                  bias: bool = True,  # noqa: FBT001, FBT002
                  activation: nn.Module | None = None) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(in_features, out_features, bias=bias)
         self.in_features = in_features
         self.out_features = out_features
@@ -65,21 +68,10 @@ class QuantizedLinear(nn.Linear):
 
         return self.quantizer_act(y)
 
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
 
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return self.quantizer_w.fractional_bits
-
-
-class QuantizedReLU(torch.nn.ReLU):
+class QuantizedReLU(torch.nn.ReLU, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
         quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
@@ -94,20 +86,10 @@ class QuantizedReLU(torch.nn.ReLU):
 
         return self.quantizer_act(y)
 
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
 
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return None
-
-class QuantizedIdentity(torch.nn.Identity):
+class QuantizedIdentity(torch.nn.Identity, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_act = Quantizer(**quant_params_act)
@@ -123,20 +105,8 @@ class QuantizedIdentity(torch.nn.Identity):
 
         return self.quantizer_act(y)
 
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
 
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return None
-
-
-class QuantizedBatchNorm(CustomBatchNorm):
+class QuantizedBatchNorm(CustomBatchNorm, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  num_features: int,
                  quant_params: QuantizationConfig,
@@ -209,18 +179,6 @@ class QuantizedBatchNorm(CustomBatchNorm):
             y = self.activation(y)
 
         return self.quantizer_act(y).reshape(input_shape)
-
-    @property
-    def input_q(self) -> int | None:
-        return self.quantizer_input.fractional_bits
-
-    @property
-    def activation_q(self) -> int | None:
-        return self.quantizer_act.fractional_bits
-
-    @property
-    def weights_q(self) -> int | None:
-        return self.quantizer_w.fractional_bits
 
 
 # Keep imports there to avoid circular imports
