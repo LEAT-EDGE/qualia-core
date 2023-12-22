@@ -31,7 +31,12 @@ class IntNoGradientround(Function):
     @staticmethod
     @override
     def forward(ctx: FunctionCtx, *args: torch.Tensor, **_: Any) -> torch.Tensor:
-        return args[0].round()
+        """Round to nearest.
+
+        Half tie-breaker always rounds upwards to match Qualia-CodeGen's implementation,
+        easier to implement than :meth:`torch.round`'s "round half to even" but seems to provide similar results.
+        """
+        return (args[0] + 0.5).floor()
 
     @staticmethod
     @override
