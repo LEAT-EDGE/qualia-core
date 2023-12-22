@@ -8,12 +8,21 @@ if TYPE_CHECKING:
     from qualia_core.learningmodel.pytorch.Quantizer import Quantizer  # noqa: TCH001
 
 class QuantizerInputProtocol(Protocol):
+    def __init__(self, *_: object, **__: object) -> None:
+        super().__init__()
+
     quantizer_input: Quantizer
 
 class QuantizerActProtocol(Protocol):
+    def __init__(self, *_: object, **__: object) -> None:
+        super().__init__()
+
     quantizer_act: Quantizer
 
 class QuantizerWProtocol(Protocol):
+    def __init__(self, *_: object, **__: object) -> None:
+        super().__init__()
+
     quantizer_w: Quantizer
 
 class QuantizedLayer:
