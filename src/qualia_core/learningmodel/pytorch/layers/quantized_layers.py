@@ -9,7 +9,7 @@ from torch import nn
 from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quantizer, update_params
 
 from .CustomBatchNorm import CustomBatchNorm
-from .QuantizedLayer import QuantizedLayer
+from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol, QuantizerWProtocol
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -17,7 +17,7 @@ else:
     from typing_extensions import override
 
 
-class QuantizedLinear(nn.Linear, QuantizedLayer):
+class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, QuantizerWProtocol, QuantizedLayer):
     bias: torch.nn.Parameter | None
 
     def __init__(self,  # noqa: PLR0913
@@ -69,7 +69,7 @@ class QuantizedLinear(nn.Linear, QuantizedLayer):
         return self.quantizer_act(y)
 
 
-class QuantizedReLU(torch.nn.ReLU, QuantizedLayer):
+class QuantizedReLU(torch.nn.ReLU, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
         self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
@@ -87,7 +87,7 @@ class QuantizedReLU(torch.nn.ReLU, QuantizedLayer):
         return self.quantizer_act(y)
 
 
-class QuantizedIdentity(torch.nn.Identity, QuantizedLayer):
+class QuantizedIdentity(torch.nn.Identity, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
         self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__()
@@ -106,7 +106,7 @@ class QuantizedIdentity(torch.nn.Identity, QuantizedLayer):
         return self.quantizer_act(y)
 
 
-class QuantizedBatchNorm(CustomBatchNorm, QuantizedLayer):
+class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActProtocol, QuantizerWProtocol, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  num_features: int,
                  quant_params: QuantizationConfig,

@@ -6,7 +6,12 @@ import torch
 import torch.nn
 from torch import nn
 
-from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import QuantizedLayer
+from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import (
+    QuantizedLayer,
+    QuantizerActProtocol,
+    QuantizerInputProtocol,
+    QuantizerWProtocol,
+)
 
 from .layers.quantized_layers import QuantizedBatchNorm
 from .Quantizer import QuantizationConfig, Quantizer, update_params
@@ -16,7 +21,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
-class QuantizedConv2d(nn.Conv2d, QuantizedLayer):
+class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizerWProtocol, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  in_channels: int,
                  out_channels: int,
@@ -89,7 +94,7 @@ class QuantizedConv2d(nn.Conv2d, QuantizedLayer):
         return self.quantizer_act(y)
 
 
-class QuantizedMaxPool2d(nn.MaxPool2d, QuantizedLayer):
+class QuantizedMaxPool2d(nn.MaxPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  kernel_size: int,
                  quant_params: QuantizationConfig,
@@ -117,7 +122,7 @@ class QuantizedMaxPool2d(nn.MaxPool2d, QuantizedLayer):
         return self.quantizer_act(y)
 
 
-class QuantizedAdaptiveAvgPool2d(torch.nn.AdaptiveAvgPool2d, QuantizedLayer):
+class QuantizedAdaptiveAvgPool2d(torch.nn.AdaptiveAvgPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,
                  output_size: int,
                  quant_params: QuantizationConfig,
@@ -157,7 +162,7 @@ class QuantizedBatchNorm2d(QuantizedBatchNorm):
         return y.reshape(input_shape)
 
 
-class QuantizedAvgPool2d(torch.nn.AvgPool2d, QuantizedLayer):
+class QuantizedAvgPool2d(torch.nn.AvgPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,
                  kernel_size: int | tuple[int],
                  quant_params: QuantizationConfig,

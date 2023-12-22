@@ -7,7 +7,7 @@ from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quan
 from qualia_core.typing import TYPE_CHECKING
 
 from .Add import Add
-from .QuantizedLayer import QuantizedLayer
+from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol
 
 if TYPE_CHECKING:
     import torch  # noqa: TCH002
@@ -22,7 +22,7 @@ else:
 class DummyInputQuantizer:
     global_max: None = None
 
-class QuantizedAdd(Add, QuantizedLayer):
+class QuantizedAdd(Add, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,
                  quant_params: QuantizationConfig,
                  activation: nn.Module | None = None) -> None:

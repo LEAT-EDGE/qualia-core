@@ -6,7 +6,7 @@ from qualia_core.learningmodel.pytorch.Quantizer import Quantizer, update_params
 from qualia_core.typing import TYPE_CHECKING
 
 from .GlobalSumPool1d import GlobalSumPool1d
-from .QuantizedLayer import QuantizedLayer
+from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol
 
 if TYPE_CHECKING:
     import torch  # noqa: TCH002
@@ -19,7 +19,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
-class QuantizedGlobalSumPool1d(GlobalSumPool1d, QuantizedLayer):
+class QuantizedGlobalSumPool1d(GlobalSumPool1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: RecursiveConfigDict | None = None, activation: nn.Module | None = None) -> None:
         super().__init__()
         self.activation = activation
