@@ -9,8 +9,8 @@ from qualia_core.deployment.toolchain import STM32CubeIDE
 class STM32CubeAI(STM32CubeIDE):
     import qualia_core.evaluation.target.STM32CubeAI as evaluator # Suggested evaluator
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, outdir: Path) -> None:
+        super().__init__(outdir=outdir)
 
         # Project not compatible with 6.0.0 yet, and 6.0.0 is buggy anyway. Use 5.2.0
         self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'5.2.0'/'Utilities'/'linux'/'stm32ai'
@@ -53,7 +53,7 @@ class STM32CubeAI(STM32CubeIDE):
 
         if not self.__generate(modelpath=modelpath, compression=compression):
             return None
-        if not self._build(tag=tag):
+        if not self._build():
             return None
         self._copy_buildproduct(tag=tag)
         return self

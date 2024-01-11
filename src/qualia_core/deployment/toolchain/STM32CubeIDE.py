@@ -1,9 +1,21 @@
-from .Eclipse import Eclipse
+from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+from .Eclipse import Eclipse
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
 class STM32CubeIDE(Eclipse):
-    def __init__(self, outdir: Path=Path('out')/'deploy'/'STM32CubeIDE', *args, **kwargs):
+    def __init__(self,
+                 projectname: str,
+                 projectdir: Path,
+                 outdir: Path | None = None) -> None:
+        outdir = outdir if outdir is not None else Path('out')/'deploy'/'STM32CubeIDE'
         stm32cubeide_dir = Path('/opt')/'stm32cubeide'
         stm32cubeide_bin = stm32cubeide_dir/'stm32cubeide'
 
@@ -14,14 +26,21 @@ class STM32CubeIDE(Eclipse):
         arm_size_bin = next(filter(Path.is_dir, (stm32cubeide_dir/'plugins').glob('com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32*')))/'tools'/'bin'/'arm-none-eabi-size'
 
         super().__init__(eclipse_bin=stm32cubeide_bin,
-                       size_bin=arm_size_bin,
-                       upload_bin=stm32cubeprogrammer_bin,
-                       outdir=outdir,
-                       *args, **kwargs)
+                         size_bin=arm_size_bin,
+                         upload_bin=stm32cubeprogrammer_bin,
+                         projectname=projectname,
+                         projectdir=projectdir,
+                         outdir=outdir)
 
-    def _upload(self, tag: str, logdir: Path):
+    @override
+    def _upload(self,
+                tag: str,
+                logdir: Path,
+                args: tuple[str, ...] | None = None,
+                cmd: Path | None = None) -> bool:
         args = ('--connect', 'port=SWD', 'mode=UR', 'reset=hwRst',
                 '--download', str(self._outdir/f'{tag}.elf'), '0x08000000',
                 '--verify',
-                '-hardRst')
-        return super()._upload(tag=tag, logdir=logdir, args=args)
+                '-hardRst',
+                *(args if args is not None else ()))
+        return super()._upload(tag=tag, logdir=logdir, args=args, cmd=cmd)

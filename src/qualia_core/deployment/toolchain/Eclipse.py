@@ -1,21 +1,44 @@
-from abc import abstractmethod
-from pathlib import Path
+from __future__ import annotations
+
+import logging
 import shutil
 import sys
-from collections import namedtuple
-from qualia_core.utils.process import subprocesstee
+from abc import abstractmethod
+from typing import Any
+
+from qualia_core.deployment.Deploy import Deploy
 from qualia_core.deployment.Deployer import Deployer
+from qualia_core.typing import TYPE_CHECKING
+from qualia_core.utils.process import subprocesstee
+
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
+
+    from pathlib import Path  # noqa: TCH003
+
+    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+logger = logging.getLogger(__name__)
 
 class Eclipse(Deployer):
 
     def __init__(self,
         eclipse_bin: Path,
-        size_bin: str,
+        size_bin: Path,
         upload_bin: Path,
         projectname: str,
         projectdir: Path,
         outdir: Path,
-        buildtype: str='Release'):
+        buildtype: str = 'Release') -> None:
+        super().__init__()
 
         self._projectname = projectname
         self._buildtype = buildtype
@@ -28,19 +51,23 @@ class Eclipse(Deployer):
         self.__size_bin = size_bin
         self.__upload_bin = upload_bin
 
-    def _run(self, cmd, *args):
-        print(cmd, *args)
-        returncode, outputs = subprocesstee.run(str(cmd), *args)
+    def _run(self,
+              cmd: str | Path,
+              *args: str,
+              cwd: Path | None = None,
+              env: dict[str, str] | None = None) -> bool:
+        logger.info('Running: %s %s', cmd, ' '.join(args))
+        returncode, _ = subprocesstee.run(str(cmd), *args, cwd=cwd, env=env)
         return returncode == 0
 
-    def _create_outdir(self):
+    def _create_outdir(self) -> None:
         self._outdir.mkdir(parents=True, exist_ok=True)
         self._workspacedir.mkdir(parents=True, exist_ok=True)
-    
-    def _clean_workspace(self):
+
+    def _clean_workspace(self) -> None:
         shutil.rmtree(self._workspacedir)
 
-    def _build(self, tag: str, args: tuple=()):
+    def _build(self, args: tuple[str, ...] | None = None) -> bool:
         return self._run(self.__eclipse_bin,
                             '--launcher.suppressErrors',
                             '-nosplash',
@@ -48,18 +75,23 @@ class Eclipse(Deployer):
                             '-data', str(self._workspacedir),
                             '-import', str(self._projectdir),
                             '-cleanBuild', f'{self._projectname}/{self._buildtype}',
-                            *args
+                            *(args if args is not None else ()),
                         )
 
-    def _copy_buildproduct(self, tag: str):
+    def _copy_buildproduct(self, tag: str) -> None:
         shutil.copy(self._projectdir/self._buildtype/f'{self._projectname}.elf', self._outdir/f'{tag}.elf')
 
-    def _upload(self, tag: str, logdir: Path, args: tuple, cmd: Path=None):
+    def _upload(self,
+                tag: str,
+                logdir: Path,
+                args: tuple[str, ...] | None = None,
+                cmd: Path | None = None) -> bool:
         cmd = cmd if cmd is not None else self.__upload_bin
-        print(cmd, *args)
+        args = args if args is not None else ()
+        logger.info('Running: %s %s', cmd, ' '.join(args))
         with (logdir/f'{tag}.txt').open('wb') as logfile:
-            logfile.write(' '.join([str(cmd), *args, '\n']).encode('utf-8'))
-            returncode, outputs = subprocesstee.run(cmd, *args, files={sys.stdout: logfile, sys.stderr: logfile})
+            _ = logfile.write(' '.join([str(cmd), *args, '\n']).encode('utf-8'))
+            returncode, outputs = subprocesstee.run(str(cmd), *args, files={sys.stdout: logfile, sys.stderr: logfile})
         if returncode != 0:
             return False
         if 'Error:' in outputs[1].decode():
@@ -68,25 +100,22 @@ class Eclipse(Deployer):
         return True
 
     @abstractmethod
-    def prepare(self, tag):
+    def prepare(self, tag: str, model: Converter[Any], optimize: str, compression: int) -> Self | None:
         self._create_outdir()
         self._clean_workspace()
 
-        if not self._build(tag=tag):
+        if not self._build():
             return None
         self._copy_buildproduct(tag=tag)
         return self
 
-    def deploy(self, tag):
+    @override
+    def deploy(self, tag: str) -> Deploy | None:
         logdir = self._outdir/'upload'
         logdir.mkdir(parents=True, exist_ok=True)
         if not self._upload(tag, logdir=logdir):
             return None
 
-        return namedtuple('Deploy', ['rom_size', 'ram_size', 'evaluator'])(self._rom_size(tag), self._ram_size(tag), self.evaluator)
-
-    def _rom_size(self, tag: str):
-        return super()._rom_size(self._outdir/f'{tag}.elf', str(self.__size_bin))
-
-    def _ram_size(self, tag: str):
-        return super()._ram_size(self._outdir/f'{tag}.elf', str(self.__size_bin))
+        return Deploy(rom_size=self._rom_size(self._outdir/f'{tag}.elf', str(self.__size_bin)),
+                      ram_size=self._ram_size(self._outdir/f'{tag}.elf', str(self.__size_bin)),
+                      evaluator=self.evaluator)

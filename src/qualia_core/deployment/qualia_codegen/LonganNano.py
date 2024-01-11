@@ -39,7 +39,7 @@ class LonganNano(NucleiStudio):
         else:
             args = tuple()
 
-        if not self._build(tag=tag, args=args):
+        if not self._build(args=args):
             return None
         self._copy_buildproduct(tag=tag)
         return self
