@@ -34,10 +34,14 @@ class QualiaCodeGen(Converter[Any]):
     _h: str | None = None
     _name: str | None = None
 
-    def __init__(self, quantize: str, long_width: int | None = None) -> None:
+    def __init__(self,
+                 quantize: str,
+                 long_width: int | None = None,
+                 outdir: str | None = None) -> None:
         super().__init__()
 
         self.__quantize = quantize
+        self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
 
         if quantize == 'float32':
             self.__number_type = float
@@ -85,9 +89,9 @@ class QualiaCodeGen(Converter[Any]):
 
         return modelgraph
 
-    def convert_modelgraph_to_c(self, modelgraph: ModelGraph, name: str) -> str | None:
+    def convert_modelgraph_to_c(self, modelgraph: ModelGraph, output_path: Path) -> str | None:
         from qualia_codegen_core import Converter
-        converter = Converter(output_path=Path('out')/'qualia_codegen'/name)
+        converter = Converter(output_path=output_path)
         return converter.convert_model(modelgraph)
 
     @override
@@ -158,14 +162,14 @@ class QualiaCodeGen(Converter[Any]):
                         weights_round_mode=RoundMode.NONE,
                         output_round_mode=RoundMode.NONE,
                         )
-
-        self._h = self.convert_modelgraph_to_c(modelgraph, name=self._name)
+        # self.directory cannot be None as long as we define self._name above
+        self._h = self.convert_modelgraph_to_c(modelgraph, output_path=cast(Path, self.directory))
 
         if self._h is None:
             logger.error('Could not convert ModelGraph to C')
             return None
 
-        with (Path('out')/'qualia_codegen'/self._name/'full_model.h').open('w') as f:
+        with (self.__outdir/self._name/'full_model.h').open('w') as f:
             _ = f.write(self._h)
 
         return self
@@ -177,6 +181,12 @@ class QualiaCodeGen(Converter[Any]):
     @property
     def name(self) -> str | None:
         return self._name
+
+    @property
+    def directory(self) -> Path | None:
+        if self.name is None:
+            return None
+        return self.__outdir / self.name
 
     @override
     def process_mem_params(self, mem_params: int) -> Callable[[LearningFramework[nn.Module | keras.Model],
