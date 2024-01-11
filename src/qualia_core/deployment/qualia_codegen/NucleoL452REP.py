@@ -73,12 +73,13 @@ class NucleoL452REP(STM32CubeIDE):
         self._clean_workspace()
         self.__write_model(model=model)
 
+        args: tuple[str, ...] = ('-include', str(model.directory.resolve()/'include'/'defines.h'))
+
         if optimize == 'cmsis-nn':
-            args = ('-D', 'WITH_CMSIS_NN',
+            args = (*args,
+                    '-D', 'WITH_CMSIS_NN',
                     '-D', 'ARM_MATH_DSP',
                     '-D', 'ARM_NN_TRUNCATE')
-        else:
-            args = tuple()
 
         if not self._build(args=args):
             return None
