@@ -10,11 +10,15 @@ from qualia_core.utils.process import subprocesstee
 if TYPE_CHECKING:
     from pathlib import Path  # noqa: TCH003
 
+    from qualia_core.evaluation.Evaluator import Evaluator  # noqa: TCH001
+
     from .Deploy import Deploy  # noqa: TCH001
 
 logger = logging.getLogger(__name__)
 
 class Deployer(ABC):
+    evaluator: type[Evaluator] # Suggested evaluator
+
     @abstractmethod
     def deploy(self, tag: str) -> Deploy | None:
         ...
