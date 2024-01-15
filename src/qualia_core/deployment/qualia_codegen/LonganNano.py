@@ -77,7 +77,6 @@ class LonganNano(NucleiStudio):
 
         if optimize == 'nmsis-nn':
             args = ('-D', 'WITH_NMSIS_NN',
-                    '-D', 'RISCV_MATH_DSP',
                     '-D', 'RISCV_NN_TRUNCATE')
 
         if not self._build(args=args):
