@@ -76,8 +76,8 @@ class LonganNano(NucleiStudio):
         args: tuple[str, ...] = ('-include', str(model.directory.resolve()/'include'/'defines.h'))
 
         if optimize == 'nmsis-nn':
-            args = ('-D', 'WITH_NMSIS_NN',
-                    '-D', 'RISCV_NN_TRUNCATE')
+            args = (*args,
+                    '-D', 'WITH_NMSIS_NN')
 
         if not self._build(args=args):
             return None

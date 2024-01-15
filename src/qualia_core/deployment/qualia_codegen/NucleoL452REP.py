@@ -78,8 +78,7 @@ class NucleoL452REP(STM32CubeIDE):
         if optimize == 'cmsis-nn':
             args = (*args,
                     '-D', 'WITH_CMSIS_NN',
-                    '-D', 'ARM_MATH_DSP',
-                    '-D', 'ARM_NN_TRUNCATE')
+                    '-D', 'ARM_MATH_DSP')
 
         if not self._build(args=args):
             return None
