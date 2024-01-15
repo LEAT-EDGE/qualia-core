@@ -63,7 +63,7 @@ class Keras2TFLite:
         return self
 
     @property
-    def data(self):
+    def data(self) -> bytes:
         return self.__data
 
     @property
