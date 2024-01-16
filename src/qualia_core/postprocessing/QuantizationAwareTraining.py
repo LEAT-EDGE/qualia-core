@@ -168,7 +168,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
         # Must train to update activation range
         return framework.train(quantized_model,
                         trainset=trainresult.trainset,
-                        validationset=trainresult.testset,
+                        validationset=trainresult.datamodel.sets.valid,
                         epochs=1,
                         batch_size=self.batch_size,
                         optimizer=None, # Disable optimizer
@@ -186,8 +186,8 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
             optimizer = trainresult.optimizer if self.qoptimizer is None else merge_dict(self.qoptimizer, trainresult.optimizer)
             name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_post_train'
             return framework.train(quantized_model,
-                            trainset=trainresult.trainset,
-                            validationset=trainresult.testset,
+                            trainset=trainresult.datamodel.sets.train,
+                            validationset=trainresult.datamodel.sets.valid,
                             epochs=self.epochs,
                             batch_size=self.batch_size,
                             optimizer=optimizer,
