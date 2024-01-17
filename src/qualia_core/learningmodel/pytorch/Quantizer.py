@@ -89,7 +89,7 @@ class Quantizer(nn.Module):
             self.pos_bits = 2 ** (self.bits - 1) - 1
         else:
             # symmetric signed weight/activation is quantized to [-2^(b-1)+1, 2^(b-1)-1]
-            self.neg_bits = - 2 ** (self.bits - 1) + 1
+            self.neg_bits = - 2 ** (self.bits - 1)
             self.pos_bits = 2 ** (self.bits - 1) - 1
 
     @override
