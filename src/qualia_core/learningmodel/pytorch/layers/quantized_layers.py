@@ -38,7 +38,7 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
         self.quantizer_w = Quantizer(**quant_params_w)
-        if 'bias' in quant_params :
+        if 'bias' in quant_params:
             quant_params_bias = update_params(tensor_type='bias', quant_params=quant_params)
             self.quantizer_bias = Quantizer(**quant_params_bias)
 
@@ -54,7 +54,7 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
             y = torch.nn.functional.linear(q_input, q_w)
         else :
             # Quantize bias and weights
-            if hasattr(self, 'quantizer_bias'):
+            if self.quantizer_bias is not None:
                 #...with the different quantization schemes
                 q_w = self.quantizer_w(self.weight)
                 q_b = self.quantizer_bias(self.bias)
@@ -165,7 +165,7 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
                                                     eps=self.eps)
 
         # Quantize bias and weights
-        if hasattr(self, 'quantizer_bias'):
+        if self.quantizer_bias is not None:
             #...with the different quantization schemes
             q_alpha = self.quantizer_w(alpha)
             q_beta = self.quantizer_bias(beta)

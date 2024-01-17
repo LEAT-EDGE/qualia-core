@@ -65,16 +65,16 @@ class QuantizedConv1d(nn.Conv1d, QuantizerInputProtocol, QuantizerActProtocol, Q
 
         if self.bias is None :
             # If no bias, quantize weights only
-            q_w = self.quantizer_w(self.weight, bias_tensor=self.bias)
+            q_w = self.quantizer_w(self.weight)
             y = torch.nn.functional.conv1d(q_input,
                                            q_w,
                                            stride=self.stride,
                                            padding=self.padding,
-                                           dilation = self.dilation,
+                                           dilation=self.dilation,
                                            groups=self.groups)
         else :
             # Quantize bias and weights
-            if hasattr(self, 'quantizer_bias'):
+            if self.quantizer_bias is not None:
                 #...with the different quantization schemes
                 q_w = self.quantizer_w(self.weight)
                 q_b = self.quantizer_bias(self.bias)
