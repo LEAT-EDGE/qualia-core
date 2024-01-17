@@ -18,10 +18,14 @@ class Linux(Deployer):
                  projectdir: str | Path | None = None,
                  outdir: str | Path | None = None) -> None:
         super().__init__()
-        self.__cxxflags = cxxflags if cxxflags is not None else ['-ftrapv', '-Wall', '-Wextra', '-Werror=double-promotion',
+        self.__cxxflags = cxxflags if cxxflags is not None else ['-std=c++17',
+                                                                 '-Wall', '-Wextra', '-Werror=double-promotion',
                                                                  '-pedantic', '-Ofast', '-ffunction-sections', '-fdata-sections',
                                                                  '-fgraphite-identity', '-floop-nest-optimize',
-                                                                 '-floop-parallelize-all', '-std=c++17']
+                                                                 '-floop-parallelize-all',
+                                                                 '-fsanitize=signed-integer-overflow',
+                                                                 '-fno-sanitize-recover',
+                                                                 '-DTRAPV_SHIFT']
         self.__modeldir = Path(modeldir) if modeldir is not None else Path('out')/'qualia_codegen'
         self.__projectdir = (Path(projectdir) if projectdir is not None
                              else resources_to_path(files('qualia_codegen_core.examples'))/'Linux')
