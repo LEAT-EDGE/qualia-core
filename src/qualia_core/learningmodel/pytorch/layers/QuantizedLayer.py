@@ -25,12 +25,15 @@ class QuantizerWProtocol(Protocol):
 
     quantizer_w: Quantizer
 
+# quantizer_bias is always optional so do not define a QuantizerBiasProtocol
+
 class QuantizedLayer:
     def __init__(self, *_: object, **__: object) -> None:
         super().__init__()
         self.quantizer_input: Quantizer | None = None
         self.quantizer_act: Quantizer | None = None
         self.quantizer_w: Quantizer | None = None
+        self.quantizer_bias: Quantizer | None = None
 
     @property
     def input_q(self) -> int | None:
@@ -67,6 +70,18 @@ class QuantizedLayer:
         if self.quantizer_w is None:
             return None
         return self.quantizer_w.fractional_bits
+
+    @property
+    def bias_q(self) -> int | None:
+        """Number of fractional part bits for the biases in case of fixed-point quantization.
+
+        See :meth:`qualia_core.learningmodel.pytorch.Quantizer.Quantizer.fractional_bits`.
+
+        :return: Fractional part bits for the biases or ``None`` if not applicable.
+        """
+        if self.quantizer_bias is None:
+            return None
+        return self.quantizer_bias.fractional_bits
 
     @property
     def input_round_mode(self) -> str | None:
