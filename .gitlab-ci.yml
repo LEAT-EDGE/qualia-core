@@ -41,8 +41,7 @@ test-job:       # This job runs in the build stage, which runs first.
     - popd
     - tar -C third_party/tflite-micro/tensorflow/lite/micro/tools/make -xf /mnt/hdd/Software/TensorFlow/tflite-micro/downloads.tar.zst
     - pip install --break-system-packages -e .[tests,pytorch,tensorflow,gtsrb,codegen] --extra-index-url=https://naixtech.unice.fr/devpi/penovac/qualia-nightly/+simple --trusted-host naixtech.unice.fr
-    - pytest -m "not dependency and not deploy" -n auto --dist=loadgroup -vvv -s # xdist incompatible with dependency
-    - pytest -m "dependency and not deploy" -vvv -s
+    - pytest -m "not deploy" -n auto --dist=loadgroup -vvv -s # xdist incompatible with dependency
 
 deploy-job:
   stage: deploy
