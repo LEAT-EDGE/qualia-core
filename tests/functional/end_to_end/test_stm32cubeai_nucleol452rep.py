@@ -10,7 +10,7 @@ class TestSTM32CubeAINucleoL452REP:
     '''
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_stm32cubeai_nucleol452rep')
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_float32_prepare_deploy(self, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -39,6 +39,7 @@ class TestSTM32CubeAINucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestSTM32CubeAINucleoL452REP::test_uci_har_resnet_stm32cubeai_nucleol452rep_float32_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_stm32cubeai_nucleol452rep')
     @pytest.mark.deploy()
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_float32_deploy_and_evaluate(self):
         from qualia_core import main
@@ -59,7 +60,7 @@ class TestSTM32CubeAINucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 60000
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_stm32cubeai_nucleol452rep')
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_int8_prepare_deploy(self, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -93,6 +94,7 @@ class TestSTM32CubeAINucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestSTM32CubeAINucleoL452REP::test_uci_har_resnet_stm32cubeai_nucleol452rep_int8_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_stm32cubeai_nucleol452rep')
     @pytest.mark.deploy()
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_int8_deploy_and_evaluate(self):
         from qualia_core import main
