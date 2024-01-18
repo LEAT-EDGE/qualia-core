@@ -3,12 +3,15 @@ from __future__ import annotations
 import logging
 import sys
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
-from qualia_core.deployment.toolchain import STM32CubeIDE
+from qualia_core.deployment.Deploy import Deploy
+from qualia_core.deployment.Deployer import Deployer
 from qualia_core.evaluation.target.Qualia import Qualia as QualiaEvaluator
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.path import resources_to_path
+from qualia_core.utils.process import subprocesstee
 
 if TYPE_CHECKING:
     if sys.version_info >= (3, 11):
@@ -17,7 +20,6 @@ if TYPE_CHECKING:
         from typing_extensions import Self
 
     from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
-    from qualia_core.postprocessing.QualiaCodeGen import QualiaCodeGen  # noqa: TCH001
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -26,23 +28,41 @@ else:
 
 logger = logging.getLogger(__name__)
 
-class NucleoL452REP(STM32CubeIDE):
+class NucleoL452REP(Deployer):
     evaluator = QualiaEvaluator # Suggested evaluator
 
     def __init__(self) -> None:
-        projectdir = resources_to_path(files('qualia_codegen_core.examples'))/'Qualia-CodeGen-NucleoL452REP'
-        super().__init__(projectname='Qualia-CodeGen-NucleoL452REP',
-                         projectdir=projectdir)
+        super().__init__()
 
-        self.__model_data = self._projectdir/'Core'/'Inc'/'model.h'
+        self._projectdir = resources_to_path(files('qualia_codegen_core.examples'))/'NucleoL452REP'
+        self._outdir = Path('out')/'deploy'/'NucleoL452REP'
+        self.__size_bin = 'arm-none-eabi-size'
 
-    def __write_model(self, model: QualiaCodeGen) -> None:
-        if model.h is None:
-            logger.error('Cannot write model source: QualiaCodeGen Converter did not run successfully (QualiaCodeGen.h is None)')
-            raise ValueError
+    def _run(self,
+              cmd: str | Path,
+              *args: str,
+              cwd: Path | None = None,
+              env: dict[str, str] | None = None) -> bool:
+        logger.info('Running: %s %s', cmd, ' '.join(args))
+        returncode, _ = subprocesstee.run(str(cmd), *args, cwd=cwd, env=env)
+        return returncode == 0
 
-        with self.__model_data.open('w') as f:
-            _ = f.write(model.h)
+    def _create_outdir(self, outdir: Path) -> None:
+        outdir.mkdir(parents=True, exist_ok=True)
+
+    def _build(self, args: tuple[str, ...], outdir: Path) -> bool:
+        if not self._run('cmake',
+                         '--fresh',
+                         '-G', 'Ninja',
+                         '-S', str(self._projectdir.resolve()),
+                         '-B', str(outdir.resolve()),
+                         *args,
+                         cwd=outdir):
+            return False
+        return self._run('cmake',
+                         '--build', str(outdir.resolve()),
+                         '--parallel',
+                         cwd=outdir)
 
     @override
     def prepare(self,
@@ -69,18 +89,28 @@ class NucleoL452REP(STM32CubeIDE):
             logger.error('QualiaCodeGen Converter did not run successfully (QualiaCodeGen.directory is None)')
             raise ValueError
 
-        self._create_outdir()
-        self._clean_workspace()
-        self.__write_model(model=model)
+        outdir = self._outdir / tag
 
-        args: tuple[str, ...] = ('-include', str(model.directory.resolve()/'include'/'defines.h'))
+        self._create_outdir(outdir)
 
+        args = ('-D', f'MODEL_DIR={model.directory.resolve()!s}')
         if optimize == 'cmsis-nn':
-            args = (*args,
-                    '-D', 'WITH_CMSIS_NN',
-                    '-D', 'ARM_MATH_DSP')
+            args = (*args, '-D', 'WITH_CMSIS_NN=True')
 
-        if not self._build(args=args):
+        if not self._build(args=args, outdir=outdir):
             return None
-        self._copy_buildproduct(tag=tag)
         return self
+
+    @override
+    def deploy(self, tag: str) -> Deploy | None:
+        if not self._run('openocd',
+                         '-f', 'interface/stlink.cfg',
+                         '-f', 'target/stm32l4x.cfg',
+                         '-c', 'init',
+                         '-c', 'reset halt; flash write_image erase ./NucleoL452REP; reset; shutdown',
+                         cwd=self._outdir/tag):
+            return None
+
+        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
+                      ram_size=self._ram_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
+                      evaluator=self.evaluator)
