@@ -33,7 +33,7 @@ documentation = "https://leat-edge.github.io/qualia-core"
 
 [project.optional-dependencies]
 codegen = ['qualia_codegen_core']
-tensorflow = ['tensorflow', 'keras>=2.13.1', 'pydot']
+tensorflow = ['tensorflow', 'keras >= 2.13.1, < 3.0.0', 'pydot']
 pytorch = ['torch', 'pytorch-lightning>=1.4.0']
 gtsrb = ['imageio', 'scikit-image']
 gsc = ['torchaudio']
