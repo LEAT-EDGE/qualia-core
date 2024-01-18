@@ -13,6 +13,7 @@ default:
     - pacman -S --noconfirm --needed python-async-timeout python-charset-normalizer python-frozenlist python-multidict 
     - pacman -S --noconfirm --needed python-yarl python-aiosignal python-dill python-filelock
     - pacman -S --noconfirm --needed python-blosc2 python-fsspec python-typing_extensions python-pydantic
+    - pacman -S --noconfirm --needed cmake ninja
     - pacman -U --noconfirm /mnt/hdd/Software/STMicroelectronics/STM32CubeIDE/stm32cubeide-1.12.0-2-x86_64.pkg.tar.zst
     - pacman -U --noconfirm /mnt/hdd/Software/Ambiq/ambiqsuite-2.5.1-2-any.pkg.tar.zst
     - mkdir -p ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/5.2.0/Utilities
