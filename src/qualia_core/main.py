@@ -14,6 +14,7 @@ import qualia_core.utils.config
 import qualia_core.utils.plugin
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import Logger
+from qualia_core.utils.logger.setup_root_logger import setup_root_logger
 from qualia_core.utils.merge_dict import merge_dict
 
 if TYPE_CHECKING:
@@ -23,9 +24,6 @@ if TYPE_CHECKING:
     from qualia_core.typing import ConfigDict
 
 logger = logging.getLogger(__name__)
-
-def setup_logging() -> None:
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 def qualia(action: str,
            config: ConfigDict,
@@ -127,7 +125,7 @@ def main() -> int:
         print(f'Usage: {sys.argv[0]} <config.toml> <preprocess_data|train|prepare_deploy|deploy_and_evaluate|parameter_research> [config_params...]')
         sys.exit(1)
 
-    setup_logging()
+    setup_root_logger(colored=True)
 
     config, configname = qualia_core.utils.config.parse_config(Path(sys.argv[1]))
     config_overwrite = qualia_core.utils.args.parse_args(sys.argv[3:])
