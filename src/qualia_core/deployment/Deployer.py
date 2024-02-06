@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import sys
 from abc import ABC, abstractmethod
+from typing import Any
 
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.process import subprocesstee
@@ -11,13 +13,23 @@ if TYPE_CHECKING:
     from pathlib import Path  # noqa: TCH003
 
     from qualia_core.evaluation.Evaluator import Evaluator  # noqa: TCH001
+    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
 
     from .Deploy import Deploy  # noqa: TCH001
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
 class Deployer(ABC):
     evaluator: type[Evaluator] # Suggested evaluator
+
+    @abstractmethod
+    def prepare(self, tag: str, model: Converter[Any], optimize: str, compression: int) -> Self | None:
+        ...
 
     @abstractmethod
     def deploy(self, tag: str) -> Deploy | None:

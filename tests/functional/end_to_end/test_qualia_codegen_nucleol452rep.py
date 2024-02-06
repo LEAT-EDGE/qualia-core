@@ -10,7 +10,7 @@ class TestQualiaCodeGenNucleoL452REP:
     '''
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_float32')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_prepare_deploy(self, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -39,6 +39,7 @@ class TestQualiaCodeGenNucleoL452REP:
 
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_float32')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_deploy_and_evaluate(self):
         from qualia_core import main
@@ -60,7 +61,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 45000
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_float32')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_directpytorch_prepare_deploy(self, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -88,6 +89,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_directpytorch_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_float32')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_float32_directpytorch_deploy_and_evaluate(self):
         from qualia_core import main
@@ -109,7 +111,7 @@ class TestQualiaCodeGenNucleoL452REP:
 
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_prepare_deploy(self, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -142,6 +144,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_deploy_and_evaluate(self):
         from qualia_core import main
@@ -163,7 +166,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 44500
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_prepare_deploy(self, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -196,6 +199,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_deploy_and_evaluate(self):
         from qualia_core import main
@@ -217,7 +221,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 44500
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_cmsisnn_prepare_deploy(self,
                                                                                                 fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
@@ -251,6 +255,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_cmsisnn_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int16')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int16_directpytorch_cmsisnn_deploy_and_evaluate(self):
         from qualia_core import main
@@ -272,7 +277,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 42000
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_prepare_deploy(self, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -305,6 +310,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_deploy_and_evaluate(self):
         from qualia_core import main
@@ -326,7 +332,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['evaluate'][0].rom_size <= 41000
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_prepare_deploy(self, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
@@ -359,6 +365,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_deploy_and_evaluate(self):
         from qualia_core import main
@@ -381,7 +388,7 @@ class TestQualiaCodeGenNucleoL452REP:
 
 
     @pytest.mark.dependency()
-    @pytest.mark.xdist_group(name='nucleol452rep_prepare_deploy')
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_cmsisnn_prepare_deploy(self,
                                                                                                fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
@@ -415,6 +422,7 @@ class TestQualiaCodeGenNucleoL452REP:
         assert loggers['prepare_deploy'][0].compress == 1
 
     @pytest.mark.dependency(depends=['TestQualiaCodeGenNucleoL452REP::test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_cmsisnn_prepare_deploy'])
+    @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_nucleol452rep_int8')
     @pytest.mark.deploy()
     def test_uci_har_resnet_qualia_codegen_nucleol452rep_int8_directpytorch_cmsisnn_deploy_and_evaluate(self):
         from qualia_core import main

@@ -215,7 +215,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                     name = _snake_case(name) # convert module name to identifier, '.' replaced with '_', this is what torch.fx uses
                     name = namespace.create_name(name, m)
                 if isinstance(m, (QuantizedLayer, *quantized_layers)):
-                    q = f'{name},{m.input_q},{m.activation_q},{m.weights_q}'
+                    q = f'{name},{m.input_q},{m.activation_q},{m.weights_q},{m.bias_q}'
                     q += f',{m.input_round_mode},{m.activation_round_mode},{m.weights_round_mode}'
                     print(q, file=f)
                     logger.info('%s', q)

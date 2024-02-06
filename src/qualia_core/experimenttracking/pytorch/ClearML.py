@@ -109,10 +109,11 @@ class ClearML(ExperimentTracking):
     @classmethod
     def import_and_clear_all_offline_sessions(cls) -> None:
         from clearml import Task
-        from qualia_core.main import setup_logging
+
+        from qualia_core.utils.logger.setup_root_logger import setup_root_logger
 
         # We main not be called from qualia_core.main:main so always setup logging to show logger.info()
-        setup_logging()
+        setup_root_logger(colored=True)
 
         offline_cache_path = Path(sys.argv[1]) if len(sys.argv) > 0 else Path.home()/'.clearml'/'cache'/'offline'
 

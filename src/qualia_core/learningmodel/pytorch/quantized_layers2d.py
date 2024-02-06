@@ -73,7 +73,7 @@ class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, Q
                                            groups=self.groups)
         else:
             # Quantize bias and weights
-            if hasattr(self, 'quantizer_bias'):
+            if self.quantizer_bias is not None:
                 #...with the different quantization schemes
                 q_w = self.quantizer_w(self.weight)
                 q_b = self.quantizer_bias(self.bias)

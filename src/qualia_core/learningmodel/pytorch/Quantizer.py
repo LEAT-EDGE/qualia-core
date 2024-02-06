@@ -89,8 +89,27 @@ class Quantizer(nn.Module):
             self.pos_bits = 2 ** (self.bits - 1) - 1
         else:
             # symmetric signed weight/activation is quantized to [-2^(b-1)+1, 2^(b-1)-1]
-            self.neg_bits = - 2 ** (self.bits - 1) + 1
+            self.neg_bits = - 2 ** (self.bits - 1)
             self.pos_bits = 2 ** (self.bits - 1) - 1
+
+    @override
+    def extra_repr(self) -> str:
+        """Add custom arguments to the ``__repr__`` method.
+
+        :return: String representation of :class:`Quantizer` with custom arguments.
+        """
+        s = super().extra_repr() + ', ' if super().extra_repr() else ''
+        s += f'quant_enable={self.quant_enable}'
+        s += f', LSQ={self.LSQ}'
+        s += f', bits={self.bits}'
+        s += f', range_setting={self.range_setting}'
+        s += f', roundtype={self.roundtype}'
+        s += f', tensor_type={self.tensor_type}'
+        s += f', quantype={self.quantype}'
+        s += f', is_asymmetric={self.is_asymmetric}'
+        if self.force_q is not None:
+            s += f', force_q={self.force_q}'
+        return s
 
     @override
     def forward(self,
