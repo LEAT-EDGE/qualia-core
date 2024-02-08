@@ -10,5 +10,18 @@ from .Rotation import Rotation
 from .Rotation2D import Rotation2D
 from .TimeShifting import TimeShifting
 from .TimeWarping import TimeWarping
+from .TorchVisionModelTransforms import TorchVisionModelTransforms
 
-__all__ = ['AutoAugment', 'Crop', 'GaussianNoise', 'HorizontalFlip', 'IntToFloat32', 'MFCC', 'Mixup', 'ResizedCrop', 'Rotation', 'Rotation2D', 'TimeShifting', 'TimeWarping']
+__all__ = ['AutoAugment',
+           'Crop',
+           'GaussianNoise',
+           'HorizontalFlip',
+           'IntToFloat32',
+           'MFCC',
+           'Mixup',
+           'ResizedCrop',
+           'Rotation',
+           'Rotation2D',
+           'TimeShifting',
+           'TimeWarping',
+           'TorchVisionModelTransforms']
