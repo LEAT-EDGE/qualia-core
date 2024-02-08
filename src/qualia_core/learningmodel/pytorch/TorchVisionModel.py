@@ -6,7 +6,7 @@ from typing import Any
 
 import torch
 from torch import nn
-from torch.fx import GraphModule, Tracer
+from torch.fx import Graph, GraphModule, Node, Tracer
 
 from qualia_core.learningmodel.pytorch.layers import layers as custom_layers
 from qualia_core.learningmodel.pytorch.LearningModelPyTorch import LearningModelPyTorch
@@ -36,26 +36,36 @@ class TorchVisionModel(LearningModelPyTorch):
                  input_shape: tuple[int, ...],
                  output_shape: tuple[int, ...],
                  model: str,
-                 fm_output_layer: str = 'avgpool',
+                 replace_classifier: bool = True,  # noqa: FBT002, FBT001
+                 fm_output_layer: str = 'flatten',
                  freeze_feature_extractor: bool = True,  # noqa: FBT001, FBT002
                  *args: Any, **kwargs: Any) -> None:  # noqa: ANN401 We need to pass whatever arg to TorchVision
         from torchvision import models  # type: ignore[import-untyped]
 
         super().__init__(input_shape=input_shape, output_shape=output_shape)
 
-        self.pretrained_model = getattr(models, model)(*args, **kwargs)
+        self.replace_classifier = replace_classifier
+        pretrained_model = getattr(models, model)(*args, **kwargs)
 
-        self.fm = self.create_feature_extractor(self.pretrained_model, fm_output_layer)
-        for param in self.fm.parameters():
-            param.requires_grad = not freeze_feature_extractor
+        if replace_classifier:
+            self.fm = self.create_feature_extractor(pretrained_model, fm_output_layer)
+            for param in self.fm.parameters():
+                param.requires_grad = not freeze_feature_extractor
 
-        self.fm_shape = self.fm(torch.rand((1, *self._shape_channels_last_to_first(input_shape)))).shape
+            self.fm_shape = self.fm(torch.rand((1, *self._shape_channels_last_to_first(input_shape)))).shape
 
-        self.linear = nn.Linear(self.fm_shape[1], self.output_shape[0])
-        self.flatten = nn.Flatten()
+            self.linear = nn.Linear(self.fm_shape[1], self.output_shape[0])
+        else:
+            self.model = pretrained_model
 
-        for name, param in self.fm.named_parameters():
-            logger.debug('Layer: %s, trainable: %s.', name, param.requires_grad)
+        for name, param in self.named_parameters():
+            logger.info('Layer: %s, trainable: %s.', name, param.requires_grad)
+
+    def recursive_erase_node(self, graph: Graph, nodes: list[Node]) -> None:
+        for node in nodes:
+            self.recursive_erase_node(graph, list(node.users.keys()))
+            logger.info('Removing %s', node)
+            graph.erase_node(node)
 
     # Similar to torchvision's but simplified for our specific use case
     def create_feature_extractor(self, model: nn.Module, return_node: str) -> GraphModule:
@@ -65,21 +75,9 @@ class TorchVisionModel(LearningModelPyTorch):
         tracer = self.TracerCustomLayers(custom_layers=custom_layers)
         graph = tracer.trace(model)
         graph.print_tabular()
-        graphmodule = GraphModule(tracer.root, graph, tracer.root.__class__.__name__)
-
-        # Remove existing output node
-        old_output = [n for n in graphmodule.graph.nodes if n.op == 'output']
-        if not old_output:
-            logger.error('No output found in TorchVision model.')
-            raise RuntimeError
-        if len(old_output) > 1:
-            logger.error('Multiple outputs found in TorchVision model.')
-            raise RuntimeError
-        logger.info("Removing output '%s'", old_output)
-        graphmodule.graph.erase_node(old_output[0])
 
         # Find desired output layer
-        new_output = [n for n in graphmodule.graph.nodes if n.name == return_node]
+        new_output = [n for n in graph.nodes if n.name == return_node]
         if not new_output:
             logger.error("fm_output_layer '%s' not found in TorchVision model.", return_node)
             raise ValueError
@@ -87,14 +85,15 @@ class TorchVisionModel(LearningModelPyTorch):
             logger.error("Multiple matches for fm_output_layer '%s'", return_node)
             raise RuntimeError
 
+        logger.info('Removing all nodes after %s', new_output[0])
+        self.recursive_erase_node(graph, list(new_output[0].users.keys()))
+
         # Add new output for desired layer
-        with graphmodule.graph.inserting_after(list(graphmodule.graph.nodes)[-1]):
-            _ = graphmodule.graph.output(new_output[0])
+        with graph.inserting_after(list(graph.nodes)[-1]):
+            logger.info('Setting %s as output of the feature extractor', new_output[0])
+            _ = graph.output(new_output[0])
 
-        # Remove unused layers
-        _ = graphmodule.graph.eliminate_dead_code()
-
-        _ = graphmodule.recompile()
+        graphmodule = GraphModule(tracer.root, graph, tracer.root.__class__.__name__)
 
         graphmodule.graph.print_tabular()
 
@@ -102,6 +101,8 @@ class TorchVisionModel(LearningModelPyTorch):
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
-        x = self.fm(input)
-        x = self.flatten(x)
-        return self.linear(x)
+        if self.replace_classifier:
+            x = self.fm(input)
+            return self.linear(x)
+
+        return self.model(input)
