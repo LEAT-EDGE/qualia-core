@@ -35,13 +35,25 @@ kind = "Class2BinMatrix"
 #params.axis = 0
 #params.debug = true
 
+#[[data_augmentation]]
+#kind = "AutoAugment"
+#params.policy = "CIFAR10"
+##params.before = false
+##params.after = true
+#params.before = true
+#params.after = false
+
 [[data_augmentation]]
-kind = "AutoAugment"
-params.policy = "CIFAR10"
-#params.before = false
-#params.after = true
-params.before = true
-params.after = false
+kind = "Crop"
+params.size = [32, 32]
+params.padding = [4, 4]
+params.before = false
+params.after = true
+
+[[data_augmentation]]
+kind = "HorizontalFlip"
+params.before = false
+params.after = true
 
 # Convert to Float32 and scale by 255 after AutoAugment
 [[data_augmentation]]
@@ -52,29 +64,25 @@ params.after = true
 params.evaluate = true
 
 [[data_augmentation]]
-kind = "HorizontalFlip"
-params.before = false
-params.after = true
-
-[[data_augmentation]]
-kind = "Crop"
-params.size = [32, 32]
-params.padding = [4, 4]
-params.before = false
-params.after = true
-
-[[data_augmentation]]
-kind = "TorchVisionModelTransforms"
-params.weights_category = 'MobileNet_V2_Weights'
-params.weights = 'DEFAULT'
+kind = "Normalize"
+params.mean = [0.4914, 0.4822, 0.4465]
+params.std = [0.247, 0.243, 0.261]
 params.evaluate = true
 params.before = false
 params.after = true
 
-[[data_augmentation]]
-kind = "Mixup"
-params.before = false
-params.after = true
+#[[data_augmentation]]
+#kind = "TorchVisionModelTransforms"
+#params.weights_category = 'MobileNet_V2_Weights'
+#params.weights = 'DEFAULT'
+#params.evaluate = true
+#params.before = false
+#params.after = true
+
+#[[data_augmentation]]
+#kind = "Mixup"
+#params.before = false
+#params.after = true
 
 [[postprocessing]]
 kind = "FuseBatchNorm"
@@ -83,7 +91,7 @@ export = true
 [model_template]
 kind = "TorchVisionModel"
 epochs = 300
-batch_size = 512
+batch_size = 128
 #params.input_shape = [224, 224, 3]
 
 #[model_template.optimizer]
@@ -92,20 +100,23 @@ batch_size = 512
 #params.lr = 0.025
 
 [model_template.optimizer]
-#kind = "SGD"
-kind = "Adam"
+kind = "SGD"
+#kind = "Adam"
 #params.lr               = 0.0025
 #params.lr               = 0.075
-params.lr               = 0.001
-#params.lr               = 0.05
-#params.momentum		= 0.9
-params.weight_decay	= 5e-4
+#params.lr               = 0.001
+params.lr               = 0.1
+params.momentum		= 0.9
+params.weight_decay	= 4e-5
 
 [model_template.optimizer.scheduler]
-kind = "StepLR"
+#kind = "StepLR"
+kind = "MultiStepLR"
+params.milestones = [150, 225]
 #params.milestones       = [50, 100, 125, 150, 165, 170]
-params.gamma		= 0.5
-params.step_size = 50
+#params.gamma		= 0.5
+params.gamma		= 0.1
+#params.step_size = 50
 
 [[model]]
 name = "cifar10_torchvisionmobilenet_v2"
@@ -113,8 +124,8 @@ params.model = 'mobilenet_v2'
 params.replace_classifier = true
 params.fm_output_layer = 'classifier_0'
 params.weights = 'DEFAULT'
-disabled = false
-#disabled = true
+#disabled = false
+disabled = true
 
 [[model]]
 name = "cifar10_torchvisionmobilenet_v2_nopretrain"
@@ -122,3 +133,21 @@ params.model = 'mobilenet_v2'
 params.fm_output_layer = 'adaptive_avg_pool2d'
 #disabled = false
 disabled = true
+
+[[model]]
+name = "cifar10_torchvisionmobilenet_v2_32_nopretrain"
+params.model = 'mobilenet_v2'
+params.fm_output_layer = 'flatten'
+params.inverted_residual_setting = [
+  [1, 16, 1, 1],
+  [6, 24, 2, 1],
+  [6, 32, 3, 1],
+  [6, 64, 4, 2],
+  [6, 96, 3, 1],
+  [6, 160, 3, 2],
+  [6, 320, 1, 1],
+]
+params.freeze_feature_extractor = false
+
+disabled = false
+#disabled = true
