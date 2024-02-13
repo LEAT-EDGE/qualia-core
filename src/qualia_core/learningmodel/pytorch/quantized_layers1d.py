@@ -12,9 +12,16 @@ from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import (
     QuantizerInputProtocol,
     QuantizerWProtocol,
 )
+from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 from .layers.quantized_layers import QuantizedBatchNorm
 from .Quantizer import QuantizationConfig, Quantizer, update_params
+
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -58,6 +65,23 @@ class QuantizedConv1d(nn.Conv1d, QuantizerInputProtocol, QuantizerActProtocol, Q
             quant_params_bias = update_params(tensor_type='bias', quant_params=quant_params)
             self.quantizer_bias = Quantizer(**quant_params_bias)
 
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        quantized_module = cls(in_channels=module.in_channels,
+                               out_channels=module.out_channels,
+                               kernel_size=module.kernel_size,
+                               stride=module.stride,
+                               padding=module.padding,
+                               dilation=module.dilation,
+                               groups=module.groups,
+                               bias=module.bias is not None,
+                               quant_params=quant_params)
+        with torch.no_grad():
+            _ = quantized_module.weight.copy_(module.weight)
+            if quantized_module.bias is not None:
+                _ = quantized_module.bias.copy_(module.bias)
+        return quantized_module
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
@@ -110,6 +134,14 @@ class QuantizedMaxPool1d(nn.MaxPool1d, QuantizerInputProtocol, QuantizerActProto
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
 
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        return cls(kernel_size=module.kernel_size,
+                   stride=module.stride,
+                   padding=module.padding,
+                   quant_params=quant_params)
+
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
 
@@ -135,6 +167,12 @@ class QuantizedAdaptiveAvgPool1d(torch.nn.AdaptiveAvgPool1d, QuantizerInputProto
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
+
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        return cls(output_size=module.output_size,
+                   quant_params=quant_params)
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
@@ -166,6 +204,14 @@ class QuantizedAvgPool1d(torch.nn.AvgPool1d, QuantizerInputProtocol, QuantizerAc
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
+
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        return cls(kernel_size=module.kernel_size,
+                   stride=module.stride,
+                   padding=module.padding,
+                   quant_params=quant_params)
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
