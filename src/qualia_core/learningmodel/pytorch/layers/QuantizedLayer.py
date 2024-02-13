@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import sys
 from typing import Protocol
 
-from qualia_core.typing import TYPE_CHECKING
+from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 if TYPE_CHECKING:
+    from torch import nn  # noqa: TCH002
+
     from qualia_core.learningmodel.pytorch.Quantizer import Quantizer  # noqa: TCH001
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 class QuantizerInputProtocol(Protocol):
     def __init__(self, *_: object, **__: object) -> None:
@@ -34,6 +42,10 @@ class QuantizedLayer:
         self.quantizer_act: Quantizer | None = None
         self.quantizer_w: Quantizer | None = None
         self.quantizer_bias: Quantizer | None = None
+
+    @classmethod
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        raise NotImplementedError
 
     @property
     def input_q(self) -> int | None:
