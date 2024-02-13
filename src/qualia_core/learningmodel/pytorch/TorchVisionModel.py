@@ -27,7 +27,7 @@ class TorchVisionModel(LearningModelPyTorch):
 
         @override
         def is_leaf_module(self, m: torch.nn.Module, module_qualified_name : str) -> bool:
-            return super().is_leaf_module(m, module_qualified_name) or isinstance(m, custom_layers)
+            return super().is_leaf_module(m, module_qualified_name) or isinstance(m, self.custom_layers)
 
     def _shape_channels_last_to_first(self, shape: tuple[int, ...]) -> tuple[int, ...]:
         return (shape[-1], ) + shape[0:-1]
