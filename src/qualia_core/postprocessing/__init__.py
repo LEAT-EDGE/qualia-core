@@ -21,9 +21,11 @@ if importlib.util.find_spec('torch') is None:
 else:
     from .FuseBatchNorm import FuseBatchNorm
     from .QuantizationAwareTraining import QuantizationAwareTraining
+    from .QuantizationAwareTrainingFX import QuantizationAwareTrainingFX
 
     __all__ += ['FuseBatchNorm',
-                'QuantizationAwareTraining']
+                'QuantizationAwareTraining',
+                'QuantizationAwareTrainingFX']
 
 if importlib.util.find_spec('keras') is None:
     logger.warning('Keras is required for RemoveKerasSoftmax, Torch2Keras')
