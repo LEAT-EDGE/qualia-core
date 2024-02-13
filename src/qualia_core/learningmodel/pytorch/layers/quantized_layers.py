@@ -7,9 +7,16 @@ import torch.nn
 from torch import nn
 
 from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quantizer, update_params
+from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 from .CustomBatchNorm import CustomBatchNorm
 from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol, QuantizerWProtocol
+
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -42,6 +49,17 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
             quant_params_bias = update_params(tensor_type='bias', quant_params=quant_params)
             self.quantizer_bias = Quantizer(**quant_params_bias)
 
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        quantized_module = cls(in_features=module.in_features,
+                               out_features=module.out_features,
+                               quant_params=quant_params)
+        with torch.no_grad():
+            _ = quantized_module.weight.copy_(module.weight)
+            if quantized_module.bias is not None:
+                _ = quantized_module.bias.copy_(module.bias)
+        return quantized_module
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
@@ -77,6 +95,11 @@ class QuantizedReLU(torch.nn.ReLU, QuantizerInputProtocol, QuantizerActProtocol,
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
+
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        return cls(quant_params=quant_params)
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
@@ -138,6 +161,27 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
         if 'bias' in quant_params :
             quant_params_bias = update_params(tensor_type='bias', quant_params=quant_params)
             self.quantizer_bias = Quantizer(**quant_params_bias)
+
+    @classmethod
+    @override
+    def from_module(cls, module: nn.Module, quant_params: QuantizationConfigDict) -> Self:
+        quantized_module = cls(num_features=module.num_features,
+                               eps=module.eps,
+                               momentum=module.momentum,
+                               affine=module.affine,
+                               track_running_stats=module.track_running_stats,
+                               device=module.device,
+                               dtype=module.dtype,
+                               quant_params=quant_params)
+        with torch.no_grad():
+            if quantized_module.affine:
+                _ = quantized_module.weight.copy_(module.weight)
+                _ = quantized_module.bias.copy_(module.bias)
+            if quantized_module.track_running_stats:
+                _ = quantized_module.running_var.copy_(module.running_var)
+                _ = quantized_module.running_mean.copy_(module.running_mean)
+                _ = quantized_module.num_batches_tracked.copy_(module.num_batches_tracked)
+        return quantized_module
 
     @override
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
