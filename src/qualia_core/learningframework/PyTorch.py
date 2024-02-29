@@ -91,6 +91,8 @@ class PyTorch(LearningFramework[nn.Module]):
             'crossentropy': nn.CrossEntropyLoss(),
         }
 
+        enable_train_metrics: bool = True
+
         def __init__(self,  # noqa: PLR0913
                      model: nn.Module,
                      max_epochs: int = 0,
@@ -171,8 +173,8 @@ class PyTorch(LearningFramework[nn.Module]):
             x, y = batch
             logits = self(x)
 
-            if not self.mixup:
-                self.train_metrics(self.softmax(logits), y)
+            if self.enable_train_metrics:
+                self.train_metrics(logits, y)
                 self.log_dict(self.train_metrics)
 
             loss = self.loss(logits, y)
@@ -232,7 +234,7 @@ class PyTorch(LearningFramework[nn.Module]):
         def on_train_epoch_end(self) -> None:
             super().on_train_epoch_end()
 
-            if not self.mixup:
+            if self.enable_train_metrics:
                 self.log_dict(self.train_metrics, prog_bar=True, sync_dist=True)
             for param_group in self.trainer.optimizers[0].param_groups:
                 self.log('lr', param_group['lr'], prog_bar=True, sync_dist=True)
