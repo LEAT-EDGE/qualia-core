@@ -211,10 +211,10 @@ class PyTorch(LearningFramework[nn.Module]):
             print()
 
         @override
-        def configure_optimizers(self) -> tuple[list[torch.optim.Optimizer] | list[torch.optim.lr_scheduler.LRScheduler]]:
+        def configure_optimizers(self) -> tuple[list[torch.optim.Optimizer], list[torch.optim.lr_scheduler.LRScheduler]] | None:
             import torch.optim as optimizers
             if importlib.util.find_spec('torch_optimizer') is None:
-                print('Warning: torch_optimizer not found, not importing additional optimizers', file=sys.stderr)
+                logger.warning('torch_optimizer not found, not importing additional optimizers')
             else:
                 optimizers.__dict__.update(importlib.import_module('torch_optimizer').__dict__) # Merge additional torch_optimizer
             import torch.optim.lr_scheduler as schedulers
@@ -222,16 +222,21 @@ class PyTorch(LearningFramework[nn.Module]):
             if not self.optimizer:
                 return None
 
-            optimizer = getattr(optimizers, self.optimizer['kind'])(self.parameters(), **self.optimizer.get('params', {}))
-            print('Optimizer:', optimizer, self.optimizer.get('params', {}))
+            optimizer: torch.optim.Optimizer = getattr(optimizers, self.optimizer['kind'])(self.parameters(),
+                                                                                           **self.optimizer.get('params', {}))
+            logger.info('Optimizer: %s', optimizer)
             if 'scheduler' in self.optimizer:
                 try:
-                    scheduler = getattr(schedulers, self.optimizer['scheduler']['kind'])(optimizer, **self.optimizer['scheduler']['params'])
+                    scheduler_cls = getattr(schedulers,
+                                        self.optimizer['scheduler']['kind'])
                 except AttributeError:
                     import qualia_core.learningframework.CustomScheduler as customschedulers
-                    scheduler = getattr(customschedulers, self.optimizer['scheduler']['kind'])(optimizer, **self.optimizer['scheduler']['params'])
+                    scheduler_cls = getattr(customschedulers, self.optimizer['scheduler']['kind'])
 
-                print('Scheduler:', scheduler, self.optimizer['scheduler']['params'])
+                scheduler: torch.optim.lr_scheduler.LRScheduler = scheduler_cls(optimizer,
+                                                                                **self.optimizer['scheduler'].get('params', {}))
+
+                logger.info('Scheduler: %s, %s', scheduler, self.optimizer['scheduler'].get('params', {}))
                 return [optimizer], [scheduler]
             return [optimizer], []
 
