@@ -5,7 +5,7 @@ import importlib.util
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import Any, Callable, ClassVar, NoReturn, TypedDict
 
 import numpy as np
 import numpy.typing
@@ -56,13 +56,19 @@ class PyTorch(LearningFramework[nn.Module]):
     trainer = None
 
     class TrainerModule(LightningModule):
+        AVAILABLE_LOSSES: ClassVar[dict[str, nn.modules.loss._Loss]] = {
+            'mse': nn.MSELoss(),
+            'crossentropy': nn.CrossEntropyLoss(),
+        }
+
         def __init__(self,  # noqa: PLR0913
                      model: nn.Module,
                      max_epochs: int = 0,
                      optimizer: OptimizerConfigDict | None = None,
                      dataaugmentations: list[DataAugmentationPyTorch] | None = None,
                      num_classes: int | None = None,
-                     experimenttracking_init: Callable[[], NoReturn] | None = None) -> None:
+                     experimenttracking_init: Callable[[], NoReturn] | None = None,
+                     loss: str | None = None) -> None:
             super().__init__()
             self.model = model
             self.max_epochs = max_epochs
@@ -70,7 +76,7 @@ class PyTorch(LearningFramework[nn.Module]):
             self.dataaugmentations = dataaugmentations if dataaugmentations is not None else []
             self.experimenttracking_init = experimenttracking_init
 
-            self.configure_loss()
+            self.configure_loss(loss=loss)
             self.configure_metrics(num_classes=num_classes)
 
         @override
@@ -87,17 +93,16 @@ class PyTorch(LearningFramework[nn.Module]):
             if self.experimenttracking_init is not None:
                 self.experimenttracking_init()
 
-        def configure_loss(self) -> None:
+        def configure_loss(self, loss: str | None) -> None:
             from qualia_core.dataaugmentation.pytorch import Mixup
+            #self.softmax = nn.Softmax(dim=1)
+            mixup = next((da for da in self.dataaugmentations if isinstance(da, Mixup)), None) # Check if Mixup is enabled
+            if mixup:
+                self.enable_train_metrics = False
+                self.loss = mixup.loss.__get__(mixup)
+            elif loss is not None:
+                self.loss = self.AVAILABLE_LOSSES[loss]
 
-            self.crossentropyloss = nn.CrossEntropyLoss()
-            self.softmax = nn.Softmax(dim=1)
-
-            self.mixup = next((da for da in self.dataaugmentations if isinstance(da, Mixup)), None) # Check if Mixup is enabled
-            if self.mixup:
-                self.loss = self.mixup.loss.__get__(self.mixup)
-            else:
-                self.loss = self.crossentropyloss
 
         def configure_metrics(self, num_classes: int | None = None) -> None:
             import torchmetrics
@@ -251,6 +256,7 @@ class PyTorch(LearningFramework[nn.Module]):
                  accelerator: str = 'auto',
                  devices: int | str | list[int] = 'auto',
                  precision: _PRECISION_INPUT = 32,
+                 loss: str = 'crossentropy',
                  enable_confusion_matrix: bool = True,
                  checkpoint_metric: CheckpointMetricConfigDict | None = None) -> None:
         super().__init__()
@@ -260,6 +266,7 @@ class PyTorch(LearningFramework[nn.Module]):
         self.accelerator = accelerator
         self.devices = devices
         self.precision = precision
+        self._loss = loss
         self._enable_confusion_matrix = enable_confusion_matrix
         self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'validavgclsacc',
                                                                                            'mode': 'max'}
@@ -382,7 +389,8 @@ class PyTorch(LearningFramework[nn.Module]):
                                             optimizer=optimizer,
                                             dataaugmentations=dataaugmentations,
                                             num_classes=trainset.y.shape[-1],
-                                            experimenttracking_init=experimenttracking_init)
+                                            experimenttracking_init=experimenttracking_init,
+                                            loss=self._loss)
         #self.trainer.fit(trainer_module,
         #                    DataLoader(self.DatasetFromTF(trainset), batch_size=None), [
         #                        DataLoader(self.DatasetFromTF(originalset), batch_size=None),
@@ -404,10 +412,13 @@ class PyTorch(LearningFramework[nn.Module]):
         if self._use_best_epoch:
             print(f'Loading back best epoch: {checkpoint_callback.best_model_path}, score: {checkpoint_callback.best_model_score}')
             trainer_module = self.TrainerModule.load_from_checkpoint(checkpoint_callback.best_model_path,
-                                                                    model=model,
-                                                                    optimizer=optimizer,
-                                                                    dataaugmentations=dataaugmentations,
-                                                                    num_classes=trainset.y.shape[-1])
+                                                                     model=model,
+                                                                     max_epochs=epochs,
+                                                                     optimizer=optimizer,
+                                                                     dataaugmentations=dataaugmentations,
+                                                                     num_classes=trainset.y.shape[-1],
+                                                                     experimenttracking=experimenttracking_init,
+                                                                     loss=self._loss)
             model = trainer_module.model
         return model
 
