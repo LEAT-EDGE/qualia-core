@@ -37,6 +37,10 @@ else:
 
 logger = logging.getLogger(__name__)
 
+class CheckpointMetricConfigDict(TypedDict):
+    name: str
+    mode: str
+
 class PyTorch(LearningFramework[nn.Module]):
     # Reference framework-specific external modules
     from pytorch_lightning import LightningModule
@@ -246,7 +250,8 @@ class PyTorch(LearningFramework[nn.Module]):
                  progress_bar_refresh_rate: int = 1,
                  accelerator: str = 'auto',
                  devices: int | str | list[int] = 'auto',
-                 precision: _PRECISION_INPUT = 32) -> None:
+                 precision: _PRECISION_INPUT = 32,
+                 checkpoint_metric: CheckpointMetricConfigDict | None = None) -> None:
         super().__init__()
         self._use_best_epoch = use_best_epoch
         self._enable_progress_bar = enable_progress_bar
@@ -254,6 +259,8 @@ class PyTorch(LearningFramework[nn.Module]):
         self.accelerator = accelerator
         self.devices = devices
         self.precision = precision
+        self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'validavgclsacc',
+                                                                                           'mode': 'max'}
 
         self.log = TextLogger(name=__name__)
 
@@ -350,7 +357,10 @@ class PyTorch(LearningFramework[nn.Module]):
         else:
             seed_everything(int(seed) * 100)
 
-        checkpoint_callback = ModelCheckpoint(dirpath=f"out/checkpoints/{name}", save_top_k=2, monitor="valavgclsacc", mode="max")
+        checkpoint_callback = ModelCheckpoint(dirpath=f"out/checkpoints/{name}",
+                                              save_top_k=2,
+                                              monitor=self._checkpoint_metric['name'],
+                                              mode=self._checkpoint_metric['mode'])
         callbacks = [checkpoint_callback]
         if self._enable_progress_bar:
             callbacks.append(TQDMProgressBar(refresh_rate=self._progress_bar_refresh_rate))
