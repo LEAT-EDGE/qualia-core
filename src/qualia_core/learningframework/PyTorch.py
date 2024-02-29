@@ -251,6 +251,7 @@ class PyTorch(LearningFramework[nn.Module]):
                  accelerator: str = 'auto',
                  devices: int | str | list[int] = 'auto',
                  precision: _PRECISION_INPUT = 32,
+                 enable_confusion_matrix: bool = True,
                  checkpoint_metric: CheckpointMetricConfigDict | None = None) -> None:
         super().__init__()
         self._use_best_epoch = use_best_epoch
@@ -259,6 +260,7 @@ class PyTorch(LearningFramework[nn.Module]):
         self.accelerator = accelerator
         self.devices = devices
         self.precision = precision
+        self._enable_confusion_matrix = enable_confusion_matrix
         self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'validavgclsacc',
                                                                                            'mode': 'max'}
 
@@ -447,27 +449,28 @@ class PyTorch(LearningFramework[nn.Module]):
         # predict returns list of predictions according to batches
         self.log(f'{metrics=}')
 
-        print('Confusion matrix:')
-        cm = self.confusion_matrix(predictions, testset, device=trainer_module.device)
-        ncm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        if self._enable_confusion_matrix:
+            print('Confusion matrix:')
+            cm = self.confusion_matrix(predictions, testset, device=trainer_module.device)
+            ncm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
-        avg_class_accuracy = ncm.diagonal().mean()
-        print(f'{avg_class_accuracy=}')
-        self.log(f'{avg_class_accuracy=}')
+            avg_class_accuracy = ncm.diagonal().mean()
+            print(f'{avg_class_accuracy=}')
+            self.log(f'{avg_class_accuracy=}')
 
-        with np.printoptions(threshold=sys.maxsize, suppress=True, linewidth=sys.maxsize, precision=2):
-            print(cm)
-            print("Normalized:")
-            print(ncm)
+            with np.printoptions(threshold=sys.maxsize, suppress=True, linewidth=sys.maxsize, precision=2):
+                print(cm)
+                print("Normalized:")
+                print(ncm)
 
-            self.log(f'{cm=}')
-            self.log(f'{ncm=}')
+                self.log(f'{cm=}')
+                self.log(f'{ncm=}')
 
-            if experimenttracking is not None and experimenttracking.logger is not None:
-                experimenttracking.logger.experiment['cm'].log(np.array2string(cm))
-                experimenttracking.logger.experiment['ncm'].log(np.array2string(ncm))
-        metrics[0]['cm'] = cm
-        metrics[0]['ncm'] = ncm
+                if experimenttracking is not None and experimenttracking.logger is not None:
+                    experimenttracking.logger.experiment['cm'].log(np.array2string(cm))
+                    experimenttracking.logger.experiment['ncm'].log(np.array2string(ncm))
+            metrics[0]['cm'] = cm
+            metrics[0]['ncm'] = ncm
 
         return metrics[0]
 
