@@ -348,10 +348,7 @@ class PyTorch(LearningFramework[nn.Module]):
         def __init__(self, dataset: RawData) -> None:
             super().__init__()
             self.x = PyTorch.channels_last_to_channels_first(dataset.x)
-            self.y = dataset.y.argmax(axis=-1)
-            self.y = np.where(np.isnan(dataset.y).any(axis=-1),
-                -1,
-                self.y)
+            self.y = dataset.y
 
         def __len__(self) -> int:
             return len(self.x)
