@@ -89,7 +89,8 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
           train: bool = True,  # noqa: FBT001, FBT002
           evaluate: bool = True,  # noqa: FBT001, FBT002
           dataaugmentations: list[DataAugmentation] | None = None,
-          experimenttracking: ExperimentTracking | None = None) -> TrainResult:
+          experimenttracking: ExperimentTracking | None = None,
+          use_test_as_valid: bool = False) -> TrainResult:  # noqa: FBT001, FBT002
 
     if batch_size is None:
         batch_size = 32
@@ -109,7 +110,7 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
     if train:
         new_model = framework.train(new_model,
                         trainset=datamodel.sets.train,
-                        validationset=datamodel.sets.valid,
+                        validationset=datamodel.sets.valid if not use_test_as_valid else datamodel.sets.test,
                         epochs=train_epochs,
                         batch_size=batch_size,
                         optimizer=optimizer,

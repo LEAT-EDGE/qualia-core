@@ -89,7 +89,8 @@ class Train:
                         train=m.get('train', True),
                         evaluate=m.get('evaluate', True),
                         dataaugmentations=dataaugmentations,
-                        experimenttracking=et)
+                        experimenttracking=et,
+                        use_test_as_valid=config['bench'].get('use_test_as_valid', False))
 
                 if et is not None:
                     et.stop()

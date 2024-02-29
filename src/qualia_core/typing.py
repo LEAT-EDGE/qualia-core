@@ -40,6 +40,7 @@ class BenchConfigDict(TypedDict):
     first_run: int
     last_run: int
     plugins: NotRequired[list[str]]
+    use_test_as_valid: NotRequired[bool]
 
 class ExperimentTrackingConfigDict(GenericModuleConfigDict):
     ...
