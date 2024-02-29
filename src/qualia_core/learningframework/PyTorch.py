@@ -48,6 +48,11 @@ class MetricOneHot(torchmetrics.classification.MulticlassStatScores):
     def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
         super().update(preds, target.argmax(dim=-1))
 
+class LossOneHot(nn.modules.loss._Loss):
+    @override
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return super().forward(input, target.argmax(dim=-1))
+
 class MulticlassPrecisionOneHot(MetricOneHot, torchmetrics.classification.MulticlassPrecision):
     ...
 
@@ -58,6 +63,9 @@ class MulticlassF1ScoreOneHot(MetricOneHot, torchmetrics.classification.Multicla
     ...
 
 class MulticlassAccuracyOneHot(MetricOneHot, torchmetrics.classification.MulticlassAccuracy):
+    ...
+
+class CrossEntropyLossOneHot(LossOneHot, nn.CrossEntropyLoss):
     ...
 
 class PyTorch(LearningFramework[nn.Module]):
@@ -88,7 +96,7 @@ class PyTorch(LearningFramework[nn.Module]):
 
         AVAILABLE_LOSSES: ClassVar[dict[str, nn.modules.loss._Loss]] = {
             'mse': nn.MSELoss(),
-            'crossentropy': nn.CrossEntropyLoss(),
+            'crossentropy': CrossEntropyLossOneHot(),
         }
 
         enable_train_metrics: bool = True
@@ -177,7 +185,7 @@ class PyTorch(LearningFramework[nn.Module]):
                 self.train_metrics(logits, y)
                 self.log_dict(self.train_metrics)
 
-            loss = self.loss(logits, y.float())
+            loss = self.loss(logits, y)
             self.log('train_loss', loss, prog_bar=True)
             return loss
 
