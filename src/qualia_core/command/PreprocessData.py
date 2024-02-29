@@ -17,10 +17,10 @@ class PreprocessData:
     def __call__(self,
                  qualia: QualiaComponent,
                  dataset: Callable[[], DataModel[Any]],
-                 config: ConfigDict) -> dict[str, Logger]:
+                 config: ConfigDict) -> dict[str, Logger[Any]]:
 
         data = dataset()
-        for preprocessing in config['preprocessing']:
+        for preprocessing in config.get('preprocessing', []):
             data = getattr(qualia.preprocessing, preprocessing['kind'])(**preprocessing.get('params', {}))(data)
         logger.info('Exporting data')
         _ = data.export()

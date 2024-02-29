@@ -69,7 +69,7 @@ def qualia(action: str,
         return {k: v.content for k, v in loggers.items()}
 
     dataset_pipeline = dataset
-    for preprocessing in config['preprocessing']:
+    for preprocessing in config.get('preprocessing', []):
         dataset_pipeline = getattr(qualia.preprocessing,
                                    preprocessing['kind'])(**preprocessing.get('params', {})).import_data(dataset_pipeline)
 
