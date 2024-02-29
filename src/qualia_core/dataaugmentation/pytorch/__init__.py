@@ -1,3 +1,4 @@
+from .Amplitude import Amplitude
 from .AutoAugment import AutoAugment
 from .Crop import Crop
 from .GaussianNoise import GaussianNoise
@@ -13,7 +14,8 @@ from .TimeShifting import TimeShifting
 from .TimeWarping import TimeWarping
 from .TorchVisionModelTransforms import TorchVisionModelTransforms
 
-__all__ = ['AutoAugment',
+__all__ = ['Amplitude',
+           'AutoAugment',
            'Crop',
            'GaussianNoise',
            'HorizontalFlip',
