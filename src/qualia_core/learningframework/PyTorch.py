@@ -177,7 +177,7 @@ class PyTorch(LearningFramework[nn.Module]):
                 self.train_metrics(logits, y)
                 self.log_dict(self.train_metrics)
 
-            loss = self.loss(logits, y)
+            loss = self.loss(logits, y.float())
             self.log('train_loss', loss, prog_bar=True)
             return loss
 
