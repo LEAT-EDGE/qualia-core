@@ -5,13 +5,15 @@ import importlib.util
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, NoReturn
+from typing import Any, Callable, ClassVar, NoReturn, TypedDict
 
 import numpy as np
 import numpy.typing
 import torch
 import torch.distributed
 import torch.utils.data
+import torchmetrics
+import torchmetrics.classification
 from torch import nn
 
 from qualia_core.experimenttracking.pytorch.ExperimentTrackingPyTorch import ExperimentTrackingPyTorch
@@ -37,6 +39,35 @@ else:
 
 logger = logging.getLogger(__name__)
 
+class CheckpointMetricConfigDict(TypedDict):
+    name: str
+    mode: str
+
+class MetricOneHot(torchmetrics.classification.MulticlassStatScores):
+    @override
+    def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
+        super().update(preds, target.argmax(dim=-1))
+
+class LossOneHot(nn.modules.loss._Loss):
+    @override
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return super().forward(input, target.argmax(dim=-1))
+
+class MulticlassPrecisionOneHot(MetricOneHot, torchmetrics.classification.MulticlassPrecision):
+    ...
+
+class MulticlassRecallOneHot(MetricOneHot, torchmetrics.classification.MulticlassRecall):
+    ...
+
+class MulticlassF1ScoreOneHot(MetricOneHot, torchmetrics.classification.MulticlassF1Score):
+    ...
+
+class MulticlassAccuracyOneHot(MetricOneHot, torchmetrics.classification.MulticlassAccuracy):
+    ...
+
+class CrossEntropyLossOneHot(LossOneHot, nn.CrossEntropyLoss):
+    ...
+
 class PyTorch(LearningFramework[nn.Module]):
     # Reference framework-specific external modules
     from pytorch_lightning import LightningModule
@@ -52,13 +83,33 @@ class PyTorch(LearningFramework[nn.Module]):
     trainer = None
 
     class TrainerModule(LightningModule):
+        AVAILABLE_METRICS: ClassVar[dict[str, Callable[[int], torchmetrics.Metric]]] = {
+            'prec': lambda num_outputs: MulticlassPrecisionOneHot(average='macro', num_classes=num_outputs),
+            'rec': lambda num_outputs: MulticlassRecallOneHot(average='macro', num_classes=num_outputs),
+            'f1': lambda num_outputs: MulticlassF1ScoreOneHot(average='macro', num_classes=num_outputs),
+            'acc': lambda num_outputs: MulticlassAccuracyOneHot(average='micro', num_classes=num_outputs),
+            'avgclsacc': lambda num_outputs: MulticlassAccuracyOneHot(average='macro', num_classes=num_outputs),
+            'mse': lambda _: torchmetrics.MeanSquaredError(),
+            'mae': lambda _: torchmetrics.MeanAbsoluteError(),
+            'corr': lambda num_outputs: torchmetrics.PearsonCorrCoef(num_outputs=num_outputs),
+        }
+
+        AVAILABLE_LOSSES: ClassVar[dict[str, nn.modules.loss._Loss]] = {
+            'mse': nn.MSELoss(),
+            'crossentropy': CrossEntropyLossOneHot(),
+        }
+
+        enable_train_metrics: bool = True
+
         def __init__(self,  # noqa: PLR0913
                      model: nn.Module,
                      max_epochs: int = 0,
                      optimizer: OptimizerConfigDict | None = None,
                      dataaugmentations: list[DataAugmentationPyTorch] | None = None,
-                     num_classes: int | None = None,
-                     experimenttracking_init: Callable[[], NoReturn] | None = None) -> None:
+                     num_outputs: int = 0,
+                     experimenttracking_init: Callable[[], NoReturn] | None = None,
+                     loss: str | None = None,
+                     metrics: list[str] | None = None) -> None:
             super().__init__()
             self.model = model
             self.max_epochs = max_epochs
@@ -66,8 +117,9 @@ class PyTorch(LearningFramework[nn.Module]):
             self.dataaugmentations = dataaugmentations if dataaugmentations is not None else []
             self.experimenttracking_init = experimenttracking_init
 
-            self.configure_loss()
-            self.configure_metrics(num_classes=num_classes)
+            self.configure_loss(loss=loss)
+            self.configure_metrics(metrics=metrics,
+                                   num_outputs=num_outputs)
 
         @override
         def setup(self, stage: str) -> None:
@@ -83,31 +135,26 @@ class PyTorch(LearningFramework[nn.Module]):
             if self.experimenttracking_init is not None:
                 self.experimenttracking_init()
 
-        def configure_loss(self) -> None:
+        def configure_loss(self, loss: str | None) -> None:
             from qualia_core.dataaugmentation.pytorch import Mixup
+            #self.softmax = nn.Softmax(dim=1)
+            mixup = next((da for da in self.dataaugmentations if isinstance(da, Mixup)), None) # Check if Mixup is enabled
+            if mixup:
+                self.enable_train_metrics = False
+                self.loss = mixup.loss.__get__(mixup)
+            elif loss is not None:
+                self.loss = self.AVAILABLE_LOSSES[loss]
 
-            self.crossentropyloss = nn.CrossEntropyLoss()
-            self.softmax = nn.Softmax(dim=1)
+        def configure_metrics(self, metrics: list[str] | None, num_outputs: int) -> None:
+            if metrics is None:
+                return
 
-            self.mixup = next((da for da in self.dataaugmentations if isinstance(da, Mixup)), None) # Check if Mixup is enabled
-            if self.mixup:
-                self.loss = self.mixup.loss.__get__(self.mixup)
-            else:
-                self.loss = self.crossentropyloss
+            metrics_collection = torchmetrics.MetricCollection({metric: self.AVAILABLE_METRICS[metric](num_outputs)
+                                                                for metric in metrics})
 
-        def configure_metrics(self, num_classes: int | None = None) -> None:
-            import torchmetrics
-
-            metrics = torchmetrics.MetricCollection({
-                'prec': torchmetrics.Precision(task='multiclass', average='macro', num_classes=num_classes),
-                'rec': torchmetrics.Recall(task='multiclass', average='macro', num_classes=num_classes),
-                'f1': torchmetrics.F1Score(task='multiclass', average='macro', num_classes=num_classes),
-                'acc': torchmetrics.Accuracy(task='multiclass', average='micro', num_classes=num_classes),
-                'avgclsacc': torchmetrics.Accuracy(task='multiclass', average='macro', num_classes=num_classes)})
-
-            self.train_metrics = metrics.clone(prefix='train')
-            self.val_metrics = metrics.clone(prefix='val')
-            self.test_metrics = metrics.clone(prefix='test')
+            self.train_metrics = metrics_collection.clone(prefix='train')
+            self.val_metrics = metrics_collection.clone(prefix='val')
+            self.test_metrics = metrics_collection.clone(prefix='test')
 
         @override
         def on_before_batch_transfer(self,
@@ -134,8 +181,8 @@ class PyTorch(LearningFramework[nn.Module]):
             x, y = batch
             logits = self(x)
 
-            if not self.mixup:
-                self.train_metrics(self.softmax(logits), y)
+            if self.enable_train_metrics:
+                self.train_metrics(logits, y)
                 self.log_dict(self.train_metrics)
 
             loss = self.loss(logits, y)
@@ -145,7 +192,7 @@ class PyTorch(LearningFramework[nn.Module]):
         @override
         def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> None:
             x, y = batch
-            logits = self.softmax(self(x)) # lightning 1.2 requires preds in [0, 1]
+            logits = self(x) # lightning 1.2 requires preds in [0, 1]
 
             self.val_metrics(logits, y)
             self.log_dict(self.val_metrics, prog_bar=True)
@@ -153,7 +200,7 @@ class PyTorch(LearningFramework[nn.Module]):
         @override
         def test_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> None:
             x, y = batch
-            logits = self.softmax(self(x)) # lightning 1.2 requires preds in [0, 1]
+            logits = self(x) # lightning 1.2 requires preds in [0, 1]
 
             self.test_metrics(logits, y)
             self.log_dict(self.test_metrics, prog_bar=True)
@@ -195,7 +242,7 @@ class PyTorch(LearningFramework[nn.Module]):
         def on_train_epoch_end(self) -> None:
             super().on_train_epoch_end()
 
-            if not self.mixup:
+            if self.enable_train_metrics:
                 self.log_dict(self.train_metrics, prog_bar=True, sync_dist=True)
             for param_group in self.trainer.optimizers[0].param_groups:
                 self.log('lr', param_group['lr'], prog_bar=True, sync_dist=True)
@@ -246,7 +293,11 @@ class PyTorch(LearningFramework[nn.Module]):
                  progress_bar_refresh_rate: int = 1,
                  accelerator: str = 'auto',
                  devices: int | str | list[int] = 'auto',
-                 precision: _PRECISION_INPUT = 32) -> None:
+                 precision: _PRECISION_INPUT = 32,
+                 metrics: list[str] | None = None,
+                 loss: str = 'crossentropy',
+                 enable_confusion_matrix: bool = True,
+                 checkpoint_metric: CheckpointMetricConfigDict | None = None) -> None:
         super().__init__()
         self._use_best_epoch = use_best_epoch
         self._enable_progress_bar = enable_progress_bar
@@ -254,6 +305,11 @@ class PyTorch(LearningFramework[nn.Module]):
         self.accelerator = accelerator
         self.devices = devices
         self.precision = precision
+        self._loss = loss
+        self._metrics = metrics if metrics is not None else ['prec', 'rec', 'f1', 'acc', 'avgclsacc']
+        self._enable_confusion_matrix = enable_confusion_matrix
+        self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'validavgclsacc',
+                                                                                           'mode': 'max'}
 
         self.log = TextLogger(name=__name__)
 
@@ -300,10 +356,7 @@ class PyTorch(LearningFramework[nn.Module]):
         def __init__(self, dataset: RawData) -> None:
             super().__init__()
             self.x = PyTorch.channels_last_to_channels_first(dataset.x)
-            self.y = dataset.y.argmax(axis=-1)
-            self.y = np.where(np.isnan(dataset.y).any(axis=-1),
-                -1,
-                self.y)
+            self.y = dataset.y
 
         def __len__(self) -> int:
             return len(self.x)
@@ -350,7 +403,10 @@ class PyTorch(LearningFramework[nn.Module]):
         else:
             seed_everything(int(seed) * 100)
 
-        checkpoint_callback = ModelCheckpoint(dirpath=f"out/checkpoints/{name}", save_top_k=2, monitor="valavgclsacc", mode="max")
+        checkpoint_callback = ModelCheckpoint(dirpath=f"out/checkpoints/{name}",
+                                              save_top_k=2,
+                                              monitor=self._checkpoint_metric['name'],
+                                              mode=self._checkpoint_metric['mode'])
         callbacks = [checkpoint_callback]
         if self._enable_progress_bar:
             callbacks.append(TQDMProgressBar(refresh_rate=self._progress_bar_refresh_rate))
@@ -369,8 +425,10 @@ class PyTorch(LearningFramework[nn.Module]):
                                             max_epochs=epochs,
                                             optimizer=optimizer,
                                             dataaugmentations=dataaugmentations,
-                                            num_classes=trainset.y.shape[-1],
-                                            experimenttracking_init=experimenttracking_init)
+                                            num_outputs=trainset.y.shape[-1],
+                                            experimenttracking_init=experimenttracking_init,
+                                            loss=self._loss,
+                                            metrics=self._metrics)
         #self.trainer.fit(trainer_module,
         #                    DataLoader(self.DatasetFromTF(trainset), batch_size=None), [
         #                        DataLoader(self.DatasetFromTF(originalset), batch_size=None),
@@ -392,10 +450,14 @@ class PyTorch(LearningFramework[nn.Module]):
         if self._use_best_epoch:
             print(f'Loading back best epoch: {checkpoint_callback.best_model_path}, score: {checkpoint_callback.best_model_score}')
             trainer_module = self.TrainerModule.load_from_checkpoint(checkpoint_callback.best_model_path,
-                                                                    model=model,
-                                                                    optimizer=optimizer,
-                                                                    dataaugmentations=dataaugmentations,
-                                                                    num_classes=trainset.y.shape[-1])
+                                                                     model=model,
+                                                                     max_epochs=epochs,
+                                                                     optimizer=optimizer,
+                                                                     dataaugmentations=dataaugmentations,
+                                                                     num_outputs=trainset.y.shape[-1],
+                                                                     experimenttracking=experimenttracking_init,
+                                                                     loss=self._loss,
+                                                                     metrics=self._metrics)
             model = trainer_module.model
         return model
 
@@ -431,33 +493,37 @@ class PyTorch(LearningFramework[nn.Module]):
                           logger=self.logger(experimenttracking, name=name),
                           enable_progress_bar=self._enable_progress_bar,
                           callbacks=callbacks)
-        trainer_module = self.TrainerModule(model, dataaugmentations=dataaugmentations, num_classes=testset.y.shape[-1])
+        trainer_module = self.TrainerModule(model,
+                                            dataaugmentations=dataaugmentations,
+                                            num_outputs=testset.y.shape[-1],
+                                            metrics=self._metrics)
         metrics = trainer.test(trainer_module, DataLoader(self.DatasetFromArray(testset), batch_size=batch_size))
         predictions = torch.cat(trainer.predict(trainer_module, DataLoader(self.DatasetFromArray(testset), batch_size=batch_size)))
         # predict returns list of predictions according to batches
         self.log(f'{metrics=}')
 
-        print('Confusion matrix:')
-        cm = self.confusion_matrix(predictions, testset, device=trainer_module.device)
-        ncm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        if self._enable_confusion_matrix:
+            print('Confusion matrix:')
+            cm = self.confusion_matrix(predictions, testset, device=trainer_module.device)
+            ncm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
-        avg_class_accuracy = ncm.diagonal().mean()
-        print(f'{avg_class_accuracy=}')
-        self.log(f'{avg_class_accuracy=}')
+            avg_class_accuracy = ncm.diagonal().mean()
+            print(f'{avg_class_accuracy=}')
+            self.log(f'{avg_class_accuracy=}')
 
-        with np.printoptions(threshold=sys.maxsize, suppress=True, linewidth=sys.maxsize, precision=2):
-            print(cm)
-            print("Normalized:")
-            print(ncm)
+            with np.printoptions(threshold=sys.maxsize, suppress=True, linewidth=sys.maxsize, precision=2):
+                print(cm)
+                print("Normalized:")
+                print(ncm)
 
-            self.log(f'{cm=}')
-            self.log(f'{ncm=}')
+                self.log(f'{cm=}')
+                self.log(f'{ncm=}')
 
-            if experimenttracking is not None and experimenttracking.logger is not None:
-                experimenttracking.logger.experiment['cm'].log(np.array2string(cm))
-                experimenttracking.logger.experiment['ncm'].log(np.array2string(ncm))
-        metrics[0]['cm'] = cm
-        metrics[0]['ncm'] = ncm
+                if experimenttracking is not None and experimenttracking.logger is not None:
+                    experimenttracking.logger.experiment['cm'].log(np.array2string(cm))
+                    experimenttracking.logger.experiment['ncm'].log(np.array2string(ncm))
+            metrics[0]['cm'] = cm
+            metrics[0]['ncm'] = ncm
 
         return metrics[0]
 
