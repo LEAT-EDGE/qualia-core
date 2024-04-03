@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from qualia_core.dataset.Dataset import Dataset
@@ -14,6 +14,6 @@ class Preprocessing(ABC, Generic[T, U]):
     def __call__(self, datamodel: T) -> U:
         ...
 
-    def import_data(self, dataset: Dataset[Any]) -> Dataset[Any] | Callable[[], U | None]:
+    def import_data(self, dataset: Dataset[Any]) -> Dataset[Any]:
         """no-op if the preprocessing doesn't modify the way of importing the dataset."""
         return dataset

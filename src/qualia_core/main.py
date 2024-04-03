@@ -73,7 +73,7 @@ def qualia(action: str,
         dataset_pipeline = getattr(qualia.preprocessing,
                                    preprocessing['kind'])(**preprocessing.get('params', {})).import_data(dataset_pipeline)
 
-    data = dataset_pipeline.import_data() if hasattr(dataset_pipeline, 'import_data') else dataset_pipeline()
+    data = dataset_pipeline.import_data()
 
     if action == 'train':
         train_command = command.Train()
