@@ -4,8 +4,7 @@ import logging
 import sys
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
-
+from qualia_core import random
 from qualia_core.datamodel.RawDataModel import RawData, RawDataModel
 
 from .Preprocessing import Preprocessing
@@ -43,7 +42,7 @@ class DatasetSplitter(Preprocessing[RawDataModel, RawDataModel]):
             logger.error('Source set %s does not exist in dataset', self.__source)
             raise ValueError
 
-        perms = np.random.permutation(len(source.x))
+        perms = random.shared.generator.permutation(len(source.x))
         destperms = perms[0:int(len(perms) * self.__ratio)]
         sourceperms = perms[len(destperms):]
 
@@ -58,6 +57,7 @@ class DatasetSplitter(Preprocessing[RawDataModel, RawDataModel]):
         else:
             dest.x = dest_x
             dest.y = dest_y
+            dest.info = dest_info
 
         source.x = source.x[sourceperms]
         source.y = source.y[sourceperms]
