@@ -1,5 +1,6 @@
 from .BandPassFilter import BandPassFilter
 from .Class2BinMatrix import Class2BinMatrix
+from .CopySet import CopySet
 from .DatamodelConverter import DatamodelConverter
 from .DatasetSplitter import DatasetSplitter
 from .DatasetSplitterBySubjects import DatasetSplitterBySubjects
@@ -15,6 +16,7 @@ from .Window import Window
 
 __all__ = ['BandPassFilter',
            'Class2BinMatrix',
+           'CopySet',
            'DatamodelConverter',
            'DatasetSplitterBySubjects',
            'DatasetSplitter',
