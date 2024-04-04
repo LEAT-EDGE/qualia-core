@@ -23,6 +23,7 @@ from qualia_core.utils.logger import TextLogger
 from .LearningFramework import LearningFramework
 
 if TYPE_CHECKING:
+    from pytorch_lightning import Callback  # noqa: TCH002
     from pytorch_lightning.loggers import Logger  # noqa: TCH002
     from pytorch_lightning.trainer.connectors.accelerator_connector import _PRECISION_INPUT  # noqa: TCH002
 
@@ -379,7 +380,7 @@ class PyTorch(LearningFramework[nn.Module]):
         return loggers
 
     @override
-    def train(self,  # noqa: PLR0913
+    def train(self,
               model: nn.Module,
               trainset: RawData | None,
               validationset: RawData | None,
@@ -396,18 +397,19 @@ class PyTorch(LearningFramework[nn.Module]):
         from pytorch_lightning.callbacks import ModelCheckpoint, TQDMProgressBar
         from torch.utils.data import DataLoader
 
-        # PyTorch-Lightning >= 1.3.0 resets seed before training, increment seed between trainings to get different values between experiments
-        seed = os.environ.get("PL_GLOBAL_SEED", None)
+        # PyTorch-Lightning >= 1.3.0 resets seed before training
+        # increment seed between trainings to get different values between experiments
+        seed = os.environ.get('PL_GLOBAL_SEED', None)
         if seed is None:
-            print("Warning: PyTorch not seeded", file=sys.stderr)
+            logger.warning('PyTorch not seeded')
         else:
-            seed_everything(int(seed) * 100)
+            _ = seed_everything((int(seed) * 100) % 4294967295)
 
-        checkpoint_callback = ModelCheckpoint(dirpath=f"out/checkpoints/{name}",
+        checkpoint_callback = ModelCheckpoint(dirpath=f'out/checkpoints/{name}',
                                               save_top_k=2,
                                               monitor=self._checkpoint_metric['name'],
                                               mode=self._checkpoint_metric['mode'])
-        callbacks = [checkpoint_callback]
+        callbacks: list[Callback] = [checkpoint_callback]
         if self._enable_progress_bar:
             callbacks.append(TQDMProgressBar(refresh_rate=self._progress_bar_refresh_rate))
 
