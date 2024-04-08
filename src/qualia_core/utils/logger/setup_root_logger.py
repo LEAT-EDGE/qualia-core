@@ -16,11 +16,11 @@ def setup_root_logger(colored: bool = False,  # noqa: FBT001, FBT002
 
     out = logging.StreamHandler(sys.stdout)
     out.setFormatter(formatter)
-    out.setLevel(level)
+    out.setLevel(logging.DEBUG)
     out.addFilter(lambda r: r.levelno <= logging.INFO)
 
     err = logging.StreamHandler(sys.stderr)
-    err.setLevel(logging.WARN)
+    err.setLevel(logging.WARNING)
     err.setFormatter(formatter)
 
     root_logger.addHandler(out)
