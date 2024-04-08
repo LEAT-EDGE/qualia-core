@@ -85,9 +85,9 @@ class PyTorch(LearningFramework[nn.Module]):
 
     class TrainerModule(LightningModule):
         AVAILABLE_METRICS: ClassVar[dict[str, Callable[[int], torchmetrics.Metric]]] = {
-            'prec': lambda num_outputs: MulticlassPrecisionOneHot(average='macro', num_classes=num_outputs),
-            'rec': lambda num_outputs: MulticlassRecallOneHot(average='macro', num_classes=num_outputs),
-            'f1': lambda num_outputs: MulticlassF1ScoreOneHot(average='macro', num_classes=num_outputs),
+            'prec': lambda num_outputs: MulticlassPrecisionOneHot(average='micro', num_classes=num_outputs),
+            'rec': lambda num_outputs: MulticlassRecallOneHot(average='micro', num_classes=num_outputs),
+            'f1': lambda num_outputs: MulticlassF1ScoreOneHot(average='micro', num_classes=num_outputs),
             'acc': lambda num_outputs: MulticlassAccuracyOneHot(average='micro', num_classes=num_outputs),
             'avgclsacc': lambda num_outputs: MulticlassAccuracyOneHot(average='macro', num_classes=num_outputs),
             'mse': lambda _: torchmetrics.MeanSquaredError(),
