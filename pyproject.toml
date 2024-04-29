@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Qualia toolchain Core"
 readme = "README.md"
-requires-python = ">=3.9,<3.12"
+requires-python = ">=3.9,<3.13"
 license.text = "AGPL-3.0-or-later"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -34,7 +34,7 @@ documentation = "https://leat-edge.github.io/qualia-core"
 [project.optional-dependencies]
 codegen = ['qualia_codegen_core']
 tensorflow = ['tensorflow < 2.16.0', 'keras >= 2.13.1, < 3.0.0', 'pydot']
-pytorch = ['torch', 'pytorch-lightning>=1.4.0']
+pytorch = ['torch', 'pytorch-lightning>=1.4.0', 'tabulate']
 gtsrb = ['imageio', 'scikit-image']
 gsc = ['torchaudio']
 pytorch3drotation = ['pytorch3d']
