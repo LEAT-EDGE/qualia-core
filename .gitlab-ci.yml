@@ -5,7 +5,7 @@ default:
   image: archlinux:latest
   before_script:
     - pacman -Syu --noconfirm --needed git which curl wget unzip make gcc arm-none-eabi-gcc arm-none-eabi-newlib vim
-    - pacman -S --noconfirm --needed python-pytorch python-pip python-numpy # python-tensorflow 
+    - pacman -S --noconfirm --needed python-pytorch python-tensorflow python-pip python-numpy
     - pacman -S --noconfirm --needed python-scikit-learn python-pycryptodome python-pyserial python-tomlkit python-gitpython
     - pacman -S --noconfirm --needed python-tabulate python-matplotlib python-pydot
     - pacman -S --noconfirm --needed python-pytest python-pytest-dependency python-pytest-xdist python-pytest-env
