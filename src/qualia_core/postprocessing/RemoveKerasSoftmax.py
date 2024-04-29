@@ -23,9 +23,12 @@ class RemoveKerasSoftmax(PostProcessing[keras.Model]):
         assert isinstance(model.layers[-1], Activation)
         assert model.layers[-1].activation == softmax
 
-        require_compile = model._is_compiled
+        require_compile = model.compiled if hasattr(model, 'compiled') else model._is_compiled # Keras 3.x has "compiled" attribute
         if require_compile:
-            compile_params = {'loss': model.loss, 'optimizer': model.optimizer, 'metrics': model.compiled_metrics.metrics}
+            # Compiled metrics not exposed publicly in Keras 3.x
+            metrics = model._compile_metrics.metrics if hasattr(model, '_compile_metrics') else model.compiled_metrics.metrics
+            print(metrics)
+            compile_params = {'loss': model.loss, 'optimizer': model.optimizer, 'metrics': metrics}
 
         # Remove softmax
         model = keras.Model(model.input, model.layers[-2].output, name=model.name)
