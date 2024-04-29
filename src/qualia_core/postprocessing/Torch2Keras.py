@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import importlib.util
 import logging
 import re
 import sys
@@ -10,8 +11,12 @@ from typing import Any, Optional, Union, cast
 
 import numpy.typing
 import tomlkit
-from keras.src.engine.node import Node  # type: ignore[import-untyped]
 from torch import nn
+
+if importlib.util.find_spec('keras.src.ops.node'): # Keras 3.x
+    from keras.src.ops.node import Node  # type: ignore[import-untyped]
+else:
+    from keras.src.engine.node import Node  # type: ignore[import-untyped]
 
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
 
@@ -81,14 +86,20 @@ class Torch2Keras(PostProcessing[nn.Module]):
         from tensorflow.keras.layers import Dense, Flatten  # type: ignore[import-untyped]
         for layer in tf_layers:
             if isinstance(layer, Flatten):
-                for outnode in cast(list[Node], layer.outbound_nodes):
-                    dense = outnode.layer
+                # layer.outbound_nodes missing with Keras 3.x
+                outnodes = cast(list[Node], layer.outbound_nodes
+                                if hasattr(layer, 'outbound_nodes') else layer._outbound_nodes)
+                for outnode in outnodes:
+                    # Keras 3.x "layer" is called "operation"
+                    dense = outnode.operation if hasattr(outnode, 'operation') else outnode.layer
                     if not isinstance(dense, Dense):
                         logger.error('Flatten layer must be followed by Dense')
                         raise TypeError
 
                     kernel = cast(numpy.typing.NDArray[Any], dense.kernel.numpy())
-                    input_shape = cast(tuple[int, ...], layer.input_shape)
+                    # Keras 3.x does not expose layer.input_shape directly
+                    input_shape = cast(tuple[int, ...], layer.get_build_config()['input_shape']
+                                       if hasattr(layer, 'get_build_config') else layer.input_shape)
                     units = cast(int, dense.units)
 
                     # reshape using Flatten input shape (for example last Conv output)
@@ -148,7 +159,8 @@ class Torch2Keras(PostProcessing[nn.Module]):
         for layer in tf_model.layers:
             if len(layer.weights) > 0: #layer need weights
                 for weight in layer.weights:
-                    weight_type = self.__extract_weight_type_from_name(weight.name)
+                    # Keras 3.x 'name' does not contain layer name, 'path' correponds to older version 'name'
+                    weight_type =  weight.name if hasattr(weight, 'path') else self.__extract_weight_type_from_name(weight.name)
                     if weight_type is None:
                         logger.error("Could not find weight type in name '%s'", weight.name)
                         raise RuntimeError
