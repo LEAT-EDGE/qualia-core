@@ -70,9 +70,9 @@ source = "scm"
 
 [tool.ruff]
 extend-exclude = ["third_party"]
-select = ["ALL"]
+lint.select = ["ALL"]
 #select = ["E", "F", "B"]
-ignore = [
+lint.ignore = [
   "ANN101", # Ignore missing type annotation for self in methods
   "ANN102", # Ignore missing type annotation for self in class methods
   "D1", # Ignore missing pydoc
@@ -83,7 +83,7 @@ ignore = [
 line-length = 131
 target-version = "py39"
 
-[tool.ruff.flake8-quotes]
+[tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 
 [tool.mypy]
