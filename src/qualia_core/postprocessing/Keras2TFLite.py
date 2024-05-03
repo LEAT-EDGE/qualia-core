@@ -2,6 +2,9 @@
 
 import functools
 import importlib
+from pathlib import Path
+
+from keras import Model
 
 class Keras2TFLite:
     # TFLite can be deployed both with STM32CubeAI on STM32 boards and TFLiteMicro on other boards (SparkFun Edge…)
@@ -25,9 +28,21 @@ class Keras2TFLite:
         for input_value in representative_dataset:
             yield [input_value.reshape([1, *input_value.shape])]
 
-    def convert(self, framework, keras_model, model_name, representative_dataset=None):
+    def convert(self,
+                framework,
+                keras_model: Model,
+                model_name: str,
+                representative_dataset=None):
         import tensorflow as tf
-        converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
+
+        # Another Keras 3 workaround
+        if not hasattr(keras_model, '_get_save_spec'):
+            tf_model_path = Path('out')/'learningmodel'/model_name
+            keras_model.export(tf_model_path, format='tf_saved_model')
+            converter = tf.lite.TFLiteConverter.from_saved_model(str(tf_model_path))
+        else:
+            converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
+
         converter.experimental_new_converter = self.__new_converter
 
         if self.__quantize == 'float16':
