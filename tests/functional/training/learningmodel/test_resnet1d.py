@@ -50,7 +50,7 @@ class TestModelResNet1D(TestCase):
 
         self.assertEqual(len(trainresult.model.layers), 32)
 
-        self.assertIsInstance(trainresult.model.get_layer('input_1'), InputLayer)
+        self.assertIsInstance(trainresult.model.get_layer('input_layer'), InputLayer)
         # prepool
         self.assertIsInstance(trainresult.model.get_layer('average_pooling1d'), AveragePooling1D)
         self.assertEqual(tuple(trainresult.model.get_layer('average_pooling1d').pool_size), (2,))
