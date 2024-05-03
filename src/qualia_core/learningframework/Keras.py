@@ -112,6 +112,22 @@ class Keras(LearningFramework[keras.Model]):
         model.compile(loss='categorical_crossentropy', metrics=[accuracy_metric])
 
         metrics = model.evaluate(testset.x, testset.y, batch_size=batch_size)
+        metrics_names = model.metrics_names
+
+        # Workaround yet another Keras 3.x nonsense
+        try:
+            from keras.src.trainers.compile_utils import CompileMetrics
+
+            metrics_names = []
+            for m in model.metrics:
+                if isinstance(m, CompileMetrics):
+                    for mm in m.metrics:
+                        metrics_names.append(mm.name)
+                else:
+                    metrics_names.append(m.name)
+
+        except ModuleNotFoundError:
+            pass
 
         # Predict and show confusion matrix
         train_predictions = model.predict(testset.x)
@@ -121,7 +137,7 @@ class Keras(LearningFramework[keras.Model]):
         if experimenttracking is not None:
             experimenttracking.logger.experiment['cm'].log(np.array2string(cm))
 
-        metrics = {name: metric for name, metric in zip(model.metrics_names, metrics)}
+        metrics = {name: metric for name, metric in zip(metrics_names, metrics)}
         metrics['cm'] = cm
 
         return metrics
