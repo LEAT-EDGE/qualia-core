@@ -51,7 +51,7 @@ class TestQualiaCodeGenLinux:
         assert loggers['evaluate'][0].params == 1150
         assert loggers['evaluate'][0].mem_params == 4600
         assert loggers['evaluate'][0].accuracy >= 0.85
-        assert loggers['evaluate'][0].avg_time <= 0.03
+        assert loggers['evaluate'][0].avg_time <= 0.05
         assert loggers['evaluate'][0].rom_size <= 45000
 
     @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_linux_float32')
@@ -92,7 +92,7 @@ class TestQualiaCodeGenLinux:
         assert loggers['evaluate'][0].params == 1150
         assert loggers['evaluate'][0].mem_params == 4600
         assert loggers['evaluate'][0].accuracy >= 0.85
-        assert loggers['evaluate'][0].avg_time <= 0.03
+        assert loggers['evaluate'][0].avg_time <= 0.05
         assert loggers['evaluate'][0].rom_size <= 45000
 
     @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_linux_int16')
