@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-import importlib.util
 import logging
 import re
 import sys
@@ -13,9 +12,9 @@ import numpy.typing
 import tomlkit
 from torch import nn
 
-if importlib.util.find_spec('keras.src.ops.node'): # Keras 3.x
+try: # Keras 3.x
     from keras.src.ops.node import Node  # type: ignore[import-untyped]
-else:
+except ModuleNotFoundError:
     from keras.src.engine.node import Node  # type: ignore[import-untyped]
 
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
@@ -99,7 +98,7 @@ class Torch2Keras(PostProcessing[nn.Module]):
                     kernel = cast(numpy.typing.NDArray[Any], dense.kernel.numpy())
                     # Keras 3.x does not expose layer.input_shape directly
                     input_shape = cast(tuple[int, ...], layer.get_build_config()['input_shape']
-                                       if hasattr(layer, 'get_build_config') else layer.input_shape)
+                                       if not hasattr(layer, 'input_shape') else layer.input_shape)
                     units = cast(int, dense.units)
 
                     # reshape using Flatten input shape (for example last Conv output)
