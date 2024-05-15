@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    'numpy',
+    'numpy>=1.22.0',
     'tomlkit>=0.11.7',
     'colorful',
     'gitpython',
@@ -40,7 +40,7 @@ gsc = ['torchaudio']
 pytorch3drotation = ['pytorch3d']
 dataaugmentation_image = ['torchvision']
 clearml = ['clearml', 'tensorboard']
-preprocessing-visualize = ['matplotlib']
+visualize = ['matplotlib', 'pypdf']
 deployment-sparkfunedge = ['pycryptodome']
 evaluation-host-tflite = ['scikit-learn']
 evaluation-target-qualia = ['pyserial']
@@ -52,6 +52,7 @@ docs = ['pdm', 'sphinx', 'sphinx-rtd-theme', 'myst-parser']
 [project.scripts]
 qualia = "qualia_core.main:main"
 clearml-import-offline = "qualia_core.experimenttracking.pytorch.ClearML:ClearML.import_and_clear_all_offline_sessions"
+qualia-gen-featuremap-pdf = "qualia_core.postprocessing.VisualizeFeatureMaps:VisualizeFeatureMaps.gen_featuremap_pdf"
 
 [tool.pytest.ini_options]
 markers = [
