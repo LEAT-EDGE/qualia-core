@@ -2,14 +2,11 @@ import importlib.util
 import logging
 
 from .Distribution import Distribution
-from .Keras2TFLite import Keras2TFLite
 from .PostProcessing import PostProcessing
 from .QualiaCodeGen import QualiaCodeGen
 
 __all__ = [
         'Distribution',
-        'FuseBatchNorm',
-        'Keras2TFLite',
         'PostProcessing',
         'QualiaCodeGen',
         ]
@@ -27,12 +24,13 @@ else:
                 'QuantizationAwareTraining',
                 'QuantizationAwareTrainingFX']
 
-if importlib.util.find_spec('keras') is None:
-    logger.warning('Keras is required for RemoveKerasSoftmax, Torch2Keras')
+if importlib.util.find_spec('keras') is None or importlib.util.find_spec('tensorflow') is None:
+    logger.warning('TensorFlow and Keras are required for RemoveKerasSoftmax, Torch2Keras')
 else:
+    from .Keras2TFLite import Keras2TFLite
     from .RemoveKerasSoftmax import RemoveKerasSoftmax
 
-    __all__ += ['RemoveKerasSoftmax']
+    __all__ += ['Keras2TFLite', 'RemoveKerasSoftmax']
 
     # Warning message already printed
     if importlib.util.find_spec('torch') is not None:
