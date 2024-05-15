@@ -558,7 +558,7 @@ class PyTorch(LearningFramework[nn.Module]):
                           callbacks=callbacks)
         trainer_module = self.TrainerModule(model,
                                             dataaugmentations=dataaugmentations,
-                                            num_classes=dataset.y.shape[-1])
+                                            num_outputs=dataset.y.shape[-1])
         predictions = trainer.predict(trainer_module,
                                DataLoader(self.DatasetFromArray(dataset), batch_size=batch_size))
 
