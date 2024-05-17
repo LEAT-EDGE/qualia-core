@@ -26,7 +26,8 @@ class RemoveKerasSoftmax(PostProcessing[keras.Model]):
         require_compile = model.compiled if hasattr(model, 'compiled') else model._is_compiled # Keras 3.x has "compiled" attribute
         if require_compile:
             # Compiled metrics not exposed publicly in Keras 3.x
-            metrics = model._compile_metrics.metrics if not hasattr(model, 'compiled_metrics') else model.compiled_metrics.metrics
+            metrics = model._compile_metrics.metrics if hasattr(model, '_compile_metrics') else model.compiled_metrics.metrics
+            print(metrics)
             compile_params = {'loss': model.loss, 'optimizer': model.optimizer, 'metrics': metrics}
 
         # Remove softmax
