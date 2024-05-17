@@ -8,6 +8,7 @@ import os
 import pickle
 import sys
 import time
+from collections import OrderedDict
 from collections.abc import Generator
 from concurrent.futures import Future, ProcessPoolExecutor
 from multiprocessing.managers import SharedMemoryManager
@@ -22,6 +23,7 @@ import torch
 from matplotlib.backends.backend_pdf import PdfPages
 from torch import nn
 
+from qualia_core.datamodel.RawDataModel import RawData
 from qualia_core.learningframework.PyTorch import PyTorch
 from qualia_core.learningmodel.pytorch.Quantizer import Quantizer
 from qualia_core.postprocessing.PostProcessing import PostProcessing
@@ -42,23 +44,35 @@ else:
 logger = logging.getLogger(__name__)
 
 class VisualizeFeatureMaps(PostProcessing[nn.Module]):
-    figsize: tuple[float, float] = (11.7, 8.3)
+    figsize: tuple[float, float] = (11.7, 8.3) # A4 landscape in inches
     outdir: Path = Path('out')/'feature_maps'
 
     def __init__(self,
                  create_pdf: bool = True,  # noqa: FBT001, FBT002
                  save_feature_maps: bool = True,  # noqa: FBT001, FBT002
-                 compress_feature_maps: bool = True) -> None:  # noqa: FBT001, FBT002
+                 compress_feature_maps: bool = True,  # noqa: FBT001, FBT002
+                 data_range: list[int] | None = None) -> None:
         super().__init__()
         self.__create_pdf = create_pdf
         self.__save_feature_maps = save_feature_maps
         self.__compress_feature_maps = compress_feature_maps
+        if data_range is not None and len(data_range) < 2:  # noqa: PLR2004
+            logger.error('data_range must be a list of 2 integers')
+            raise ValueError
+        self.__data_range = (data_range[0], data_range[1]) if data_range is not None else (None, None)
 
-    def __gen_featuremaps(self, trainresult: TrainResult) -> dict[str, numpy.typing.NDArray[Any]] | None:
-        feature_maps: dict[str, torch.Tensor] = {}
+    def __gen_featuremaps(self,
+                          trainresult: TrainResult,
+                          data_range: tuple[int | None, int | None]) -> OrderedDict[str, numpy.typing.NDArray[Any]] | None:
+        feature_maps: OrderedDict[str, torch.Tensor] = OrderedDict()
         framework = trainresult.framework
         model = trainresult.model
         dataset = trainresult.testset
+
+        # Extract range from dataset
+        dataset_cut = RawData(x=dataset.x[data_range[0]:data_range[1]],
+                              y=dataset.y[data_range[0]:data_range[1]])
+
 
         if not isinstance(framework, PyTorch):
             logger.error('Only compatible with PyTorch-based frameworks')
@@ -80,7 +94,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                    if not isinstance(layer, Quantizer)] # No hook to register for Quantizer module
 
         _ = framework.predict(model=model,
-                              dataset=dataset,
+                              dataset=dataset_cut,
                               batch_size=trainresult.batch_size,
                               dataaugmentations=trainresult.dataaugmentations,
                               experimenttracking=None,
@@ -90,12 +104,19 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             handle.remove()
 
         # Make sure everything is on CPU first
-        return {layername: feature_map.cpu().numpy() for layername, feature_map in feature_maps.items()}
+        feature_maps_numpy = OrderedDict((layername, feature_map.cpu().numpy()) for layername, feature_map in feature_maps.items())
+
+        # Add input image, transposed to channels_last to be the same as PyTorch feature_maps
+        feature_maps_numpy['__INPUT__'] = dataset_cut.x.sum(0).transpose(2, 0, 1)
+        feature_maps_numpy.move_to_end('__INPUT__', last=False) # Move __INPUT__ to beginning of OrderedDict
+
+        return feature_maps_numpy
 
     @staticmethod
     def _init_process() -> None:
         # Need to configure root logger since we use spawn instead of fork
         from qualia_core.utils.logger.setup_root_logger import setup_root_logger
+
         setup_root_logger(colored=True)
 
     @staticmethod
@@ -114,7 +135,6 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                                 ncols,
                                 sharex='all', # Can cause noticeable slowdowns with large number of plots
                                 sharey='all', # Can cause noticeable slowdowns with large number of plots
-
                                 squeeze=False,
                                 figsize=figsize,
                                 layout='compressed')
@@ -134,8 +154,30 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         plt.close()
 
     @staticmethod
-    def _gen_pdf_layer(  # noqa: PLR0913
-                       layername: str,
+    def _gen_pdf_input_layer_rgb(data: numpy.typing.NDArray[Any],
+                                 figsize: tuple[float, float],
+                                 pdf: PdfPages) -> None:
+        _ = plt.figure(figsize=figsize)
+        _ = plt.title('Input image')
+        _ = plt.xlabel('Width')
+        _ = plt.ylabel('Height')
+        _ = plt.imshow(data.transpose(1, 2, 0), interpolation='nearest') # channels_first in PyTorch, channels_last for matplotlib
+        pdf.savefig()
+        plt.close()
+
+
+    @staticmethod
+    def _compute_scale(data: numpy.typing.NDArray[Any]) -> tuple[float, float]:
+        # Symmetric scale
+        vmax = np.abs(data).max().item()
+        # Prevent collapsing of scale
+        if vmax == 0.0:
+            vmax = 1.0
+        vmin = -vmax
+        return vmin, vmax
+
+    @staticmethod
+    def _gen_pdf_layer(layername: str,  # noqa: PLR0913
                        shared_buf: SharedMemory,
                        shared_buf_dtype: np.dtype[Any],
                        shared_buf_shape: tuple[int, ...],
@@ -143,7 +185,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                        figsize: tuple[float, float]) -> Path:
         start = time.time()
 
-        logger.info("%s generating PDF for layer '%s…'", multiprocessing.current_process().name, layername)
+        logger.info("%s generating PDF for layer '%s'…", multiprocessing.current_process().name, layername)
 
         feature_map = np.frombuffer(shared_buf.buf, dtype=shared_buf_dtype)
         feature_map = feature_map.reshape(shared_buf_shape)
@@ -156,12 +198,12 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             if len(feature_map.shape) < 3: # 1D + channels data is expanded to 2D + channels  # noqa: PLR2004
                 feature_map = np.expand_dims(feature_map, 1)
 
-            # Symmetric scale
-            vmax = np.abs(feature_map.sum(0)).max().item()
-            # Prevent collapsing of scale
-            if vmax == 0.0:
-                vmax = 1.0
-            vmin = -vmax
+            # If input tensor and 3 channels, display image as RGB
+            if layername == '__INPUT__' and len(feature_map) == 3: # Assume RGB input  # noqa: PLR2004
+                VisualizeFeatureMaps._gen_pdf_input_layer_rgb(data=feature_map, figsize=figsize, pdf=pdf)
+
+            # Scale for sum of channels
+            vmin, vmax = VisualizeFeatureMaps._compute_scale(feature_map.sum(0))
             # Use a diverging colormap
             colormap = 'seismic'
 
@@ -178,6 +220,9 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             # Page(s) for per-channel plots
             subplot_pages = math.ceil(len(feature_map) / 70) # Max. 70 channel per page
             feature_map_chunks = np.array_split(feature_map, subplot_pages)
+
+            # Scale for channels
+            vmin, vmax = VisualizeFeatureMaps._compute_scale(feature_map)
 
             i = 0 # Feature map index for title
             for feature_map_chunk in feature_map_chunks:
@@ -204,7 +249,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
 
     @classmethod
     def _gen_pdf(cls,
-                  feature_maps: dict[str, numpy.typing.NDArray[np.float32]],
+                  feature_maps: OrderedDict[str, numpy.typing.NDArray[np.float32]],
                   figsize: tuple[float, float],
                   outdir: Path,
                   basename: str) -> None:
@@ -299,7 +344,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
 
         outdir.mkdir(parents=True, exist_ok=True)
 
-        feature_maps = self.__gen_featuremaps(trainresult)
+        feature_maps = self.__gen_featuremaps(trainresult, self.__data_range)
         if feature_maps is None:
             return trainresult, model_conf
 
