@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from types import ModuleType  # noqa: TCH003, I001 # torch must be imported before keras to avoid deadlock
 
     from torch import nn  # noqa: TCH002
-    import keras  # type: ignore[import] # No stubs for keras package  # noqa: TCH002
+    import keras  # type: ignore[import-untyped] # No stubs for keras package  # noqa: TCH002
     import numpy.typing  # noqa: TCH002
 
 class Converter(ABC, Generic[T]):
