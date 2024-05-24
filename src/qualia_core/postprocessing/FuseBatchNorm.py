@@ -32,8 +32,9 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
 
     patterns: list[tuple[type[nn.Module], type[nn.Module]]]
 
-    def __init__(self) -> None:
+    def __init__(self, evaluate: bool = True) -> None:  # noqa: FBT001, FBT002
         super().__init__()
+        self.__evaluate = evaluate
 
         from torch import nn
 
@@ -108,19 +109,22 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
         logger.info('Model after BatchNorm/Conv fusion')
         trainresult.framework.summary(fused_model)
 
-        logger.info('Evaluation on test dataset after BatchNorm/Conv fusion')
-        metrics = trainresult.framework.evaluate(fused_model,
-                                                 trainresult.testset,
-                                                 batch_size=trainresult.batch_size,
-                                                 dataaugmentations=trainresult.dataaugmentations,
-                                                 experimenttracking=trainresult.experimenttracking,
-                                                 dataset_type='test',
-                                                 name=model_name)
+        acc = trainresult.acc
+        if self.__evaluate:
+            logger.info('Evaluation on test dataset after BatchNorm/Conv fusion')
+            metrics = trainresult.framework.evaluate(fused_model,
+                                                     trainresult.testset,
+                                                     batch_size=trainresult.batch_size,
+                                                     dataaugmentations=trainresult.dataaugmentations,
+                                                     experimenttracking=trainresult.experimenttracking,
+                                                     dataset_type='test',
+                                                     name=model_name)
+            acc = metrics.get('testacc', None)
 
         new_model_conf = copy.deepcopy(model_conf)
         new_model_conf.get('params', {})['batch_norm'] = False
 
-        return (dataclasses.replace(trainresult, name=model_name, model=fused_model, acc=metrics.get('testacc', None)),
+        return (dataclasses.replace(trainresult, name=model_name, model=fused_model, acc=acc),
                 new_model_conf)
 
     @override
