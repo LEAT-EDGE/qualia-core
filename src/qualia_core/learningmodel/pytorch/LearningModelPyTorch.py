@@ -13,6 +13,7 @@ else:
 
 class LearningModelPyTorch(LearningModel, nn.Module):
     def __init__(self, input_shape: tuple[int, ...], output_shape: tuple[int, ...]) -> None:
+        self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(input_shape=input_shape, output_shape=output_shape)
 
     @override
