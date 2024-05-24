@@ -4,19 +4,20 @@ import copy
 import dataclasses
 import logging
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from torch import nn
+from torch.fx.graph_module import GraphModule
 
 from qualia_core.learningmodel.pytorch.layers import layers as custom_layers
+from qualia_core.typing import TYPE_CHECKING
 
 from .PostProcessing import PostProcessing
 
 if TYPE_CHECKING:
-    from torch.fx.graph import Graph
-    from torch.fx.graph_module import GraphModule
+    from torch.fx.graph import Graph  # noqa: TCH002
 
-    from qualia_core.qualia import TrainResult
+    from qualia_core.qualia import TrainResult  # noqa: TCH001
     from qualia_core.typing import ModelConfigDict
 
 if sys.version_info >= (3, 12):
@@ -45,7 +46,9 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
                 ]
 
     # Copied from torch/fx/experimental/optimization.py because we need a custom Tracer for our custom layers
-    def fuse(self, model: nn.Module, inplace: bool = False) -> GraphModule:
+    def fuse(self, model: nn.Module,
+             graphmodule_cls: type[GraphModule],
+             inplace: bool = False) -> GraphModule:  # noqa: FBT001, FBT002
         """Fuses convolution/BN layers for inference purposes.
 
         Will deepcopy your model by default, but can modify the model inplace as well.
@@ -91,14 +94,14 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
                     replace_node_module(node.args[0], modules, fused_conv)
                     node.replace_all_uses_with(node.args[0])
                     new_graph.erase_node(node)
-        return GraphModule(fx_model, new_graph)
+        return graphmodule_cls(fx_model, new_graph)
 
     @override
     def __call__(self, trainresult: TrainResult, model_conf: ModelConfigDict) -> tuple[TrainResult, ModelConfigDict]:
         model = trainresult.model
         model.eval() # Can only fuse models in eval mode
 
-        fused_model = self.fuse(model, inplace=True)
+        fused_model = self.fuse(model, graphmodule_cls=GraphModule, inplace=True)
 
         # Copy input_shape/output_shape into generated model
         fused_model.input_shape = model.input_shape
