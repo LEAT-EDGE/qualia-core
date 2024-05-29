@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import sys
-from typing import Protocol
+
+# Python 3.10 and earlier typing.Protocol breaks multiple inheritance so use typing_extensions instead
+if sys.version_info >= (3, 11):
+    from typing import Protocol
+else:
+    from typing_extensions import Protocol
 
 from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
