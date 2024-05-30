@@ -133,7 +133,7 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
     @override
     def process_model(self, model: nn.Module, model_conf: ModelConfigDict) -> tuple[nn.Module, ModelConfigDict]:
         model = model.eval() # Can only fuse models in eval mode
-        fused_model = self.fuse(model, inplace=True)
+        fused_model = self.fuse(model, graphmodule_cls=GraphModule, inplace=True)
         # Copy input_shape/output_shape into generated model
         fused_model.input_shape = model.input_shape
         fused_model.output_shape = model.output_shape
