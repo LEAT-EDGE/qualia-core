@@ -5,7 +5,7 @@ default:
   image: archlinux:latest
   before_script:
     - pacman -Syu --noconfirm --needed git which curl wget unzip make gcc arm-none-eabi-gcc arm-none-eabi-newlib vim
-    - pacman -S --noconfirm --needed python-pytorch python-tensorflow python-pip python-numpy
+    - pacman -S --noconfirm --needed python-pytorch python-tensorflow python-keras python-pip python-numpy
     - pacman -S --noconfirm --needed python-scikit-learn python-pycryptodome python-pyserial python-tomlkit python-gitpython
     - pacman -S --noconfirm --needed python-tabulate python-matplotlib python-pydot
     - pacman -S --noconfirm --needed python-pytest python-pytest-dependency python-pytest-xdist python-pytest-env
@@ -14,7 +14,7 @@ default:
     - pacman -S --noconfirm --needed python-yarl python-aiosignal python-dill python-filelock
     - pacman -S --noconfirm --needed python-blosc2 python-fsspec python-typing_extensions python-pydantic
     - pacman -S --noconfirm --needed cmake ninja
-    - pip install --break-system-packages -U keras
+    - pip install --break-system-packages --upgrade --force-reinstall --no-deps optree # optree currently broken in Arch repos
     - pacman -U --noconfirm /mnt/hdd/Software/STMicroelectronics/STM32CubeIDE/stm32cubeide-1.12.0-2-x86_64.pkg.tar.zst
     - pacman -U --noconfirm /mnt/hdd/Software/Ambiq/ambiqsuite-2.5.1-2-any.pkg.tar.zst
     - mkdir -p ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/5.2.0/Utilities
