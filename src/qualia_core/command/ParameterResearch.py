@@ -85,7 +85,7 @@ class ParameterResearch:
 
             print(f'{cf.bold}Hyperparameter research for {cf.blue}{config["model"]["name"]}{cf.close_fg_color}, trial {cf.red}{trial.number}{cf.reset}')
 
-            tune_config = gen_tune_config(copy.deepcopy(config['parameter_research']['params']['trial']))
+            tune_config = gen_tune_config(copy.deepcopy(config['parameter_research']['trial']))
 
             print(f'{cf.bold}Trial params:{cf.reset} {tune_config=}')
 
@@ -142,10 +142,10 @@ class ParameterResearch:
 
 
 
-        if config['parameter_research'].get('params', {}).get('study', {}).get('load', False):
-            study = optuna.load_study(**config['parameter_research'].get('params', {}).get('study', {}).get('params', {}))
+        if config['parameter_research'].get('study', {}).get('load', False):
+            study = optuna.load_study(**config['parameter_research'].get('study', {}).get('params', {}))
         else:
-            study = optuna.create_study(**config['parameter_research'].get('params', {}).get('study', {}).get('params', {}))
-        study.optimize(training_function, **config['parameter_research'].get('params', {}).get('optimize', {}).get('params', {}))
+            study = optuna.create_study(**config['parameter_research'].get('study', {}).get('params', {}))
+        study.optimize(training_function, **config['parameter_research'].get('optimize', {}).get('params', {}))
 
         return loggers
