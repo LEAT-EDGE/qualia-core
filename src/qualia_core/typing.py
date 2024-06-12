@@ -130,6 +130,18 @@ class ModelConfigDict(ModelCommonConfigDict):
     name: str
     disabled: NotRequired[bool]
 
+class ParameterResearchStudyConfigDict(TypedDict):
+    load: NotRequired[bool]
+    params: RecursiveConfigDict
+
+class ParameterResearchOptimizeConfigDict(TypedDict):
+    params: RecursiveConfigDict
+
+class ParameterResearchConfigDict(TypedDict):
+    optimize: ParameterResearchOptimizeConfigDict
+    study: ParameterResearchStudyConfigDict
+    trial: RecursiveConfigDict
+
 class ConfigDict(TypedDict):
     bench: BenchConfigDict
     experimenttracking: NotRequired[ExperimentTrackingConfigDict]
@@ -142,5 +154,6 @@ class ConfigDict(TypedDict):
     postprocessing: NotRequired[list[PostprocessingConfigDict]]
     model: list[ModelConfigDict]
     model_template: ModelTemplateConfigDict
+    parameter_research: NotRequired[ParameterResearchConfigDict]
 
 __all__ = ['TYPE_CHECKING', 'RecursiveConfigDict']
