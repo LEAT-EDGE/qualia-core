@@ -286,13 +286,14 @@ class Quantizer(nn.Module):
         return self.bits - 1 + maxWeight(self.global_max)
 
 
-def update_params(tensor_type: Literal['act', 'input', 'w', 'bias'],
+def update_params(tensor_type: Literal['act', 'v', 'input', 'w', 'bias'],
                   quant_params: QuantizationConfigDict) -> QuantizerConfigDict:
     # Create a copy of quant_params
     quant_params_copy = quant_params.copy()
 
     # Remove all tensor_type keys from tensor_params
     _ = quant_params_copy.pop('act', None)
+    _ = quant_params_copy.pop('v', None)
     _ = quant_params_copy.pop('input', None)
     _ = quant_params_copy.pop('w', None)
     _ = quant_params_copy.pop('bias', None)
