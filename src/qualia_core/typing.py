@@ -100,6 +100,7 @@ class QuantizerConfigDict(TypedDict):
 
 class QuantizationConfigDict(QuantizerConfigDict):
     act: NotRequired[QuantizerConfigDict]
+    v: NotRequired[QuantizerConfigDict]
     input: NotRequired[QuantizerConfigDict]  # noqa: A003
     w: NotRequired[QuantizerConfigDict]
     bias: NotRequired[QuantizerConfigDict]
