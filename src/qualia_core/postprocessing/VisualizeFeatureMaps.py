@@ -107,7 +107,14 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         feature_maps_numpy = OrderedDict((layername, feature_map.cpu().numpy()) for layername, feature_map in feature_maps.items())
 
         # Add input image, transposed to channels_last to be the same as PyTorch feature_maps
-        feature_maps_numpy['__INPUT__'] = dataset_cut.x.mean(0).astype(dataset_cut.x.dtype).transpose(2, 0, 1)
+        input_data = dataset_cut.x.mean(0).astype(dataset_cut.x.dtype)
+        if len(input_data.shape) == 3:
+            feature_maps_numpy['__INPUT__'] = input_data.transpose(2, 0, 1)
+        elif len(input_data.shape) == 2:
+            feature_maps_numpy['__INPUT__'] = input_data.swapaxes(0, 1)
+        else:
+            feature_maps_numpy['__INPUT__'] = input_data
+
         feature_maps_numpy.move_to_end('__INPUT__', last=False) # Move __INPUT__ to beginning of OrderedDict
 
         return feature_maps_numpy
