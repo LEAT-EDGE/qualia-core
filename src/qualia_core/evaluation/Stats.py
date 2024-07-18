@@ -1,4 +1,4 @@
-from dataclasses import asdict, astuple, dataclass, fields
+from dataclasses import asdict, astuple, dataclass, field, fields
 from typing import Any, NamedTuple
 
 
@@ -12,6 +12,7 @@ class StatsFields(NamedTuple):
     avg_time: float # in seconds
     rom_size: int # in bytes
     ram_size: int # in bytes
+    metrics: dict[str, float]
 
 @dataclass
 class Stats:
@@ -24,6 +25,7 @@ class Stats:
     avg_time: float = -1 # in seconds
     rom_size: int = -1 # in bytes
     ram_size: int = -1 # in bytes
+    metrics: dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def fieldnames(cls) -> tuple[str, ...]:
