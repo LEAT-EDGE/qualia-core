@@ -37,11 +37,13 @@ class QualiaCodeGen(Converter[Any]):
     def __init__(self,
                  quantize: str,
                  long_width: int | None = None,
-                 outdir: str | None = None) -> None:
+                 outdir: str | None = None,
+                 metrics: list[str] | None = None) -> None:
         super().__init__()
 
         self.__quantize = quantize
         self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
+        self.__metrics = metrics if metrics is not None else []
 
         if quantize == 'float32':
             self.__number_type = float
@@ -94,6 +96,11 @@ class QualiaCodeGen(Converter[Any]):
         converter = Converter(output_path=output_path)
         return converter.convert_model(modelgraph)
 
+    def convert_metrics_to_cpp(self, metrics: list[str], output_path: Path) -> str | None:
+        from qualia_codegen_core import MetricsConverter
+        converter = MetricsConverter(output_path=output_path)
+        return converter.convert_metrics(metrics=metrics)
+
     @override
     def convert(self,
                 framework: LearningFramework[nn.Module | keras.Model],
@@ -113,7 +120,7 @@ class QualiaCodeGen(Converter[Any]):
             logger.error('Could not convert model to ModelGraph')
             return None
 
-        if self.__number_type == int: # Activation range only when using fixed-point quantization
+        if self.__number_type is int: # Activation range only when using fixed-point quantization
             activations_range = ActivationsRange()
 
             if importlib.util.find_spec('keras') is not None:
@@ -166,6 +173,9 @@ class QualiaCodeGen(Converter[Any]):
                         )
         # self.directory cannot be None as long as we define self._name above
         self._h = self.convert_modelgraph_to_c(modelgraph, output_path=cast(Path, self.directory))
+
+        # Do not concat result of convert metrics_to_c since it's C++ and not C
+        _ = self.convert_metrics_to_cpp(self.__metrics, output_path=cast(Path, self.directory))
 
         if self._h is None:
             logger.error('Could not convert ModelGraph to C')
