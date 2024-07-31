@@ -500,11 +500,13 @@ class PyTorch(LearningFramework[nn.Module]):
                                             num_outputs=testset.y.shape[-1],
                                             metrics=self._metrics)
         metrics = trainer.test(trainer_module, DataLoader(self.DatasetFromArray(testset), batch_size=batch_size))
-        predictions = torch.cat(trainer.predict(trainer_module, DataLoader(self.DatasetFromArray(testset), batch_size=batch_size)))
-        # predict returns list of predictions according to batches
         self.log(f'{metrics=}')
 
         if self._enable_confusion_matrix:
+            # predict returns list of predictions according to batches
+            predictions = torch.cat(trainer.predict(trainer_module,
+                                                    DataLoader(self.DatasetFromArray(testset), batch_size=batch_size)))
+
             print('Confusion matrix:')
             cm = self.confusion_matrix(predictions, testset, device=trainer_module.device)
             ncm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -571,7 +573,10 @@ class PyTorch(LearningFramework[nn.Module]):
 
         return torch.cat(predictions)
 
-    def confusion_matrix(self, predictions: torch.Tensor, testset: RawData, device: str) -> numpy.typing.NDArray[np.int32]:
+    def confusion_matrix(self,
+                         predictions: torch.Tensor,
+                         testset: RawData,
+                         device: torch.device) -> numpy.typing.NDArray[np.int32]:
         import torch
         from torchmetrics import ConfusionMatrix
 
