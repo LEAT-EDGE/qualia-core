@@ -178,7 +178,7 @@ class PyTorch(LearningFramework[nn.Module]):
             return batch
 
         @override
-        def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> torch.Tensor:
+        def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> torch.Tensor | None:
             x, y = batch
             logits = self(x)
 
