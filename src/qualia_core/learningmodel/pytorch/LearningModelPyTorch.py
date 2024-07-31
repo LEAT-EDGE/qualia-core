@@ -1,4 +1,5 @@
 import sys
+from typing import Any
 
 import torch
 from torch import nn
@@ -17,5 +18,5 @@ class LearningModelPyTorch(LearningModel, nn.Module):
         super().__init__(input_shape=input_shape, output_shape=output_shape)
 
     @override
-    def __call__(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
-        return super().__call__(input)
+    def __call__(self, input: torch.Tensor, *args: Any, **kwargs: Any) -> torch.Tensor:  # noqa: A002
+        return super().__call__(input, *args, **kwargs)
