@@ -296,7 +296,7 @@ class PyTorch(LearningFramework[nn.Module]):
                  devices: int | str | list[int] = 'auto',
                  precision: _PRECISION_INPUT = 32,
                  metrics: list[str] | None = None,
-                 loss: str = 'crossentropy',
+                 loss: str | None = 'crossentropy',
                  enable_confusion_matrix: bool = True,
                  checkpoint_metric: CheckpointMetricConfigDict | None = None) -> None:
         super().__init__()
