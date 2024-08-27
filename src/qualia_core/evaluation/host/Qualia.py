@@ -136,7 +136,7 @@ class Qualia(Evaluator):
                     metrics[name] += value * len(y)
         metrics = {name: value / test_vector_count for name, value in metrics.items()}
 
-        return Stats(avg_time=avg_time, metrics=metrics)
+        return Stats(avg_time=avg_time, metrics=metrics, accuracy=metrics.get('acc', -1))
 
         # avg it/secs
         # ram usage
