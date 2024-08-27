@@ -43,7 +43,7 @@ class QualiaCodeGen(Converter[Any]):
 
         self.__quantize = quantize
         self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
-        self.__metrics = metrics if metrics is not None else []
+        self.__metrics = metrics if metrics is not None else ['acc']
 
         if quantize == 'float32':
             self.__number_type = float
