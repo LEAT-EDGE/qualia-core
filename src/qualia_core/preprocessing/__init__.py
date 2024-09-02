@@ -1,3 +1,6 @@
+import importlib.util
+import logging
+
 from .BandPassFilter import BandPassFilter
 from .Class2BinMatrix import Class2BinMatrix
 from .CopySet import CopySet
@@ -10,8 +13,6 @@ from .PrintHARDataModelSummary import PrintHARDataModelSummary
 from .RemoveActivity import RemoveActivity
 from .RemoveSensor import RemoveSensor
 from .Reshape2DTo1D import Reshape2DTo1D
-from .VisualizeActivities import VisualizeActivities
-from .VisualizeWindows import VisualizeWindows
 from .Window import Window
 
 __all__ = ['BandPassFilter',
@@ -27,6 +28,15 @@ __all__ = ['BandPassFilter',
            'RemoveActivity',
            'RemoveSensor',
            'Reshape2DTo1D',
-           'VisualizeActivities',
-           'VisualizeWindows',
            'Window']
+
+logger = logging.getLogger(__name__)
+
+if importlib.util.find_spec('matplotlib') is None:
+    logger.warning('Matplotlib is required for VisualizeActivities, VisualizeWindows')
+else:
+    from .VisualizeActivities import VisualizeActivities
+    from .VisualizeWindows import VisualizeWindows
+
+    __all__ += ['VisualizeActivities',
+                'VisualizeWindows']
