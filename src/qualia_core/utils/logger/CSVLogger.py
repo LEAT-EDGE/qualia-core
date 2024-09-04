@@ -15,4 +15,4 @@ class CSVLogger(Logger[T]):
                  file: Path | None = None,
                  fields: type[T] | None = None,
                  log_fields: bool = True) -> None:  # noqa: FBT001, FBT002
-        super().__init__(name=name, file=file, suffix='.csv', fields=fields, log_fields = log_fields, formatter=CSVFormatter())
+        super().__init__(name=name, file=file, suffix='.csv', fields=fields, log_fields=log_fields, formatter=CSVFormatter())

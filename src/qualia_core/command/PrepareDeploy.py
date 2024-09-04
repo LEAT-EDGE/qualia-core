@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import itertools
-from datetime import datetime
-from pathlib import Path
 from typing import Any, NamedTuple
 
 import colorful as cf  # type: ignore[import-untyped]
@@ -18,7 +16,6 @@ if TYPE_CHECKING:
     from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
     from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils import Git  # noqa: TCH001
     from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
 
 class PrepareDeployLoggerFields(NamedTuple):
@@ -31,15 +28,13 @@ class PrepareDeploy:
     def __call__(self,  # noqa: PLR0913
                  qualia: QualiaComponent,
                  learningframework: LearningFramework[Any],
-                 converter: type[Converter],
+                 converter: type[Converter[Any]],
                  deployers: ModuleType,
                  data: RawDataModel,
-                 config: ConfigDict,
-                 git: Git) -> dict[str, Logger[PrepareDeployLoggerFields]]:
+                 config: ConfigDict) -> dict[str, Logger[PrepareDeployLoggerFields]]:
         loggers: dict[str, Logger[PrepareDeployLoggerFields]] = {}
 
-        log: CSVLogger[PrepareDeployLoggerFields] = CSVLogger('prepare_deploy',
-                                                             file=Path('prepare_deploy')/f'{git.short_hash()}_{datetime.now():%Y-%m-%d_%H-%M-%S}.csv')
+        log: CSVLogger[PrepareDeployLoggerFields] = CSVLogger('prepare_deploy')
         loggers['prepare_deploy'] = log
         # Write column names
         log.fields = PrepareDeployLoggerFields
@@ -47,7 +42,7 @@ class PrepareDeploy:
         for i in range(config['bench']['first_run'], config['bench']['last_run']+1):
             for m, q, o, c in itertools.product(config['model'],
                                                 config['deploy']['quantize'],
-                                                config['deploy']['optimize'],
+                                                config['deploy'].get('optimize', ''),
                                                 config['deploy'].get('compress', [1])):
                 if m.get('disabled', False):
                     continue
@@ -55,7 +50,8 @@ class PrepareDeploy:
                 # Postprocessings can change model name
                 model_name = m['name']
                 for postprocessing in config.get('postprocessing', []):
-                    ppp = {k: v for k,v in postprocessing.get('params', {}).items()} # Workaround tomlkit bug where some nested dict would lose their items
+                    # Workaround tomlkit bug where some nested dict would lose their items
+                    ppp = {k: v for k,v in postprocessing.get('params', {}).items()}
                     pp = getattr(qualia.postprocessing, postprocessing['kind'])(**ppp)
                     model_name = pp.process_name(model_name)
                     learningframework = pp.process_framework(learningframework)
