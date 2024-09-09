@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from torch import nn  # noqa: I001 # torch must be imported before keras to avoid deadlock
     import keras  # type: ignore[import] # No stubs for keras package
     import numpy.typing
+    from qualia_codegen_core.graph.ActivationsRange import ActivationsRange
     from qualia_codegen_core.graph import ModelGraph
     from qualia_codegen_core.graph.layers import TBaseLayer
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 class QualiaCodeGen(Converter[Any]):
     deployers = qualia_core.deployment.qualia_codegen #: Suggested deployers
 
-    __number_type: type[int | float]
+    _number_type: type[int | float]
     _h: str | None = None
     _name: str | None = None
 
@@ -44,20 +45,71 @@ class QualiaCodeGen(Converter[Any]):
         self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
 
         if quantize == 'float32':
-            self.__number_type = float
+            self._number_type = float
             self.__width = 32
             self.__long_width = 32 if long_width is None else long_width
         elif quantize == 'int16':
-            self.__number_type = int
+            self._number_type = int
             self.__width = 16
             self.__long_width = 32 if long_width is None else long_width
         elif quantize == 'int8':
-            self.__number_type = int
+            self._number_type = int
             self.__width = 8
             self.__long_width = 16 if long_width is None else long_width
         else:
             logger.error('Qualia-CodeGen only supports no (float32) quantization, int8 or int16 quantization, got %s', quantize)
             raise ValueError
+
+    def _annotate_modelgraph_with_quantization(self,
+                                                modelgraph: ModelGraph,
+                                                activations_range: ActivationsRange,
+                                                number_type: type[int | float],
+                                                width: int,
+                                                long_width: int) -> ModelGraph:
+        """Annotate a :class:`qualia_codegen_core.graph.ModelGraph.ModelGraph` with quantization information.
+
+        :class:`qualia_codegen_core.graph.ModelGraph.ModelGraph` is annotated
+        with :class:`qualia_codegen_core.graph.Quantization.Quantization` objects populated with quantization information
+        from ``number_type``, ``width``, ``long_width``,
+        and power-of-two scale factors :attr:`qualia_codegen_core.graph.ActivationRange.weights_q`
+        and :attr:`qualia_codegen_core.graph.ActivationRange.activation_q`.
+        In case a layer is missing from ``activations_range``, information is copied from its first input layer.
+
+        :param modelgraph: :class:`qualia_codegen_core.graph.ModelGraph.ModelGraph` to annotate
+        :param activations_range: Dict of layer name and :class:`qualia_codegen_core.graph.ActivationRange`
+        :param number_type: `int` or `float`
+        :param width: Data type width in bits
+        :param long_width: Long data type width in bits
+        :return: :class:`qualia_codegen_core.graph.ModelGraph.ModelGraph` annotated with
+            :class:`qualia_codegen_core.graph.Quantization.Quantization` information
+        :raise KeyError: When the current layer is not found in ``activations_range`` and it does not have an input layer
+        """
+        from qualia_codegen_core.graph import Quantization
+
+        # Populate quantization information for all layers from activations_range
+        for node in modelgraph.nodes:
+            if node.layer.name in activations_range:
+                node.q = Quantization(
+                        number_type=number_type,
+                        width=width,
+                        long_width=long_width,
+                        weights_scale_factor=activations_range[node.layer.name].weights_q,
+                        bias_scale_factor=activations_range[node.layer.name].bias_q,
+                        output_scale_factor=activations_range[node.layer.name].activation_q,
+                        weights_round_mode=activations_range[node.layer.name].weights_round_mode,
+                        output_round_mode=activations_range[node.layer.name].activation_round_mode,
+                )
+            else:
+                if not node.innodes:
+                    logger.error('No quantization information for %s and no previous layer to copy from.',
+                                 node.layer.name)
+                    raise KeyError
+                logger.warning('No quantization information for %s applying first previous layer %s information',
+                               node.layer.name,
+                               node.innodes[0].layer.name)
+                node.q = copy.deepcopy(node.innodes[0].q)
+
+        return modelgraph
 
     def convert_model_to_modelgraph(self, model: nn.Module | keras.Model) -> ModelGraph | None:
         from qualia_codegen_core.graph.layers import TAddLayer, TSumLayer
@@ -113,7 +165,7 @@ class QualiaCodeGen(Converter[Any]):
             logger.error('Could not convert model to ModelGraph')
             return None
 
-        if self.__number_type == int: # Activation range only when using fixed-point quantization
+        if self._number_type is int: # Activation range only when using fixed-point quantization
             activations_range = ActivationsRange()
 
             if importlib.util.find_spec('keras') is not None:
@@ -131,31 +183,16 @@ class QualiaCodeGen(Converter[Any]):
                                             'input')
 
             # Populate quantization information for all layers from activations_range
-            for node in modelgraph.nodes:
-                if node.layer.name in activations_range:
-                    node.q = Quantization(
-                            number_type=self.__number_type,
-                            width=self.__width,
-                            long_width=self.__long_width,
-                            weights_scale_factor=activations_range[node.layer.name].weights_q,
-                            bias_scale_factor=activations_range[node.layer.name].bias_q,
-                            output_scale_factor=activations_range[node.layer.name].activation_q,
-                            weights_round_mode=activations_range[node.layer.name].weights_round_mode,
-                            output_round_mode=activations_range[node.layer.name].activation_round_mode,
-                            )
-                else:
-                    if not node.innodes:
-                        logger.error('No quantization information for %s, and no previous layer to copy from.', node.layer.name)
-                        return self
-                    logger.warning('No quantization information for %s, applying first previous layer %s information',
-                                   node.layer.name,
-                                   node.innodes[0].layer.name)
-                    node.q = copy.deepcopy(node.innodes[0].q)
+            modelgraph = self._annotate_modelgraph_with_quantization(modelgraph,
+                                                         activations_range,
+                                                         number_type=self._number_type,
+                                                         width=self.__width,
+                                                         long_width=self.__long_width)
         else:
             for node in modelgraph.nodes:
                 # No scale factor if not fixed-point quantization on integers
                 node.q = Quantization(
-                        number_type=self.__number_type,
+                        number_type=self._number_type,
                         width=self.__width,
                         long_width=self.__long_width,
                         weights_scale_factor=0,
