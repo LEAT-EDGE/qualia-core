@@ -73,7 +73,6 @@ class Qualia(Evaluator):
             logger.info('%d stderr: %s', i, res.stderr)
 
         # Extract one metric per line of stderr
-        print(res.stderr.splitlines())
         metrics_str = dict(line.split('=') for line in res.stderr.splitlines())
         # Convert metrics value from string to float
         metrics = {name: float(value) for name, value in metrics_str.items()}
