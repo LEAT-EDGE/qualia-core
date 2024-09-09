@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
     from qualia_core.datamodel.RawDataModel import RawDataModel  # noqa: TCH001
     from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils import Git  # noqa: TCH001
     from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
 
 logger = logging.getLogger(__name__)
@@ -29,18 +27,15 @@ class LearningModelLoggerFields(NamedTuple):
     accuracy: float
 
 class Train:
-    def __call__(self,  # noqa: PLR0913
+    def __call__(self,  # noqa: C901
                  qualia: QualiaComponent,
                  learningframework: LearningFramework[Any],
                  dataaugmentations: list[DataAugmentation],
                  data: RawDataModel,
-                 config: ConfigDict,
-                 git: Git) -> dict[str, Logger[LearningModelLoggerFields]]:
+                 config: ConfigDict) -> dict[str, Logger[LearningModelLoggerFields]]:
         loggers: dict[str, Logger[LearningModelLoggerFields]] = {}
 
-        log: CSVLogger[LearningModelLoggerFields] = CSVLogger('learningmodel',
-                                                              file=Path('learningmodel')
-                                                                   /f'{git.short_hash()}_{datetime.now():%Y-%m-%d_%H-%M-%S}.csv')
+        log: CSVLogger[LearningModelLoggerFields] = CSVLogger('learningmodel')
         loggers['learningmodel'] = log
         log.fields = LearningModelLoggerFields # Write column names
 
