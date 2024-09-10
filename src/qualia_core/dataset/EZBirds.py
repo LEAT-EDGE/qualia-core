@@ -22,7 +22,11 @@ logger = logging.getLogger(__name__)
 
 class EZBirds(GSC):
     def __init__(self, path: str) -> None:
-        super().__init__(path=path, variant='', subset='', train_valid_split=True)
+        super().__init__(path=path,
+                         variant='',
+                         subset='',
+                         train_valid_split=True,
+                         record_length=48000)
 
     def __load_labels(self, path: Path) -> dict[str, int | None]:
         with (path / 'labels.json').open('r') as f:
