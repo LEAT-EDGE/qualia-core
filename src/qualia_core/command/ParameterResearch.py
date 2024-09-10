@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -15,7 +14,6 @@ if TYPE_CHECKING:
     from qualia_core.datamodel.RawDataModel import RawDataModel  # noqa: TCH001
     from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils import Git  # noqa: TCH001
     from qualia_core.utils.logger import Logger  # noqa: TCH001
     from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
 
@@ -32,8 +30,7 @@ class ParameterResearch:
                  learningframework: LearningFramework[Any],
                  dataaugmentations: list[DataAugmentation],
                  data: RawDataModel,
-                 config: ConfigDict,
-                 git: Git) -> dict[str, Logger[ParameterResearchLoggerFields]]:
+                 config: ConfigDict) -> dict[str, Logger[ParameterResearchLoggerFields]]:
         import optuna
 
         from qualia_core.qualia import train
@@ -41,8 +38,7 @@ class ParameterResearch:
 
         loggers: dict[str, CSVLogger[ParameterResearchLoggerFields]] = {}
 
-        log: CSVLogger[ParameterResearchLoggerFields] = CSVLogger('parameter_research',
-                                                                  file=Path('parameter_research')/f'{git.short_hash()}_{datetime.now():%Y-%m-%d_%H-%M-%S}.csv')
+        log: CSVLogger[ParameterResearchLoggerFields] = CSVLogger('parameter_research')
         loggers['parameter_research'] = log
         # Write column names
         log.fields = ParameterResearchLoggerFields

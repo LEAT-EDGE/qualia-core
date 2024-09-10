@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import itertools
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import colorful as cf  # type: ignore[import-untyped]
@@ -20,7 +18,6 @@ if TYPE_CHECKING:
     from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
     from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils import Git  # noqa: TCH001
     from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
 
 
@@ -29,13 +26,12 @@ class DeployAndEvaluate:
                  qualia: QualiaComponent,
                  learningframework: LearningFramework[Any],
                  dataaugmentations: list[DataAugmentation],
-                 converter: type[Converter],
+                 converter: type[Converter[Any]],
                  deployers: ModuleType,
                  data: RawDataModel,
-                 config: ConfigDict,
-                 git: Git) -> dict[str, Logger[StatsFields]]:
+                 config: ConfigDict) -> dict[str, Logger[StatsFields]]:
         loggers: dict[str, Logger[StatsFields]] = {}
-        log: CSVLogger[StatsFields] = CSVLogger('evaluate', file=Path('evaluate')/f'{git.short_hash()}_{datetime.now():%Y-%m-%d_%H-%M-%S}.csv')
+        log: CSVLogger[StatsFields] = CSVLogger('evaluate')
         loggers['evaluate'] = log
         # Write column names
         log.fields = StatsFields

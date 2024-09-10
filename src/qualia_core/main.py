@@ -42,16 +42,20 @@ def qualia(action: str,
 
     git = Git()
     Logger.logpath /= config['bench']['name'] # Store logfiles in separate directory according to the config bench name
-    Logger.prefix = f'{git.short_hash()}_' # Add prefix according to current git commit
-    loggers: dict[str, Logger] = {} # Keep track of the loggers we used to return them
+    if git.short_hash:
+        Logger.prefix = f'{git.short_hash}_' # Add prefix according to current git commit
+    else:
+        logger.info('Local git repository not found, last commit hash will not be prepended to log file names')
+
+    loggers: dict[str, Logger[Any]] = {} # Keep track of the loggers we used to return them
 
     learningframework = getattr(qualia.learningframework,
                                 config['learningframework']['kind'])(**config['learningframework'].get('params', {}))
 
     dataset = getattr(qualia.dataset, config['dataset']['kind'])(**config['dataset'].get('params', {}))
     converter: type[Converter] = getattr(qualia.converter, config.get('deploy', {}).get('converter', {}).get('kind', ''), None)
-    if config.get('deploy', {}).get('converter', '') and not converter:
-        logger.error("Converter '%s' not found", config['deploy']['converter'])
+    if config.get('deploy', {}).get('converter', '').get('kind') and not converter:
+        logger.error("Converter '%s' not found", config['deploy']['converter']['kind'])
         raise ValueError
 
     deployers: ModuleType = getattr(qualia.deployment, config.get('deploy', {}).get('deployer', {}).get('kind', ''), None)
@@ -81,8 +85,7 @@ def qualia(action: str,
                                      learningframework=learningframework,
                                      dataaugmentations=dataaugmentations,
                                      data=data,
-                                     config=config,
-                                     git=git))
+                                     config=config))
     elif action == 'prepare_deploy':
         prepare_deploy_command = command.PrepareDeploy()
         loggers.update(prepare_deploy_command(qualia=qualia,
@@ -90,8 +93,7 @@ def qualia(action: str,
                                               converter=converter,
                                               deployers=deployers,
                                               data=data,
-                                              config=config,
-                                              git=git))
+                                              config=config))
 
     elif action == 'deploy_and_evaluate':
         deploy_and_evaluate_command = command.DeployAndEvaluate()
@@ -101,16 +103,14 @@ def qualia(action: str,
                                                    converter=converter,
                                                    deployers=deployers,
                                                    data=data,
-                                                   config=config,
-                                                   git=git))
+                                                   config=config))
     elif action == 'parameter_research':
         parameter_research = command.ParameterResearch()
         loggers.update(parameter_research(qualia=qualia,
                                           learningframework=learningframework,
                                           dataaugmentations=dataaugmentations,
                                           data=data,
-                                          config=config,
-                                          git=git))
+                                          config=config))
     else:
         logger.error('Invalid action: %s', action)
         raise ValueError

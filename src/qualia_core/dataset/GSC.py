@@ -13,6 +13,7 @@ from typing import Any, Callable, Final
 
 import numpy as np
 import numpy.typing
+
 from qualia_core.datamodel import RawDataModel
 from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
 from qualia_core.utils.file import DirectoryReader
@@ -107,7 +108,7 @@ class GSC(RawDataset):
 
     def __init__(self, path: str, variant: str = 'v2', subset: str = 'digits', train_valid_split: bool = False) -> None:
         super().__init__()
-        self.__path = Path(path)
+        self._path = Path(path)
         self.__variant = variant
         self.__subset = subset
         self.__dr = DirectoryReader()
@@ -214,7 +215,7 @@ class GSC(RawDataset):
         return train_x_array, valid_x_array, test_x_array
 
 
-    def __load_v2(self, path: Path, class_list: dict[str, int | None]) -> RawDataModel:
+    def _load_v2(self, path: Path, class_list: dict[str, int | None]) -> RawDataModel:
         start = time.time()
 
         directory = self.__dr.read(path, ext='.wav', recursive=True)
@@ -279,7 +280,7 @@ class GSC(RawDataset):
         else:
             raise ValueError('Only digits or no_background_noise subsets supported')
 
-        return self.__load_v2(self.__path, class_list=class_list)
+        return self._load_v2(self._path, class_list=class_list)
 
     @property
     @override
