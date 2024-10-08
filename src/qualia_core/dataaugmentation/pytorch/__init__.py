@@ -1,5 +1,6 @@
 from .Amplitude import Amplitude
 from .AutoAugment import AutoAugment
+from .CMSISMFCC import CMSISMFCC
 from .Crop import Crop
 from .GaussianNoise import GaussianNoise
 from .HorizontalFlip import HorizontalFlip
@@ -16,6 +17,7 @@ from .TorchVisionModelTransforms import TorchVisionModelTransforms
 
 __all__ = ['Amplitude',
            'AutoAugment',
+           'CMSISMFCC',
            'Crop',
            'GaussianNoise',
            'HorizontalFlip',

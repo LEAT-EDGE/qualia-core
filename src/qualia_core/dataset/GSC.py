@@ -13,6 +13,7 @@ from typing import Any, Callable, Final
 
 import numpy as np
 import numpy.typing
+
 from qualia_core.datamodel import RawDataModel
 from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
 from qualia_core.utils.file import DirectoryReader
@@ -105,22 +106,28 @@ class GSC(RawDataset):
         'zero': 0,
     }
 
-    def __init__(self, path: str, variant: str = 'v2', subset: str = 'digits', train_valid_split: bool = False) -> None:
+    def __init__(self,
+                 path: str,
+                 variant: str = 'v2',
+                 subset: str = 'digits',
+                 train_valid_split: bool = False,  # noqa: FBT001, FBT002
+                 record_length: int = 16000) -> None:
         super().__init__()
-        self.__path = Path(path)
+        self._path = Path(path)
         self.__variant = variant
         self.__subset = subset
         self.__dr = DirectoryReader()
         self.__train_valid_split = train_valid_split
         if not train_valid_split:
             self.sets.remove('valid')
+        self.__record_length = record_length
 
     def load_wave(self, recording: Path) -> numpy.typing.NDArray[np.float32]:
         with wave.open(str(recording)) as f:
             data = f.readframes(f.getnframes())
 
         data_array = np.frombuffer(data, dtype=np.int16).copy().astype(np.float32)
-        data_array.resize((16000, 1)) # Resize to 1s (16kHz) with zero-padding, 1 channel
+        data_array.resize((self.__record_length, 1)) # Resize to 1s (16kHz) with zero-padding, 1 channel
         return data_array
 
     def _load_files(self,
@@ -178,43 +185,42 @@ class GSC(RawDataset):
                     validation_chunks,
                     testing_chunks)
 
-        with SharedMemoryManager() as smm:
-            with ProcessPoolExecutor() as executor:
-                train_futures = [executor.submit(self._load_files, i, files, loader)
-                           for i, files in enumerate(training_files_chunks)]
-                valid_futures = [executor.submit(self._load_files, i, files, loader)
-                           for i, files in enumerate(validation_files_chunks)]
-                test_futures = [executor.submit(self._load_files, i, files, loader)
-                           for i, files in enumerate(testing_files_chunks)]
+        with SharedMemoryManager() as smm, ProcessPoolExecutor() as executor:
+            train_futures = [executor.submit(self._load_files, i, files, loader)
+                       for i, files in enumerate(training_files_chunks)]
+            valid_futures = [executor.submit(self._load_files, i, files, loader)
+                       for i, files in enumerate(validation_files_chunks)]
+            test_futures = [executor.submit(self._load_files, i, files, loader)
+                       for i, files in enumerate(testing_files_chunks)]
 
-                def load_results(futures: list[Future[tuple[str,
-                                                            tuple[int, ...],
-                                                            numpy.typing.DTypeLike]]]) -> numpy.typing.NDArray[np.float32] | None:
+            def load_results(futures: list[Future[tuple[str,
+                                                        tuple[int, ...],
+                                                        numpy.typing.DTypeLike]]]) -> numpy.typing.NDArray[np.float32] | None:
 
-                    names = [f.result()[0] for f in futures]
-                    shapes = [f.result()[1] for f in futures]
-                    dtypes = [f.result()[2] for f in futures]
-                    bufs = [SharedMemory(n) for n in names]
+                names = [f.result()[0] for f in futures]
+                shapes = [f.result()[1] for f in futures]
+                dtypes = [f.result()[2] for f in futures]
+                bufs = [SharedMemory(n) for n in names]
 
-                    data_list = [np.frombuffer(buf.buf, dtype=dtype).reshape(shape)
-                              for shape, dtype, buf in zip(shapes, dtypes, bufs)]
+                data_list = [np.frombuffer(buf.buf, dtype=dtype).reshape(shape)
+                          for shape, dtype, buf in zip(shapes, dtypes, bufs)]
 
-                    data_array = np.concatenate(data_list) if data_list else None
-                    del data_list
+                data_array = np.concatenate(data_list) if data_list else None
+                del data_list
 
-                    for buf in bufs:
-                        buf.unlink()
+                for buf in bufs:
+                    buf.unlink()
 
-                    return data_array
+                return data_array
 
-                train_x_array = load_results(train_futures)
-                valid_x_array = load_results(valid_futures)
-                test_x_array = load_results(test_futures)
+            train_x_array = load_results(train_futures)
+            valid_x_array = load_results(valid_futures)
+            test_x_array = load_results(test_futures)
 
         return train_x_array, valid_x_array, test_x_array
 
 
-    def __load_v2(self, path: Path, class_list: dict[str, int | None]) -> RawDataModel:
+    def _load_v2(self, path: Path, class_list: dict[str, int | None]) -> RawDataModel:
         start = time.time()
 
         directory = self.__dr.read(path, ext='.wav', recursive=True)
@@ -270,16 +276,18 @@ class GSC(RawDataset):
     @override
     def __call__(self) -> RawDataModel:
         if self.__variant != 'v2':
-            raise ValueError('Only v2 variant supported')
+            logger.error('Only v2 variant supported')
+            raise ValueError
 
         if self.__subset == 'digits':
             class_list = GSC.class_list_digits
         elif self.__subset == 'no_background_noise':
             class_list = GSC.class_list_no_background_noise
         else:
-            raise ValueError('Only digits or no_background_noise subsets supported')
+            logger.error('Only digits or no_background_noise subsets supported')
+            raise ValueError
 
-        return self.__load_v2(self.__path, class_list=class_list)
+        return self._load_v2(self._path, class_list=class_list)
 
     @property
     @override
