@@ -39,7 +39,7 @@ class DeployAndEvaluate:
         for i in range(config['bench']['first_run'], config['bench']['last_run']+1):
             for m, q, o, c in itertools.product(config['model'],
                                                 config['deploy']['quantize'],
-                                                config['deploy']['optimize'],
+                                                config['deploy'].get('optimize', ['']),
                                                 config['deploy'].get('compress', [1])):
                 if m.get('disabled', False):
                     continue
