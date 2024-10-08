@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from pathlib import Path
 from typing import Any
 
 from qualia_core.deployment.Deployer import Deployer
@@ -10,8 +11,6 @@ from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.process import subprocesstee
 
 if TYPE_CHECKING:
-    from pathlib import Path  # noqa: TCH003
-
     if sys.version_info >= (3, 11):
         from typing import Self
     else:
@@ -29,11 +28,13 @@ logger = logging.getLogger(__name__)
 class CMake(Deployer):
     evaluator = QualiaEvaluator # Suggested evaluator
 
-    def __init__(self, projectdir: Path, outdir: Path) -> None:
+    def __init__(self,
+                 projectdir: str | Path,
+                 outdir: str | Path) -> None:
         super().__init__()
 
-        self._projectdir = projectdir
-        self._outdir = outdir
+        self._projectdir = Path(projectdir)
+        self._outdir = Path(outdir)
 
     def _run(self,
               cmd: str | Path,

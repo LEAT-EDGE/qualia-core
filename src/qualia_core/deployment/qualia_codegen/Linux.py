@@ -22,8 +22,8 @@ class Linux(CMake):
     evaluator = QualiaEvaluator # Suggested evaluator
 
     def __init__(self,
-                 projectdir: Path | None = None,
-                 outdir: Path | None = None) -> None:
+                 projectdir: str | Path | None = None,
+                 outdir: str | Path | None = None) -> None:
         super().__init__(projectdir=projectdir if projectdir is not None else
                             resources_to_path(files('qualia_codegen_core.examples'))/'Linux',
                          outdir=outdir if outdir is not None else Path('out')/'deploy'/'Linux')
