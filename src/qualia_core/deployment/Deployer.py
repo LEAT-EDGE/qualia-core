@@ -63,4 +63,4 @@ class Deployer(ABC):
     def _ram_size(self, elffile: Path, size_cmd: str) -> int | None:
         return self._sections_size(elffile,
                                    size_cmd,
-                                   section_labels=['.bss', '.data'])
+                                   section_labels=['.bss', '.data', '._user_heap_stack'])
