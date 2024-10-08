@@ -37,7 +37,11 @@ class MFCC(DataAugmentationPyTorch):
                                                         melkwargs=melkwargs)
 
     def apply(self, x: torch.Tensor, y: torch.Tensor, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.mfcc_transform.to(device)(x.squeeze(1)), y # Only handle single channel
+        if self.mfcc_transform.dct_mat.device != device:
+            self.mfcc_transform = self.mfcc_transform.to(device)
+        x = self.mfcc_transform(x.squeeze(1))
+        x = x.swapaxes(1, -2)
+        return x, y # Only handle single channel
 
     @override
     def __call__(self, data: tuple[torch.Tensor, torch.Tensor], device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
