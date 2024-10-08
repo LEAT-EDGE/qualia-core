@@ -79,6 +79,12 @@ class CNN(nn.Sequential):
             layers['postpool'] = layers_t.AvgPool(postpool)
 
         if gsp:
+            layers[f'conv{i}'] = layers_t.Conv(in_channels=filters[-1],
+                                               out_channels=output_shape[0],
+                                               kernel_size=1,
+                                               padding=0,
+                                               stride=1,
+                                               bias=True)
             layers['gsp'] = layers_t.GlobalSumPool()
         else:
             layers['flatten'] = nn.Flatten()
