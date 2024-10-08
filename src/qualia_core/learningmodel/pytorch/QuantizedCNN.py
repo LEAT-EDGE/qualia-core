@@ -25,6 +25,8 @@ class QuantizedCNN(nn.Sequential):
                  prepool: Union[int, list[int]] = 1,
                  postpool: Union[int, list[int]]=1,
 
+                 gsp: bool=False,
+
                  dims: int=1,
 
                  quantize_linear: bool = True,
@@ -114,41 +116,51 @@ class QuantizedCNN(nn.Sequential):
         if not isinstance(postpool, int) and math.prod(postpool) > 1:
             layers['postpool'] = layers_t.QuantizedAvgPool(tuple(postpool), quant_params=quant_params)
 
-        layers['flatten'] = nn.Flatten()
-
-        in_features = np.array(input_shape[:-1]) // np.array(prepool)
-        for _, kernel, pool, padding, stride in zip(filters, kernel_sizes, pool_sizes, paddings, strides):
-            in_features += np.array(padding) * 2
-            in_features -= (kernel - 1)
-            in_features = np.ceil(in_features / stride).astype(int)
-            if pool:
-                in_features = in_features // pool
-        in_features = in_features // np.array(postpool)
-        in_features = in_features.prod()
-        in_features *= filters[-1]
-
-        j = 1
-        for in_units, out_units, dropout in zip((in_features, *fc_units), fc_units, dropouts[len(filters):]):
-            if quantize_linear:
-                layers[f'fc{j}'] = QuantizedLinear(in_units,
-                                                   out_units,
-                                                   quant_params=quant_params,
-                                                   activation=nn.ReLU() if fused_relu else None)
-            else:
-                layers[f'fc{j}'] = nn.Linear(in_units, out_units)
-            if not fused_relu or not quantize_linear:
-                layers[f'relu{i}'] = QuantizedReLU(quant_params=quant_params)
-            if dropout:
-                layers[f'dropout{i}'] = nn.Dropout(dropout)
-
-            i += 1
-            j += 1
-
-        if quantize_linear:
-            layers[f'fc{j}'] = QuantizedLinear(fc_units[-1] if len(fc_units) > 0 else in_features,
-                                               output_shape[0],
-                                               quant_params=quant_params)
+        if gsp:
+            layers[f'conv{i}'] = layers_t.QuantizedConv(in_channels=filters[-1],
+                                                        out_channels=output_shape[0],
+                                                        kernel_size=1,
+                                                        padding=0,
+                                                        stride=1,
+                                                        bias=True,
+                                                        quant_params=quant_params)
+            layers['gsp'] = layers_t.QuantizedGlobalSumPool(quant_params=quant_params)
         else:
-            layers[f'fc{j}'] = nn.Linear(fc_units[-1] if len(fc_units) > 0 else in_features, output_shape[0])
+            layers['flatten'] = nn.Flatten()
+
+            in_features = np.array(input_shape[:-1]) // np.array(prepool)
+            for _, kernel, pool, padding, stride in zip(filters, kernel_sizes, pool_sizes, paddings, strides):
+                in_features += np.array(padding) * 2
+                in_features -= (kernel - 1)
+                in_features = np.ceil(in_features / stride).astype(int)
+                if pool:
+                    in_features = in_features // pool
+            in_features = in_features // np.array(postpool)
+            in_features = in_features.prod()
+            in_features *= filters[-1]
+
+            j = 1
+            for in_units, out_units, dropout in zip((in_features, *fc_units), fc_units, dropouts[len(filters):]):
+                if quantize_linear:
+                    layers[f'fc{j}'] = QuantizedLinear(in_units,
+                                                       out_units,
+                                                       quant_params=quant_params,
+                                                       activation=nn.ReLU() if fused_relu else None)
+                else:
+                    layers[f'fc{j}'] = nn.Linear(in_units, out_units)
+                if not fused_relu or not quantize_linear:
+                    layers[f'relu{i}'] = QuantizedReLU(quant_params=quant_params)
+                if dropout:
+                    layers[f'dropout{i}'] = nn.Dropout(dropout)
+
+                i += 1
+                j += 1
+
+            if quantize_linear:
+                layers[f'fc{j}'] = QuantizedLinear(fc_units[-1] if len(fc_units) > 0 else in_features,
+                                                   output_shape[0],
+                                                   quant_params=quant_params)
+            else:
+                layers[f'fc{j}'] = nn.Linear(fc_units[-1] if len(fc_units) > 0 else in_features, output_shape[0])
 
         super().__init__(layers)
