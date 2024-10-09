@@ -242,9 +242,9 @@ class TestModelsResNet2D(TestCase):
         self.assertIsInstance(trainresult.model.layers[0][0].sbn, BatchNorm2d)
         self.assertEqual(tuple(trainresult.model.layers[0][0].sbn.weight.shape), (6,)) # 6
         self.assertEqual(tuple(trainresult.model.layers[0][0].sbn.bias.shape), (6, )) # 6
-        self.assertIsInstance(trainresult.model.layers[0][0].smax, MaxPool2d)
-        self.assertEqual(trainresult.model.layers[0][0].smax.kernel_size, 2)
-        self.assertEqual(trainresult.model.layers[0][0].smax.stride, 2)
+        self.assertIsInstance(trainresult.model.layers[0][0].spool, MaxPool2d)
+        self.assertEqual(trainresult.model.layers[0][0].spool.kernel_size, 2)
+        self.assertEqual(trainresult.model.layers[0][0].spool.stride, 2)
         # add
         self.assertIsInstance(trainresult.model.layers[0][0].add, Add)
         self.assertIsInstance(trainresult.model.layers[0][0].relu, ReLU)

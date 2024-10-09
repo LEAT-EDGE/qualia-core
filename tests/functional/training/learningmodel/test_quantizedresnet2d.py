@@ -100,9 +100,9 @@ class TestModelsQuantizedResnet2D(TestCase):
         self.assertEqual(tuple(trainresult.model.layers[0][0].sconv.weight.shape), (6, 4, 1, 1)) # 6*4*1*1 = 24
         self.assertEqual(tuple(trainresult.model.layers[0][0].sconv.bias.shape), (6, )) # 6
         self.assertFalse(hasattr(trainresult.model.layers[0][0], 'sbn'))
-        self.assertEqual(type(trainresult.model.layers[0][0].smax), QuantizedMaxPool2d)
-        self.assertEqual(trainresult.model.layers[0][0].smax.kernel_size, 2)
-        self.assertEqual(trainresult.model.layers[0][0].smax.stride, 2)
+        self.assertEqual(type(trainresult.model.layers[0][0].spool), QuantizedMaxPool2d)
+        self.assertEqual(trainresult.model.layers[0][0].spool.kernel_size, 2)
+        self.assertEqual(trainresult.model.layers[0][0].spool.stride, 2)
         # add
         self.assertEqual(type(trainresult.model.layers[0][0].add), QuantizedAdd)
         self.assertEqual(type(trainresult.model.layers[0][0].add.activation), ReLU)
