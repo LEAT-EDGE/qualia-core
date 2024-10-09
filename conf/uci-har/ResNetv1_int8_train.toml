@@ -40,9 +40,6 @@ export = true
 params.width = 8
 params.epochs = 3
 params.batch_size = 64
-params.model.params.quantize_bias	= true
-params.model.params.quantize_linear	= true
-params.model.params.quantize_add	= true
 params.model.params.fused_relu		= true
 
 [model_template]

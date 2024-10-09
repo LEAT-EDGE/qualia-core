@@ -37,9 +37,6 @@ export = true
 params.width = 8
 params.epochs = 140
 params.batch_size = 1024
-params.model.params.quantize_bias	= true
-params.model.params.quantize_linear	= true
-params.model.params.quantize_add	= true
 params.optimizer.scheduler.params.milestones = [40, 80, 100, 120]
 
 [[postprocessing]]

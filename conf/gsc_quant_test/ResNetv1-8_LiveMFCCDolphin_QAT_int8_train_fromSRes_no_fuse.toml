@@ -64,8 +64,6 @@ kind = "QuantizationAwareTraining"
 export = true
 params.epochs = 10
 params.batch_size = 1536
-params.model.params.quantize_linear     = true
-params.model.params.quantize_add        = true
 #params.force_q = 9
 ########
 # New

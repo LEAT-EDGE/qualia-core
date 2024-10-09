@@ -160,9 +160,6 @@ export = true
 params.width = 16
 params.epochs = 0
 params.batch_size = 768
-params.model.params.quantize_bias      = true
-params.model.params.quantize_linear    = true
-params.model.params.quantize_add       = true
 #params.force_q = 9
 
 [model_template]
