@@ -1,33 +1,56 @@
+from __future__ import annotations
+
+import logging
+import sys
 from collections import OrderedDict
 from typing import cast
+
+import torch
+from torch import nn
 
 from qualia_core.learningmodel.pytorch.layers import QuantizedAdd
 from qualia_core.learningmodel.pytorch.layers.quantized_layers import QuantizedIdentity, QuantizedLinear, QuantizedReLU
 from qualia_core.learningmodel.pytorch.ResNet import BasicBlock, ResNet
-from torch import nn
+from qualia_core.typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from types import ModuleType  # noqa: TCH003
+
+    from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig  # noqa: TCH001
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+logger = logging.getLogger(__name__)
 
 class QuantizedBasicBlock(BasicBlock):
-    def __init__(self,
-                    layers_t,
-                    in_planes,
-                    planes,
-                    kernel_size,
-                    stride,
-                    padding,
-                    batch_norm,
-                    bn_momentum,
-                    force_projection_with_stride,
-                    quantize_add,
-                    quant_params,
-                    fused_relu=True):
-        super().__init__(layers_t, in_planes, planes, kernel_size, stride, padding, batch_norm, bn_momentum, force_projection_with_stride)
+    def __init__(self,  # noqa: PLR0913
+                 layers_t: ModuleType,
+                 in_planes: int,
+                 planes: int,
+                 kernel_size: int,
+                 stride: int,
+                 padding: int,
+                 batch_norm: bool,  # noqa: FBT001
+                 bn_momentum: float,
+                 force_projection_with_stride: bool,  # noqa: FBT001
+
+                 quant_params: QuantizationConfig,
+                 fused_relu: bool = True) -> None:  # noqa: FBT001, FBT002
+        super().__init__(layers_t=layers_t,
+                         in_planes=in_planes,
+                         planes=planes,
+                         kernel_size=kernel_size,
+                         stride=stride,
+                         padding=padding,
+                         batch_norm=batch_norm,
+                         bn_momentum=bn_momentum,
+                         force_projection_with_stride=force_projection_with_stride)
+
         self.fused_relu = fused_relu
 
-        
-        
-        
-        
         self.conv1 = layers_t.QuantizedConv(in_planes,
                                             planes,
                                             kernel_size=kernel_size,
@@ -64,9 +87,14 @@ class QuantizedBasicBlock(BasicBlock):
 
 
         if self.stride != 1:
-            self.smax = layers_t.QuantizedMaxPool(stride, quant_params=quant_params)
+            self.spool = layers_t.QuantizedMaxPool(stride, quant_params=quant_params)
         if self.in_planes != self.expansion*self.planes or force_projection_with_stride and self.stride != 1:
-            self.sconv = layers_t.QuantizedConv(in_planes, self.expansion*planes, kernel_size=1, stride=1, bias=not batch_norm, quant_params=quant_params)
+            self.sconv = layers_t.QuantizedConv(in_planes,
+                                                self.expansion*planes,
+                                                kernel_size=1,
+                                                stride=1,
+                                                bias=not batch_norm,
+                                                quant_params=quant_params)
             if batch_norm:
                 self.sbn = layers_t.QuantizedBatchNorm(
                         self.expansion*planes, momentum=bn_momentum, quant_params=quant_params)
@@ -76,8 +104,10 @@ class QuantizedBasicBlock(BasicBlock):
             del self.relu
         else:
             self.relu = QuantizedReLU(quant_params=quant_params)
-            
-    def forward(self, x):
+
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        x = input
 
         out = self.conv1(x)
 
@@ -92,7 +122,6 @@ class QuantizedBasicBlock(BasicBlock):
         if self.batch_norm:
             out = self.bn2(out)
 
-
         # shortcut
         tmp = x
 
@@ -103,7 +132,7 @@ class QuantizedBasicBlock(BasicBlock):
                 tmp = self.sbn(tmp)
 
         if self.stride != 1:
-            tmp = self.smax(tmp)
+            tmp = self.spool(tmp)
 
         out = self.add(out, tmp)
         if not self.fused_relu:
@@ -111,46 +140,34 @@ class QuantizedBasicBlock(BasicBlock):
         return out
 
 class QuantizedResNet(ResNet):
-    def __init__(self,
-        input_shape,
-        output_shape,
-        filters: tuple=(15, 15, 30, 60, 120),
-        kernel_sizes: tuple=(3, 3, 3, 3, 3),
+    def __init__(self,  # noqa: PLR0913
+                 input_shape: tuple[int, ...],
+                 output_shape: tuple[int, ...],
+                 filters: list[int],
+                 kernel_sizes: list[int],
 
-        num_blocks: tuple=(2, 2, 2, 2),
-        strides: tuple=(1, 1, 2, 2, 2),
-        paddings: int=(1, 1, 1, 1, 1),
-        prepool: int=1,
-        postpool: str='max',
-        batch_norm: bool=False,
-        bn_momentum: float=0.1,
-        force_projection_with_stride: bool=True,
-        dims: int=1,
-        
-        quantize_linear: bool=True,
-        quantize_add: bool=True,
-        fused_relu: bool=True,
-        quant_params: dict = None):
+                 num_blocks: list[int],
+                 strides: list[int],
+                 paddings: list[int],
 
-        #if batch_norm:
-        #    raise ValueError('BatchNorm unsupported in quantized Resnet')
+                 quant_params: QuantizationConfig,
 
-        #if prepool > 1:
-        #    raise ValueError('AvgPool unsupported in quantized Resnet')
-        
-        if "bits" in quant_params :
-            quant_params["bits"] = int(quant_params["bits"]) # Force conversion from TOML int to plain Python int
-            if quant_params["bits"] < 1:
-                raise ValueError('bits must be set to a strictly positive integer')
-        else :
-            raise ValueError('bits must exist in quant_params conf')
+                 prepool: int = 1,
+                 postpool: str = 'max',
+                 batch_norm: bool = False,  # noqa: FBT001, FBT002
+                 bn_momentum: float = 0.1,
+                 force_projection_with_stride: bool = True,  # noqa: FBT001, FBT002
+
+                 dims: int = 1,
+                 fused_relu: bool = True) -> None:  # noqa: FBT001, FBT002
 
         if dims == 1:
             import qualia_core.learningmodel.pytorch.layers1d as layers_t
-        elif dims == 2:
+        elif dims == 2:  # noqa: PLR2004
             import qualia_core.learningmodel.pytorch.layers2d as layers_t
         else:
-            raise ValueError('Only dims=1 or dims=2 supported')
+            logger.error('Only dims=1 or dims=2 supported, got: %s', dims)
+            raise ValueError
 
         super().__init__(input_shape=input_shape,
                          output_shape=output_shape,
@@ -175,9 +192,8 @@ class QuantizedResNet(ResNet):
                                                                                 batch_norm=batch_norm,
                                                                                 bn_momentum=bn_momentum,
                                                                                 force_projection_with_stride=force_projection_with_stride,
-                                                                                quantize_add=quantize_add,
                                                                                 quant_params=quant_params,
-                                                                                fused_relu=fused_relu)
+                                                                                fused_relu=fused_relu),
                          )
         self.fused_relu = fused_relu
         self.batch_norm = batch_norm
@@ -188,7 +204,7 @@ class QuantizedResNet(ResNet):
         cast(OrderedDict[str, nn.Module], self._modules).move_to_end('identity1', last=False)
 
         if prepool > 1:
-            self.prepool = layers_t.QuantizedAvgPool(prepool, bits=bits, force_q=force_q)
+            self.prepool = layers_t.QuantizedAvgPool(prepool, quant_params=quant_params)
 
         self.conv1 = layers_t.QuantizedConv(input_shape[-1],
                                             filters[0],
@@ -212,16 +228,16 @@ class QuantizedResNet(ResNet):
             self.postpool = layers_t.QuantizedAdaptiveAvgPool(1, quant_params=quant_params)
         elif postpool == 'max':
             self.postpool = layers_t.QuantizedMaxPool(tuple(self._fm_dims), quant_params=quant_params)
-        
-        self.flatten = nn.Flatten()
-        # Replace Linear with the quantized variant
-        if quantize_linear:
-            self.linear = QuantizedLinear(self.in_planes*QuantizedBasicBlock.expansion, output_shape[0], quant_params=quant_params)
 
-    def forward(self, x):
+        self.flatten = nn.Flatten()
+        self.linear = QuantizedLinear(self.in_planes * QuantizedBasicBlock.expansion, output_shape[0], quant_params=quant_params)
+
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        x = input
 
         out = self.identity1(x)
-        
+
         if hasattr(self, 'prepool'):
             out = self.prepool(out)
 
@@ -238,5 +254,4 @@ class QuantizedResNet(ResNet):
             out = self.postpool(out)
 
         out = self.flatten(out)
-        out = self.linear(out)
-        return out
+        return self.linear(out)

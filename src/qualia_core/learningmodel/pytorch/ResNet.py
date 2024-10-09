@@ -77,8 +77,7 @@ class BasicBlock(nn.Module):
             self.pool1 = layers_t.MaxPool(stride)
         self.relu1 = nn.ReLU()
 
-        self.conv2 = layers_t.Conv(
-            planes, planes, kernel_size=kernel_size, stride=1, padding=padding, bias=not batch_norm)
+        self.conv2 = layers_t.Conv(planes, planes, kernel_size=kernel_size, stride=1, padding=padding, bias=not batch_norm)
         if batch_norm:
             self.bn2 = layers_t.BatchNorm(planes, momentum=bn_momentum)
 
