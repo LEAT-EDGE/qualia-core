@@ -245,6 +245,7 @@ from qualia_core.learningmodel.pytorch.quantized_layers2d import (  # noqa: E402
 from .QuantizedAdd import QuantizedAdd  # noqa: E402
 from .QuantizedGlobalSumPool1d import QuantizedGlobalSumPool1d  # noqa: E402
 from .QuantizedGlobalSumPool2d import QuantizedGlobalSumPool2d  # noqa: E402
+from .QuantizedSampleNorm import QuantizedSampleNorm  # noqa: E402
 
 quantized_layers = (
         QuantizedBatchNorm1d,
@@ -263,4 +264,5 @@ quantized_layers = (
         QuantizedIdentity,
         QuantizedGlobalSumPool1d,
         QuantizedGlobalSumPool2d,
+        QuantizedSampleNorm,
         )

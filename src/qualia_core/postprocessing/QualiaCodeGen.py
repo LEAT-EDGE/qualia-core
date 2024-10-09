@@ -114,7 +114,13 @@ class QualiaCodeGen(Converter[Any]):
         return modelgraph
 
     def convert_model_to_modelgraph(self, model: nn.Module | keras.Model) -> ModelGraph | None:
-        from qualia_codegen_core.graph.layers import TAddLayer, TSumLayer
+        from qualia_codegen_core.graph.layers import TAddLayer, TSampleNormLayer, TSumLayer
+        from qualia_codegen_core.graph.layers.TSampleNormLayer import TSampleNormMode
+
+        SAMPLENORM_MODE_MAPPING: dict[str, TSampleNormMode] = {
+            'z': TSampleNormMode.ZSCORE,
+            'minmax': TSampleNormMode.MINMAX,
+        }
 
         modelgraph: ModelGraph | None = None
 
@@ -125,11 +131,12 @@ class QualiaCodeGen(Converter[Any]):
             if isinstance(model, nn.Module):
                 from qualia_codegen_core.graph import TorchModelGraph
 
-                from qualia_core.learningmodel.pytorch.layers import Add, GlobalSumPool1d, GlobalSumPool2d
+                from qualia_core.learningmodel.pytorch.layers import Add, GlobalSumPool1d, GlobalSumPool2d, SampleNorm
                 custom_layers: dict[type[nn.Module], Callable[[nn.Module, TBaseLayer], tuple[type[TBaseLayer], list[Any]]]] = {
                         Add: lambda *_: (TAddLayer, []),
                         GlobalSumPool1d: lambda *_: (TSumLayer, [(-1,)]),
                         GlobalSumPool2d: lambda *_: (TSumLayer, [(-2, -1)]),
+                        SampleNorm: lambda layer, _: (TSampleNormLayer, [SAMPLENORM_MODE_MAPPING[layer.norm]]),
                         }
                 modelgraph = TorchModelGraph(model).convert(custom_layers=custom_layers)
 

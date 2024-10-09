@@ -52,6 +52,7 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
             qualia_layers.CustomBatchNorm2d: quantized_layers.QuantizedBatchNorm2d,
             qualia_layers.GlobalSumPool1d: quantized_layers.QuantizedGlobalSumPool1d,
             qualia_layers.GlobalSumPool2d: quantized_layers.QuantizedGlobalSumPool2d,
+            qualia_layers.SampleNorm: quantized_layers.QuantizedSampleNorm,
     }
     QUANTIZED_FUNCTIONS: ClassVar[dict[Callable[..., Any], Callable[[tuple[Any, ...], QuantizationConfigDict], nn.Module]]] = {
         operator.add: lambda _, quant_params: quantized_layers.QuantizedAdd(quant_params=quant_params),
