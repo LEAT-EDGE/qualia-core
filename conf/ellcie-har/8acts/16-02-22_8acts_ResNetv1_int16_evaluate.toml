@@ -157,10 +157,18 @@ kind = "Mixup"
 [[postprocessing]]
 kind = "QuantizationAwareTraining"
 export = true
-params.width = 16
 params.epochs = 0
 params.batch_size = 768
-#params.force_q = 9
+params.model.params.quant_params.bits           = 16
+params.model.params.quant_params.quantype       = "fxp"
+#params.model.params.quant_params.roundtype      = "nearest"
+params.model.params.quant_params.roundtype      = "floor"
+params.model.params.quant_params.range_setting  = "minmax"
+params.model.params.quant_params.LSQ            = false
+#params.model.params.quant_params.input.quant_enable = false # Broken with Qualia-CodeGen
+#params.model.params.quant_params.bias.quant_enable = true // Disable for now to avoid potential issue with CMSIS-NN
+#params.model.params.quant_params.force_q        = 9
+params.evaluate_before = false
 
 [model_template]
 kind = "ResNet"
