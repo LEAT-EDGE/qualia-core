@@ -23,12 +23,19 @@ class NucleoH7S3L8(CMake):
 
     def __init__(self,
                  projectdir: str | Path | None = None,
-                 outdir: str | Path | None = None) -> None:
-        super().__init__(projectdir=projectdir if projectdir is not None else
-                            resources_to_path(files('qualia_codegen_core.examples'))/'NucleoH7S3L8',
+                 outdir: str | Path | None = None,
+                 extflash: bool = True) -> None:  # noqa: FBT001, FBT002
+        if projectdir is None:
+            if extflash:
+                projectdir = resources_to_path(files('qualia_codegen_core.examples'))/'NucleoH7S3L8ExtFlash'
+            else:
+                projectdir = resources_to_path(files('qualia_codegen_core.examples'))/'NucleoH7S3L8'
+
+        super().__init__(projectdir=projectdir,
                          outdir=outdir if outdir is not None else Path('out')/'deploy'/'NucleoH7S3L8')
 
         self.__size_bin = 'arm-none-eabi-size'
+        self.__extflash = extflash
 
     @override
     def _validate_optimize(self, optimize: str) -> None:
@@ -55,15 +62,30 @@ class NucleoH7S3L8(CMake):
         #                  '-c', 'init',
         #                  '-c', 'reset halt; flash write_image erase ./NucleoH7S3L8; reset; shutdown',
         #                  cwd=self._outdir/tag):
-        elf = self._outdir/tag/'NucleoH7S3L8'
+
+        # Flash Boot to MCU's internal Flash
+        elf = self._outdir/tag/'NucleoH7S3L8' if not self.__extflash else self._outdir/tag/'NucleoH7S3L8ExtFlash_Boot'
         elf = elf.rename(elf.with_suffix('.elf')) if elf.exists() else elf.with_suffix('.elf')
 
         if not self._run('STM32_Programmer_CLI',
                          '--connect', 'port=SWD', 'mode=UR', 'reset=hwRst',
-                         '--download', str(elf), '0x08000000',
+                         '--download', str(elf),# '0x08000000',
                          '--verify',
                          '-hardRst'):
             return None
+
+        # Flash Appli to external Flash
+        if self.__extflash:
+            elf = self._outdir/tag/'NucleoH7S3L8ExtFlash_Appli'
+            elf = elf.rename(elf.with_suffix('.elf')) if elf.exists() else elf.with_suffix('.elf')
+
+            if not self._run('STM32_Programmer_CLI',
+                             '--connect', 'port=SWD', 'mode=UR', 'reset=hwRst',
+                             '--extload', '/opt/stm32cubeprog/bin/ExternalLoader/MX25UW25645G_NUCLEO-H7S3L8.stldr',
+                             '--download', str(elf),# '0x70000000',
+                             '--verify',
+                             '-hardRst'):
+                return None
 
         return Deploy(rom_size=self._rom_size(elf, str(self.__size_bin)),
                       ram_size=self._ram_size(elf, str(self.__size_bin)),
