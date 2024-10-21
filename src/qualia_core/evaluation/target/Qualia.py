@@ -136,7 +136,7 @@ class Qualia(Evaluator):
             r = Result(i=int(r[0]),
                        y=int(r[1]),
                        score=float(r[2]),
-                       time=tstop-tstart)
+                       time=int(r[3]))
             logger.info('%d: %s', i, str(r))
             results.append(r)
 
