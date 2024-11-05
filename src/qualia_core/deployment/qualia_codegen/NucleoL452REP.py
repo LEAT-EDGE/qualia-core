@@ -54,9 +54,9 @@ class NucleoL452REP(CMake):
                          '-f', 'target/stm32l4x.cfg',
                          '-c', 'init',
                          '-c', 'reset halt; flash write_image erase ./NucleoL452REP; reset; shutdown',
-                         cwd=self._outdir/tag/'qualia-codegen-core'):
+                         cwd=self._outdir/tag):
             return None
 
-        return Deploy(rom_size=self._rom_size(self._outdir/tag/'qualia-codegen-core'/'NucleoL452REP', str(self.__size_bin)),
-                      ram_size=self._ram_size(self._outdir/tag/'qualia-codegen-core'/'NucleoL452REP', str(self.__size_bin)),
+        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
+                      ram_size=self._ram_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
                       evaluator=self.evaluator)
