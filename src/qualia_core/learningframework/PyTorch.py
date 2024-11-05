@@ -21,6 +21,7 @@ from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import TextLogger
 
 from .LearningFramework import LearningFramework
+from .pytorch.SlopeMetric import SlopeMetric
 
 if TYPE_CHECKING:
     from pytorch_lightning import Callback  # noqa: TCH002
@@ -93,6 +94,7 @@ class PyTorch(LearningFramework[nn.Module]):
             'mse': lambda _: torchmetrics.MeanSquaredError(),
             'mae': lambda _: torchmetrics.MeanAbsoluteError(),
             'corr': lambda num_outputs: torchmetrics.PearsonCorrCoef(num_outputs=num_outputs),
+            'slope': lambda _: SlopeMetric(),
         }
 
         AVAILABLE_LOSSES: ClassVar[dict[str, nn.modules.loss._Loss]] = {
