@@ -1,0 +1,276 @@
+[bench]
+name = "BrainMIX_int8_train"
+seed = 2
+first_run = 1
+last_run = 1
+use_test_as_valid = true
+
+[learningframework]
+kind = 'PyTorch'
+params.devices = [0]
+#params.precision = '16-mixed'
+params.loss = 'mse'
+params.metrics = ['mse', 'mae', 'corr', 'slope']
+params.enable_confusion_matrix = false
+params.checkpoint_metric.name = 'trainmse'
+params.checkpoint_metric.mode = 'min'
+#params.use_best_epoch = true
+
+[experimenttracking]
+kind = "ClearML"
+params.project_name = "BrainMIX"
+params.task_name = "BrainMIX_float32_train"
+
+[deploy]
+target  = 'Linux'
+#target = 'NucleoL452REP'
+#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_066CFF333036434B43112220-*'
+converter.kind = 'QualiaCodeGen'
+converter.params.metrics = ['mse', 'mae', 'corr', 'slope']
+evaluator.params.chunks = 1
+quantize = ['int8']
+#quantize = ['float32']
+optimize = ['']
+#optimize = ['cmsis-nn']
+#limit = 50
+
+[dataset]
+kind = "BrainMIX"
+params.path = "data/BrainMIX"
+
+# [[data_augmentation]]
+# kind = "GaussianNoise"
+# #params.sigma = 0.125
+# params.sigma = 0.15
+
+# [[data_augmentation]]
+# kind = "Cutout1D"
+# #params.length_sigma = 0.25
+# params.length_sigma = 0.2
+
+# [[data_augmentation]]
+# kind = "Amplitude"
+# #params.sigma = 4
+# #params.distribution = 'normal'
+# params.distribution = 'uniform'
+# params.low = 0.5
+# params.high = 4
+# #params.low = 0.125
+# #params.high = 16.0
+# #params.evaluate = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+# Not actually doing QAT since epochs=0, only used to generate activation ranges for QualiaCodeGen
+[[postprocessing]]
+kind = "QuantizationAwareTrainingFX"
+export = true
+params.epochs = 70
+params.batch_size = 1024
+params.model.params.quant_params.bits           = 8
+params.model.params.quant_params.quantype       = "fxp"
+#params.model.params.quant_params.roundtype      = "nearest"
+params.model.params.quant_params.roundtype      = "floor"
+params.model.params.quant_params.range_setting  = "minmax"
+params.model.params.quant_params.LSQ            = false
+#params.model.params.quant_params.input.quant_enable = false # Broken with Qualia-CodeGen
+#params.model.params.quant_params.bias.quant_enable = true // Disable for now to avoid potential issue with CMSIS-NN
+#params.model.params.quant_params.force_q        = 9
+#params.model.params.quant_params.force_q        = 13
+params.evaluate_before = false
+
+[model_template]
+epochs = 0
+#epochs = 50
+#epochs = 10
+batch_size = 1024
+load  = true
+train = false
+
+[model_template.optimizer]
+#kind = "RMSprop"
+#kind = "Adam"
+kind = "Adam"
+#params.lr = 0.01
+#params.lr = 0.005 # With SampleNorm
+#params.lr = 0.175 # With SampleNorm
+params.lr = 0.0002 # With SampleNorm
+params.weight_decay = 5e-4
+
+[model_template.optimizer.scheduler]
+#kind = "StepLR"
+#params.step_size = 25
+#params.gamma = 0.33
+kind = "MultiStepLR"
+params.milestones = [20, 35, 50, 60, 65]
+params.gamma = 0.33
+
+[[model]]
+kind = "CNN"
+name = "brainmix_cnn_s20230616_m3"
+params.filters = [16, 32, 64, 64]
+params.kernel_sizes = [3, 3, 3, 3]
+params.strides = [1, 1, 1, 1]
+params.paddings = [0, 0, 0, 0]
+params.pool_sizes = [2, 2, 2, 2]
+params.dropouts = [0, 0, 0, 0, 0, 0]
+params.batch_norm = true
+params.fc_units = [16]
+disabled = true
+
+[[model]]
+kind = "CNN"
+name = "brainmix_cnn_s20230616_m3_stride"
+params.filters = [16, 32, 64, 64]
+params.kernel_sizes = [3, 3, 3, 3]
+params.strides = [2, 2, 2, 2]
+params.paddings = [0, 0, 0, 0]
+params.pool_sizes = [1, 1, 1, 1]
+params.dropouts = [0, 0, 0, 0, 0, 0]
+params.batch_norm = true
+params.fc_units = [16]
+disabled = true
+
+[[model]]
+kind = "CNNSampleNorm"
+name = "brainmix_cnn_s20230616_m3_stride_samplenorm"
+params.filters = [16, 32, 64, 64]
+params.kernel_sizes = [3, 3, 3, 3]
+params.strides = [2, 2, 2, 2]
+params.paddings = [0, 0, 0, 0]
+params.pool_sizes = [1, 1, 1, 1]
+params.dropouts = [0, 0, 0, 0, 0, 0]
+params.batch_norm = true
+params.fc_units = [16]
+params.samplenorm = 'minmax'
+disabled = true
+
+# DA: amplitude=off, gaussiannoise sigma=0.125
+# Train
+#│         testcorr          │     0.886674165725708     │
+#│          testmae          │    0.05987832695245743    │
+#│          testmse          │    0.00677597476169467
+# Test
+#│         testcorr          │    0.8866742253303528     │
+#│          testmae          │    0.05987832322716713    │
+#│          testmse          │   0.006775971502065659    │
+[[model]]
+kind = "ResNet"
+name = "brainmix_resnet_s20230616_m3"
+params.filters      = [4, 4, 8, 16, 32, 64]
+params.kernel_sizes = [3, 3, 3, 3, 3, 3]
+params.paddings     = [1, 1, 1, 1, 1, 1]
+params.strides      = [1, 2, 2, 2, 2, 2]
+params.num_blocks   = [1, 1, 1, 1, 1]
+params.batch_norm   = true
+disabled = true
+
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_large_s20230616_m3"
+params.filters      = [8, 8, 16, 32, 64, 128]
+params.kernel_sizes = [3, 3, 3, 3, 3, 3]
+params.paddings     = [1, 1, 1, 1, 1, 1]
+params.pool_sizes   = [1, 2, 2, 2, 2, 2]
+params.strides      = [1, 1, 1, 1, 1, 1]
+params.num_blocks   = [1, 2, 2, 2, 2]
+params.batch_norm   = true
+disabled = true
+
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_s20230616_m3_stride"
+params.filters      = [4, 4, 8, 16, 32, 64]
+params.kernel_sizes = [3, 3, 3,  3,  3,  3]
+params.paddings     = [1, 1, 1,  1,  1,  1]
+params.strides      = [1, 2, 2,  2,  2,  2]
+params.pool_sizes   = [1, 1, 1,  1,  1,  1]
+params.num_blocks   = [   1, 1,  1,  1,  1]
+#params.postpool     = ''
+params.batch_norm   = true
+disabled = true
+
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_s20230616_m3_small"
+params.filters      = [4,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [1,  1,  1,  1]
+params.pool_sizes   = [1,  1,  2,  2]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.batch_norm   = true
+disabled = true
+
+# 1330µs
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_s20230616_m3_stride_small"
+params.filters      = [4,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [1,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.batch_norm   = true
+disabled = true
+
+
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_s20230616_m3_stride_small"
+params.filters      = [4,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [2,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'max'
+params.batch_norm   = true
+disabled = true
+
+# 715µs
+[[model]]
+kind = "ResNetStride"
+name = "brainmix_resnet_s20230616_m3_stride_small2"
+params.filters      = [8,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [2,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.batch_norm   = true
+disabled = true
+
+# 715µs
+[[model]]
+kind = "ResNetSampleNorm"
+name = "brainmix_resnet_s20230616_m3_stride_small2_samplenorm"
+params.filters      = [8,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [2,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.batch_norm   = true
+disabled = true
+
+[[model]]
+kind = "ResNetSampleNorm"
+name = "brainmix_resnetv1-8_2x_samplenorm"
+params.filters      = [4,  8, 16, 32]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [2,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.samplenorm   = 'minmax'
+params.batch_norm   = true
+disabled = false
