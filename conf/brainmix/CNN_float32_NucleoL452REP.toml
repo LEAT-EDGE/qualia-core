@@ -1,5 +1,5 @@
 [bench]
-name = "BrainMIX_int8_train"
+name = "BrainMIX_CNN_float32_NucleoL452REP"
 seed = 2
 first_run = 1
 last_run = 1
@@ -22,14 +22,21 @@ params.project_name = "BrainMIX"
 params.task_name = "BrainMIX_float32_train"
 
 [deploy]
-target  = 'Linux'
-#target = 'NucleoL452REP'
-#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_066CFF333036434B43112220-*'
+#target  = 'Linux'
+target = 'NucleoL452REP'
+#target = 'NucleoH7S3L8'
+#target = 'NucleoU575ZIQ'
+#deployer.params.extflash = true
 converter.kind = 'QualiaCodeGen'
 converter.params.metrics = ['mse', 'mae', 'corr', 'slope']
-evaluator.params.chunks = 1
-quantize = ['int8']
-#quantize = ['float32']
+#evaluator.params.chunks = 1
+#evaluator.params.baudrate = 10000000
+#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_002D00403033511835393935-*'
+#evaluator.params.baudrate = 10000000
+#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_003C003C3331510933323639-*'
+evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_066CFF333036434B43112220-*'
+#quantize = ['int16']
+quantize = ['float32']
 optimize = ['']
 #optimize = ['cmsis-nn']
 #limit = 50
@@ -38,15 +45,19 @@ optimize = ['']
 kind = "BrainMIX"
 params.path = "data/BrainMIX"
 
-# [[data_augmentation]]
-# kind = "GaussianNoise"
-# #params.sigma = 0.125
-# params.sigma = 0.15
+[[data_augmentation]]
+kind = "GaussianNoise"
+#params.sigma = 0.1325
+#params.sigma = 0.1425
+params.sigma = 0.15
 
 # [[data_augmentation]]
-# kind = "Cutout1D"
-# #params.length_sigma = 0.25
-# params.length_sigma = 0.2
+# kind = "TimeShifting"
+
+[[data_augmentation]]
+kind = "Cutout1D"
+#params.length_sigma = 0.25
+params.length_sigma = 0.2
 
 # [[data_augmentation]]
 # kind = "Amplitude"
@@ -64,39 +75,36 @@ kind = "FuseBatchNorm"
 export = true
 
 # Not actually doing QAT since epochs=0, only used to generate activation ranges for QualiaCodeGen
-[[postprocessing]]
-kind = "QuantizationAwareTrainingFX"
-export = true
-params.epochs = 70
-params.batch_size = 1024
-params.model.params.quant_params.bits           = 8
-params.model.params.quant_params.quantype       = "fxp"
-params.model.params.quant_params.roundtype      = "nearest"
-#params.model.params.quant_params.roundtype      = "floor"
-params.model.params.quant_params.range_setting  = "minmax"
-params.model.params.quant_params.LSQ            = false
-#params.model.params.quant_params.input.quant_enable = false # Broken with Qualia-CodeGen
-#params.model.params.quant_params.bias.quant_enable = true // Disable for now to avoid potential issue with CMSIS-NN
-#params.model.params.quant_params.force_q        = 9
-#params.model.params.quant_params.force_q        = 13
-params.evaluate_before = false
+# [[postprocessing]]
+# kind = "QuantizationAwareTrainingFX"
+# export = true
+# params.epochs = 0
+# params.batch_size = 1024
+# params.model.params.quant_params.bits           = 16
+# params.model.params.quant_params.quantype       = "fxp"
+# #params.model.params.quant_params.roundtype      = "nearest"
+# params.model.params.quant_params.roundtype      = "floor"
+# params.model.params.quant_params.range_setting  = "minmax"
+# params.model.params.quant_params.LSQ            = false
+# #params.model.params.quant_params.input.quant_enable = false # Broken with Qualia-CodeGen
+# #params.model.params.quant_params.bias.quant_enable = true // Disable for now to avoid potential issue with CMSIS-NN
+# params.model.params.quant_params.force_q        = 9
+# params.evaluate_before = false
 
 [model_template]
 epochs = 0
-#epochs = 50
 #epochs = 10
 batch_size = 1024
-load  = true
+load = true
 train = false
 
 [model_template.optimizer]
 #kind = "RMSprop"
-#kind = "Adam"
 kind = "Adam"
 #params.lr = 0.01
 #params.lr = 0.005 # With SampleNorm
-#params.lr = 0.175 # With SampleNorm
-params.lr = 0.0002 # With SampleNorm
+#params.lr = 0.0025 # With SampleNorm
+params.lr = 0.002 # With SampleNorm
 params.weight_decay = 5e-4
 
 [model_template.optimizer.scheduler]
@@ -104,7 +112,7 @@ params.weight_decay = 5e-4
 #params.step_size = 25
 #params.gamma = 0.33
 kind = "MultiStepLR"
-params.milestones = [20, 35, 50, 60, 65]
+params.milestones = [20, 50, 70, 85, 100, 110, 115]
 params.gamma = 0.33
 
 [[model]]
@@ -119,6 +127,19 @@ params.dropouts = [0, 0, 0, 0, 0, 0]
 params.batch_norm = true
 params.fc_units = [16]
 disabled = true
+
+[[model]]
+kind = "CNNSampleNorm"
+name = "brainmix_cnn_s20230616_m3_samplenorm"
+params.filters = [16, 32, 64, 64]
+params.kernel_sizes = [3, 3, 3, 3]
+params.strides = [1, 1, 1, 1]
+params.paddings = [0, 0, 0, 0]
+params.pool_sizes = [2, 2, 2, 2]
+params.dropouts = [0, 0, 0, 0, 0, 0]
+params.batch_norm = true
+params.fc_units = [16]
+disabled = false
 
 [[model]]
 kind = "CNN"
@@ -273,4 +294,18 @@ params.num_blocks   = [    1,  1,  1]
 params.postpool     = 'avg'
 params.samplenorm   = 'minmax'
 params.batch_norm   = true
-disabled = false
+disabled = true
+
+[[model]]
+kind = "ResNetSampleNorm"
+name = "brainmix_resnet_s20230616_m3_stride_tiny_samplenorm"
+params.filters      = [4,  8,  8, 12]
+params.kernel_sizes = [3,  3,  3,  3]
+params.paddings     = [1,  1,  1,  1]
+params.strides      = [2,  2,  2,  2]
+params.pool_sizes   = [1,  1,  1,  1]
+params.num_blocks   = [    1,  1,  1]
+params.postpool     = 'avg'
+params.samplenorm   = 'minmax'
+params.batch_norm   = true
+disabled = true

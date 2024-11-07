@@ -1,5 +1,5 @@
 [bench]
-name = "BrainMIX_int8_train"
+name = "BrainMIX_int8_evaluate"
 seed = 2
 first_run = 1
 last_run = 1
@@ -67,7 +67,7 @@ export = true
 [[postprocessing]]
 kind = "QuantizationAwareTrainingFX"
 export = true
-params.epochs = 70
+params.epochs = 0
 params.batch_size = 1024
 params.model.params.quant_params.bits           = 8
 params.model.params.quant_params.quantype       = "fxp"

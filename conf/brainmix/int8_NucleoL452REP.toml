@@ -67,7 +67,7 @@ export = true
 [[postprocessing]]
 kind = "QuantizationAwareTrainingFX"
 export = true
-params.epochs = 70
+params.epochs = 0
 params.batch_size = 1024
 params.model.params.quant_params.bits           = 8
 params.model.params.quant_params.quantype       = "fxp"
