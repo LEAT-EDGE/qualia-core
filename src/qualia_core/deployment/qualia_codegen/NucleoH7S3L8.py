@@ -26,7 +26,8 @@ class NucleoH7S3L8(CMake):
                  projectdir: str | Path | None = None,
                  outdir: str | Path | None = None,
                  extflash: bool = False,  # noqa: FBT001, FBT002
-                 sram: bool = True) -> None:  # noqa: FBT001, FBT002
+                 sram: bool = True,  # noqa: FBT001, FBT002
+                 core_clock_740mhz: bool = False) -> None:
         if projectdir is None:
             if extflash:
                 projectdir = resources_to_path(files('qualia_codegen_core.examples'))/'NucleoH7S3L8ExtFlash'
@@ -39,6 +40,7 @@ class NucleoH7S3L8(CMake):
         self.__size_bin = 'arm-none-eabi-size'
         self.__extflash = extflash
         self.__sram = sram
+        self.__core_clock_740mhz = core_clock_740mhz
 
     @override
     def _validate_optimize(self, optimize: str) -> None:
@@ -56,6 +58,8 @@ class NucleoH7S3L8(CMake):
             args = (*args, '-D', 'WITH_CMSIS_NN=True')
         if self.__sram:
             args = (*args, '-D', 'ROM_IN_SRAM=True')
+        if self.__core_clock_740mhz:
+            args = (*args, '-D', 'CORE_CLOCK_740MHZ=True')
 
         return self._run_cmake(args=args, projectdir=self._projectdir, outdir=outdir)
 
