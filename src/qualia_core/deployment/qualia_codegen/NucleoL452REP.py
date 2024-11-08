@@ -23,10 +23,13 @@ class NucleoL452REP(CMake):
 
     def __init__(self,
                  projectdir: str | Path | None = None,
-                 outdir: str | Path | None = None) -> None:
+                 outdir: str | Path | None = None,
+                 core_clock_48mhz: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__(projectdir=projectdir if projectdir is not None else
                             resources_to_path(files('qualia_codegen_core.examples'))/'NucleoL452REP',
                          outdir=outdir if outdir is not None else Path('out')/'deploy'/'NucleoL452REP')
+
+        self.__core_clock_48mhz = core_clock_48mhz
 
         self.__size_bin = 'arm-none-eabi-size'
 
@@ -44,6 +47,9 @@ class NucleoL452REP(CMake):
         args = ('-D', f'MODEL_DIR={modeldir.resolve()!s}')
         if optimize == 'cmsis-nn':
             args = (*args, '-D', 'WITH_CMSIS_NN=True')
+
+        if self.__core_clock_48mhz:
+            args = (*args, '-D', 'CORE_CLOCK_48MHZ=True')
 
         return self._run_cmake(args=args, projectdir=self._projectdir, outdir=outdir)
 
