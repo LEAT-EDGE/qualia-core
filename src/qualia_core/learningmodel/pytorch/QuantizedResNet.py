@@ -200,8 +200,12 @@ class QuantizedResNet(ResNet):
 
         self.identity1 = QuantizedIdentity(quant_params=quant_params)
         # Make sure identity1 appears before all of parent ResNet modules to keep a more sensible iterate/print order
-        # self._modules is assumed to be an OrderedDict which is the case in PyTorch 2.0
-        cast(OrderedDict[str, nn.Module], self._modules).move_to_end('identity1', last=False)
+        if isinstance(self._modules, OrderedDict):
+            # self._modules is and OrderedDict in PyTorch 2.0
+            self._modules.move_to_end('identity1', last=False)
+        else:
+            # self._modules is not an OrderedDict anymore in PyTorch 2.5 so create a new dict with correct order
+            self._modules = {'identity1': self._modules.pop('identity1'), **self._modules}
 
         if prepool > 1:
             self.prepool = layers_t.QuantizedAvgPool(prepool, quant_params=quant_params)
