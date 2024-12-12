@@ -5,7 +5,7 @@ first_run = 1
 last_run = 15
 
 [learningframework]
-kind = 'pytorch'
+kind = 'PyTorch'
 
 [deploy]
 target = 'Linux'

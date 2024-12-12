@@ -5,7 +5,7 @@ last_run = 1
 seed = 2
 
 [learningframework]
-kind = 'pytorch'
+kind = 'PyTorch'
 params.enable_progress_bar = false
 
 [deploy]
