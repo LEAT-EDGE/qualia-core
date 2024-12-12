@@ -37,7 +37,6 @@ class SampleNorm(nn.Module):
         elif self.norm == 'minmax':
             x -= x.min(dim=-1, keepdim=True).values
             x /= x.max(dim=-1, keepdim=True).values
-            #pass
 
         return x
 

@@ -163,7 +163,8 @@ class Keras(LearningFramework[keras.Model]):
 
     def save_graph_plot(self, model, model_save):
         import tensorflow as tf
-        tf.keras.utils.model_to_dot(model, show_shapes=True, expand_nested=True).write(f'{model_save}.dot')
+        outdir = Path('out')/'learningmodel'
+        tf.keras.utils.model_to_dot(model, show_shapes=True, expand_nested=True).write(str(outdir/f'{model_save}.dot'))
 
     def apply_dataaugmentation(self):
-        raise NotImplemented()
+        raise NotImplementedError
