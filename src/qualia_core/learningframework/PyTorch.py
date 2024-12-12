@@ -631,8 +631,25 @@ class PyTorch(LearningFramework[nn.Module]):
 
     @override
     def save_graph_plot(self, model: nn.Module, model_save: str) -> None:
-        import sys
-        print('Warning: saving PyTorch graph plot unsupported', file=sys.stderr)
+        import torch.fx
+        import torch.fx.passes
+
+        if importlib.util.find_spec('pydot') is None:
+            logger.warning('Cannot find pydot, model topology will not be plotted')
+
+        graph, graphmodule = self.trace_model(model)
+        graph.print_tabular()
+        graph_drawer = torch.fx.passes.graph_drawer.FxGraphDrawer(graphmodule, model_save)
+
+        outdir = Path('out')/'learningmodel'
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        graph_drawer.get_dot_graph().write_raw(outdir/f'{model_save}.dot')
+        with (outdir/f'{model_save}.svg').open('wb') as f:
+            try:
+                f.write(graph_drawer.get_dot_graph().create_svg())
+            except Exception as e:  # noqa: BLE001  # Many things can go wrong with GraphViz so catch what we can
+                logger.warning('Could not generate SVG of model topology: %s', str(e))
 
     @override
     def apply_dataaugmentation(self,
