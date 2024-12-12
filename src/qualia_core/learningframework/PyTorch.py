@@ -11,6 +11,7 @@ import numpy as np
 import numpy.typing
 import torch
 import torch.distributed
+import torch.fx
 import torch.utils.data
 import torchmetrics
 import torchmetrics.classification
@@ -24,14 +25,14 @@ from .LearningFramework import LearningFramework
 from .pytorch.SlopeMetric import SlopeMetric
 
 if TYPE_CHECKING:
-    from pytorch_lightning import Callback  # noqa: TCH002
-    from pytorch_lightning.loggers import Logger  # noqa: TCH002
-    from pytorch_lightning.trainer.connectors.accelerator_connector import _PRECISION_INPUT  # noqa: TCH002
+    from pytorch_lightning import Callback  # noqa: TC002
+    from pytorch_lightning.loggers import Logger  # noqa: TC002
+    from pytorch_lightning.trainer.connectors.accelerator_connector import _PRECISION_INPUT  # noqa: TC002
 
-    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
-    from qualia_core.dataaugmentation.pytorch.DataAugmentationPyTorch import DataAugmentationPyTorch  # noqa: TCH001
-    from qualia_core.datamodel.RawDataModel import RawData  # noqa: TCH001
-    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking  # noqa: TCH001
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TC001
+    from qualia_core.dataaugmentation.pytorch.DataAugmentationPyTorch import DataAugmentationPyTorch  # noqa: TC001
+    from qualia_core.datamodel.RawDataModel import RawData  # noqa: TC001
+    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking  # noqa: TC001
     from qualia_core.typing import OptimizerConfigDict
 
 if sys.version_info >= (3, 12):
@@ -289,6 +290,17 @@ class PyTorch(LearningFramework[nn.Module]):
                 logger.info('Scheduler: %s, %s', scheduler, self.optimizer['scheduler'].get('params', {}))
                 return [optimizer], [scheduler]
             return [optimizer], []
+
+    class TracerCustomLayers(torch.fx.Tracer):
+        """Custom tracer that generates call_module for our custom Qualia layers instead of attempting to trace their forward()."""
+
+        def __init__(self, custom_layers: tuple[type[nn.Module], ...]) -> None:
+            super().__init__()
+            self.custom_layers = custom_layers
+
+        @override
+        def is_leaf_module(self, m: torch.nn.Module, module_qualified_name : str) -> bool:
+            return super().is_leaf_module(m, module_qualified_name) or isinstance(m, self.custom_layers)
 
     def __init__(self,
                  use_best_epoch: bool = False,
@@ -637,3 +649,12 @@ class PyTorch(LearningFramework[nn.Module]):
         y = tensor_y.numpy()
         x = self.channels_first_to_channels_last(x)
         return x, y
+
+    def trace_model(self,
+                    model: nn.Module,
+                    extra_custom_layers: tuple[type[nn.Module], ...] = ()) -> tuple[torch.fx.Graph, torch.fx.GraphModule]:
+        from qualia_core.learningmodel.pytorch.layers import layers as custom_layers
+        tracer = self.TracerCustomLayers(custom_layers=(*custom_layers, *extra_custom_layers))
+        graph = tracer.trace(model)
+        graphmodule = torch.fx.GraphModule(tracer.root, graph, tracer.root.__class__.__name__)
+        return graph, graphmodule

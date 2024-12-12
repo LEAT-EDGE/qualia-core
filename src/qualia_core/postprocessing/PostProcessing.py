@@ -7,7 +7,7 @@ from qualia_core.learningframework.LearningFramework import LearningFramework, T
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
 
 if TYPE_CHECKING:
-    from qualia_core.qualia import TrainResult  # noqa: TCH001
+    from qualia_core.qualia import TrainResult  # noqa: TC001
 
 class PostProcessing(ABC, Generic[T]):
     @abstractmethod
@@ -26,5 +26,8 @@ class PostProcessing(ABC, Generic[T]):
             return mem_params
         return f
 
-    def process_model(self, model: T, model_conf: ModelConfigDict) -> tuple[T, ModelConfigDict]:
+    def process_model(self,
+                      model: T,
+                      model_conf: ModelConfigDict,
+                      framework: LearningFramework[T]) -> tuple[T, ModelConfigDict]:
         return model, model_conf

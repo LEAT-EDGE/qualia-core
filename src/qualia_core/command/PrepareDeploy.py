@@ -69,7 +69,7 @@ class PrepareDeploy:
                 # Postprocessings can change model topology with PyTorch, needs to be done after instantiating model with new name
                 for postprocessing in config.get('postprocessing', []):
                     pp = getattr(qualia.postprocessing, postprocessing['kind'])(**postprocessing.get('params', {}))
-                    model, m = pp.process_model(model, m)
+                    model, m = pp.process_model(model, m, framework=learningframework)
 
                 # Show model architecture
                 learningframework.summary(model)

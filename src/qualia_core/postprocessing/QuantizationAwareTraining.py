@@ -126,7 +126,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
 
     def _build_quantized_model(self,
                                model: nn.Module,
-                               framework: LearningFramework[Any],
+                               framework: PyTorch,
                                model_conf: ModelConfigDict) -> tuple[nn.Module, ModelParamsConfigDict]:
         logger.info('Building quantized model')
         # Create quantized model with parameters from original model

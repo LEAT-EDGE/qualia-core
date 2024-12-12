@@ -8,11 +8,10 @@ from typing import Any, Callable, ClassVar
 
 import torch
 from torch import nn
-from torch.fx import Graph, GraphModule, Node, Tracer
+from torch.fx import Graph, GraphModule, Node
 from torch.fx.experimental.optimization import replace_node_module
 
 from qualia_core.learningmodel.pytorch import layers as qualia_layers
-from qualia_core.learningmodel.pytorch.layers import layers as custom_layers
 from qualia_core.learningmodel.pytorch.layers import quantized_layers
 from qualia_core.learningmodel.pytorch.layers.quantized_layers import quantized_layers as quantized_layers_list
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict, ModelParamsConfigDict, QuantizationConfigDict
@@ -21,8 +20,8 @@ from qualia_core.utils.merge_dict import merge_dict
 from .QuantizationAwareTraining import QuantizationAwareTraining
 
 if TYPE_CHECKING:
-    from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
-    from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import QuantizedLayer  # noqa: TCH001
+    from qualia_core.learningframework.PyTorch import PyTorch  # noqa: TC001
+    from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import QuantizedLayer  # noqa: TC001
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -63,15 +62,6 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
         operator.add: (0, 1),
         torch.nn.functional.adaptive_avg_pool2d: (0,),
     }
-
-    class TracerCustomLayers(Tracer):
-        def __init__(self, custom_layers: tuple[type[nn.Module], ...]) -> None:
-            super().__init__()
-            self.custom_layers = custom_layers
-
-        @override
-        def is_leaf_module(self, m: torch.nn.Module, module_qualified_name : str) -> bool:
-            return super().is_leaf_module(m, module_qualified_name) or isinstance(m, self.custom_layers)
 
     def _get_modules(self, model: nn.Module) -> dict[str, nn.Module]:
         return dict(model.named_modules())
@@ -143,10 +133,11 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
         # Remove the old node from the graph
         graph.erase_node(node)
 
-
-    def _build_quantized_model_fx(self, model: nn.Module, quant_params: QuantizationConfigDict) -> nn.Module:
-        tracer = self.TracerCustomLayers(custom_layers=custom_layers)
-        graph = tracer.trace(model)
+    def _build_quantized_model_fx(self,
+                                  model: nn.Module,
+                                  framework: PyTorch,
+                                  quant_params: QuantizationConfigDict) -> nn.Module:
+        graph, graphmodule = framework.trace_model(model)
         graph.print_tabular()
 
         for node in graph.nodes:
@@ -167,7 +158,7 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
                     logger.warning('Node %s not quantized, unknown function %s', node.name, node.target)
 
 
-        graphmodule = GraphModule(tracer.root, graph, tracer.root.__class__.__name__)
+        graphmodule = GraphModule(model, graph, model.__class__.__name__)
 
         graphmodule.graph.print_tabular()
 
@@ -176,7 +167,7 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
     @override
     def _build_quantized_model(self,
                                model: nn.Module,
-                               framework: LearningFramework[Any],
+                               framework: PyTorch,
                                model_conf: ModelConfigDict) -> tuple[nn.Module, ModelParamsConfigDict]:
         logger.info('Building quantized model')
         # Create quantized model with parameters from original model
@@ -195,7 +186,9 @@ class QuantizationAwareTrainingFX(QuantizationAwareTraining):
         self.width: int = qmodel_params['quant_params'].get('bits', 0)
         self.force_q: int | None = qmodel_params['quant_params'].get('force_q', None)
 
-        quantized_model = self._build_quantized_model_fx(model, quant_params=qmodel_params['quant_params'])
+        quantized_model = self._build_quantized_model_fx(model,
+                                                         framework=framework,
+                                                         quant_params=qmodel_params['quant_params'])
 
         framework.summary(quantized_model)
 
