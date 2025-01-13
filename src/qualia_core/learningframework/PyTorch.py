@@ -636,6 +636,7 @@ class PyTorch(LearningFramework[nn.Module]):
 
         if importlib.util.find_spec('pydot') is None:
             logger.warning('Cannot find pydot, model topology will not be plotted')
+            return
 
         graph, graphmodule = self.trace_model(model)
         graph.print_tabular()
