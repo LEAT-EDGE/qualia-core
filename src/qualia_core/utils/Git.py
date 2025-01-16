@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import git
-
 
 class Git:
     def __init__(self) -> None:
         super().__init__()
         try:
-            self.repo = git.Repo(search_parent_directories=True)
-        except git.InvalidGitRepositoryError:
+            import git
+
+            try:
+                self.repo = git.Repo(search_parent_directories=True)
+            except git.InvalidGitRepositoryError:
+                self.repo = None
+        except ImportError:
             self.repo = None
 
     @property
