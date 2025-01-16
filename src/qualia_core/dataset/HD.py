@@ -82,7 +82,7 @@ class HD(RawDataset):
         test_y = np.array(test_y_list)
         test_info = np.array(test_info_list, dtype=Info_dtype)
 
-        logger.info('Shapes: train_x=%s, train_y=%s, test_x=%y, test_y=%y',
+        logger.info('Shapes: train_x=%s, train_y=%s, test_x=%s, test_y=%s',
                     train_x.shape,
                     train_y.shape,
                     test_x.shape,

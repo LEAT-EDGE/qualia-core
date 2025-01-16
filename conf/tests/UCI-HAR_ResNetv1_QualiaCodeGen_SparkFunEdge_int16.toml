@@ -39,7 +39,7 @@ params.debug = true
 kind = "Mixup"
 
 [[postprocessing]]
-kind = "QuantizationAwareTraining"
+kind = "QuantizationAwareTrainingFX"
 export = true
 params.epochs = 0
 params.batch_size = 64
