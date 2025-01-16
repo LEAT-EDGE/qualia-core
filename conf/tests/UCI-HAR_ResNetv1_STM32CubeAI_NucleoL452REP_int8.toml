@@ -39,7 +39,7 @@ kind = "Mixup"
 
 # Not actually doing QAT since epochs=0, only used to generate activation ranges for QualiaCodeGen
 [[postprocessing]]
-kind = "QuantizationAwareTraining"
+kind = "QuantizationAwareTrainingFX"
 export = true
 params.epochs = 1
 params.batch_size = 64
