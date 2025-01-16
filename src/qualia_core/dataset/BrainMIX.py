@@ -40,4 +40,10 @@ class BrainMIX(RawDataset):
         train = RawData(train_x, train_y)
         test = RawData(test_x, test_y)
 
+        logger.info('Shapes: train_x=%s, train_y=%s, test_x=%s, test_y=%s',
+                    train_x.shape,
+                    train_y.shape,
+                    test_x.shape,
+                    test_y.shape)
+
         return RawDataModel(sets=RawDataSets(train=train, test=test), name=self.name)
