@@ -7,7 +7,8 @@ default:
     - pacman-key --init
     - pacman -Sy --noconfirm archlinux-keyring
     - pacman -Syu --noconfirm --needed git which curl wget unzip make gcc arm-none-eabi-gcc arm-none-eabi-newlib vim
-    - pacman -S --noconfirm --needed python-pytorch python-tensorflow python-keras python-pip python-numpy
+    - pacman -U --noconfirm /mnt/hdd/Software/ArchLinux/python-tensorflow-2.19.0a0-1-x86_64.pkg.tar.zst  /mnt/hdd/Software/ArchLinux/tensorflow-2.19.0a0-1-x86_64.pkg.tar.zst
+    - pacman -S --noconfirm --needed python-pytorch python-keras python-pip python-numpy
     - pacman -S --noconfirm --needed python-scikit-learn python-pycryptodome python-pyserial python-tomlkit python-gitpython
     - pacman -S --noconfirm --needed python-tabulate python-matplotlib python-pydot
     - pacman -S --noconfirm --needed python-pytest python-pytest-dependency python-pytest-xdist python-pytest-env
