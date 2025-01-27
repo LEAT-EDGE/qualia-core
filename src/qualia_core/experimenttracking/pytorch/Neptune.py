@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 
 from qualia_core.experimenttracking.NeptuneBase import NeptuneBase
@@ -12,7 +13,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
-if TYPE_CHECKING:
+if TYPE_CHECKING and importlib.util.find_spec('neptune'):
     from neptune.new.integrations.pytorch_lightning import NeptuneLogger  # noqa: TCH002
 
 
