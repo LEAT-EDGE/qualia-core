@@ -17,4 +17,4 @@ class RawDataset(Dataset[RawData]):
 
     @override
     def import_data(self) -> RawDataModel | None:
-        return RawDataModel.import_data(name=self.name, sets=self.sets)
+        return RawDataModel.import_data(name=self.name, set_names=self.sets)

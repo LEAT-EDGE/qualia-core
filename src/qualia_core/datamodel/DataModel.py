@@ -3,10 +3,16 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
 if TYPE_CHECKING:
+    import sys
     from collections.abc import Iterator
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -53,3 +59,21 @@ class DataModel(Generic[T]):
 
     def export(self) -> None:
         self.sets.export(Path('out')/'data'/self.name)
+
+    @classmethod
+    def import_data(cls,
+                    name: str,
+                    set_names: list[str],
+                    sets_cls: type[DataModel.Sets[T]],
+                    importer: Callable[[Path], T | None]) -> Self | None:
+        sets_dict: dict[str, T | None] =  {sname: importer(Path('out')/'data'/name/sname)
+                                                   for sname in set_names}
+
+        if any(s is None for s in sets_dict.values()):
+            logger.error('Could not import data.')
+            return None
+
+        logger.info('Imported %s for %s', ', '.join(sets_dict.keys()), name)
+
+        return cls(sets=sets_cls(**sets_dict),
+                   name=name)

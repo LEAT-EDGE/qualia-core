@@ -2,39 +2,54 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from dataclasses import astuple, dataclass
-from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import blosc2
 import numpy as np
-import numpy.typing
+
+from qualia_core.typing import TYPE_CHECKING
 
 from .DataModel import DataModel
 
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+if TYPE_CHECKING:
+    from pathlib import Path  # noqa: TC003
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class RawData:
-    x: numpy.typing.NDArray[Any]
-    y: numpy.typing.NDArray[Any]
-    info: numpy.typing.NDArray[Any] | None = None
+    x: np.ndarray[Any, Any]
+    y: np.ndarray[Any, Any]
+    info: np.ndarray[Any, Any] | None = None
 
     @property
-    def data(self) -> numpy.typing.NDArray[Any]:
+    def data(self) -> np.ndarray[Any, Any]:
         return self.x
 
     @data.setter
-    def data(self, data: numpy.typing.NDArray[Any]) -> None:
+    def data(self, data: np.ndarray[Any, Any]) -> None:
         self.x = data
 
     @property
-    def labels(self) -> numpy.typing.NDArray[Any]:
+    def labels(self) -> np.ndarray[Any, Any]:
         return self.y
 
     @labels.setter
-    def labels(self, labels: numpy.typing.NDArray[Any]) -> None:
+    def labels(self, labels: np.ndarray[Any, Any]) -> None:
         self.y = labels
 
     def export(self, path: Path, compressed: bool = True) -> None:
@@ -53,7 +68,7 @@ class RawData:
         logger.info('export() Elapsed: %s s', time.time() - start)
 
     @classmethod
-    def import_data(cls, path: Path, compressed: bool = True) -> RawData | None:
+    def import_data(cls, path: Path, compressed: bool = True) -> Self | None:
         start = time.time()
 
         for fname in ['data.npz', 'labels.npz']:
@@ -61,11 +76,11 @@ class RawData:
                 logger.error("'%s' not found. Did you run 'preprocess_data'?", path/fname)
                 return None
 
-        info: numpy.typing.NDArray[Any] | None = None
+        info: np.ndarray[Any, Any] | None = None
 
         if compressed:
-            data: numpy.typing.NDArray[Any] = blosc2.load_array(str(path/'data.npz'))
-            labels: numpy.typing.NDArray[Any] = blosc2.load_array(str(path/'labels.npz'))
+            data: np.ndarray[Any, Any] = blosc2.load_array(str(path/'data.npz'))
+            labels: np.ndarray[Any, Any] = blosc2.load_array(str(path/'labels.npz'))
             if (path/'info.npz').is_file():
                 info = blosc2.load_array(str(path/'info.npz'))
         else:
@@ -93,17 +108,13 @@ class RawDataSets(DataModel.Sets[RawData]):
 class RawDataModel(DataModel[RawData]):
     sets: DataModel.Sets[RawData]
 
+    @override
     @classmethod
-    def import_data(cls, name: str, sets: list[str] | None = None) -> RawDataModel | None:
-        set_names = sets if sets is not None else list(RawDataSets.fieldnames())
-        sets_dict: dict[str, RawData | None] =  {sname: RawData.import_data(Path('out')/'data'/name/sname)
-                                                   for sname in set_names}
+    def import_data(cls,
+                    name: str,
+                    set_names: list[str] | None = None,
+                    sets_cls: type[DataModel.Sets[RawData]] = RawDataSets,
+                    importer: Callable[[Path], RawData | None] = RawData.import_data) -> RawDataModel | None:
+        set_names = set_names if set_names is not None else list(RawDataSets.fieldnames())
 
-        if any(s is None for s in sets_dict.values()):
-            logger.error('Could not import data.')
-            return None
-
-        logger.info('Imported %s for %s', ', '.join(sets_dict.keys()), name)
-
-        return cls(sets=RawDataSets(**sets_dict),
-                   name=name)
+        return super().import_data(name=name, set_names=set_names, sets_cls=sets_cls, importer=importer)
