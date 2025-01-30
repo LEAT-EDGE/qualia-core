@@ -16,5 +16,7 @@ class RawDataset(Dataset[RawData]):
         super().__init__(sets=list(RawDataModel.Sets.fieldnames()))
 
     @override
-    def import_data(self) -> RawDataModel | None:
-        return RawDataModel.import_data(name=self.name, set_names=self.sets)
+    def import_data(self) -> RawDataModel:
+        rdm = RawDataModel(name=self.name)
+        rdm.import_sets(set_names=self.sets)
+        return rdm

@@ -109,12 +109,13 @@ class RawDataModel(DataModel[RawData]):
     sets: DataModel.Sets[RawData]
 
     @override
-    @classmethod
-    def import_data(cls,
-                    name: str,
+    def import_sets(self,
                     set_names: list[str] | None = None,
                     sets_cls: type[DataModel.Sets[RawData]] = RawDataSets,
-                    importer: Callable[[Path], RawData | None] = RawData.import_data) -> RawDataModel | None:
+                    importer: Callable[[Path], RawData | None] = RawData.import_data) -> None:
         set_names = set_names if set_names is not None else list(RawDataSets.fieldnames())
 
-        return super().import_data(name=name, set_names=set_names, sets_cls=sets_cls, importer=importer)
+        sets_dict = self._import_data_sets(name=self.name, set_names=set_names, importer=importer)
+
+        if sets_dict is not None:
+            self.sets = sets_cls(**sets_dict)
