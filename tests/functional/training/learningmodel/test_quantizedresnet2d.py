@@ -7,7 +7,7 @@ class TestModelsQuantizedResnet2D(TestCase):
         from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
         train = RawData(np.ones((2, 64, 64, 1), dtype=np.float32), np.array([[1, 0], [1, 0]]))
         test = RawData(np.ones((2, 64, 64, 1), dtype=np.float32), np.array([[1, 0], [0, 1]]))
-        self.__data = RawDataModel(RawDataSets(train=train, test=test), name='test_quantizedresnet2d')
+        self.__data = RawDataModel(sets=RawDataSets(train=train, test=test), name='test_quantizedresnet2d')
         self.__model_params = {
             'filters': (4, 6),
             'kernel_sizes': (5, 5),

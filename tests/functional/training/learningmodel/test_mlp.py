@@ -12,7 +12,7 @@ class TestModelsMLP:
         from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
         train = RawData(np.array([[[1.0]], [[1.0]]], dtype=np.float32), np.array([[1, 0], [1, 0]]))
         test = RawData(np.array([[[1.0]], [[1.0]]], dtype=np.float32), np.array([[1, 0], [0, 1]]))
-        cls.data = RawDataModel(RawDataSets(train=train, test=test), name='test_mlp')
+        cls.data = RawDataModel(sets=RawDataSets(train=train, test=test), name='test_mlp')
 
     def test_mlp_keras(self):
         from qualia_core import qualia
