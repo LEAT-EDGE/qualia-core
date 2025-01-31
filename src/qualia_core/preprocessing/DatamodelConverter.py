@@ -31,6 +31,7 @@ class DatamodelConverter(Preprocessing[HARDataModel, RawDataModel]):
     def __call__(self, datamodel: HARDataModel) -> RawDataModel:
         # First generate the class numbers according to the activities present in the dataset
         activitylabels_set: set[Activities] = set()
+        print(datamodel.sets)
         for _, s in datamodel.sets:
             for subject in s:
                 for activity in subject.activities:
@@ -58,7 +59,7 @@ class DatamodelConverter(Preprocessing[HARDataModel, RawDataModel]):
     def import_data(self, dataset: Dataset[Any]) -> Dataset[Any]:
         def func() -> RawDataModel:
             rdm = RawDataModel(name=dataset.name)
-            rdm.import_data(set_names=dataset.sets)
+            rdm.import_sets(set_names=dataset.sets)
             return rdm
         dataset.import_data = func
         return dataset
