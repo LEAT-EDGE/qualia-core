@@ -150,7 +150,7 @@ class QualiaCodeGen(Converter[Any]):
 
         return modelgraph
 
-    def convert_modelgraph_to_c(self, modelgraph: ModelGraph, output_path: Path) -> str | None:
+    def convert_modelgraph_to_c(self, modelgraph: ModelGraph, output_path: Path) -> str | bool:
         from qualia_codegen_core import Converter
         converter = Converter(output_path=output_path)
         return converter.convert_model(modelgraph)
@@ -221,7 +221,7 @@ class QualiaCodeGen(Converter[Any]):
         # Do not concat result of convert metrics_to_c since it's C++ and not C
         _ = self.convert_metrics_to_cpp(self.__metrics, output_path=cast(Path, self.directory))
 
-        if self._h is None:
+        if not self._h:
             logger.error('Could not convert ModelGraph to C')
             return None
 
