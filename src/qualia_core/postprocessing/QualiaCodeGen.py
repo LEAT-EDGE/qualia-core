@@ -216,7 +216,9 @@ class QualiaCodeGen(Converter[Any]):
                         output_round_mode=RoundMode.NONE,
                         )
         # self.directory cannot be None as long as we define self._name above
-        self._h = self.convert_modelgraph_to_c(modelgraph, output_path=cast(Path, self.directory))
+        h = self.convert_modelgraph_to_c(modelgraph, output_path=cast(Path, self.directory))
+        if isinstance(h, str):
+            self._h = h
 
         # Do not concat result of convert metrics_to_c since it's C++ and not C
         _ = self.convert_metrics_to_cpp(self.__metrics, output_path=cast(Path, self.directory))
