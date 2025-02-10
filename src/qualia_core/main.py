@@ -54,7 +54,7 @@ def qualia(action: str,
 
     dataset = getattr(qualia.dataset, config['dataset']['kind'])(**config['dataset'].get('params', {}))
     converter: type[Converter] = getattr(qualia.converter, config.get('deploy', {}).get('converter', {}).get('kind', ''), None)
-    if config.get('deploy', {}).get('converter', '').get('kind') and not converter:
+    if config.get('deploy', {}).get('converter', {}).get('kind') and not converter:
         logger.error("Converter '%s' not found", config['deploy']['converter']['kind'])
         raise ValueError
 
