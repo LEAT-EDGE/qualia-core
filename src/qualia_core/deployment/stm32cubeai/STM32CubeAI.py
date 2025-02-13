@@ -36,8 +36,8 @@ class STM32CubeAI(STM32CubeIDE):
                  outdir: Path | None = None) -> None:
         super().__init__(projectname=projectname, projectdir=projectdir, outdir=outdir)
 
-        # Project not compatible with 6.0.0 yet, and 6.0.0 is buggy anyway. Use 5.2.0
-        self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'5.2.0'/'Utilities'/'linux'/'stm32ai'
+        #  Built-in project made for 8.1.0
+        self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'8.1.0'/'Utilities'/'linux'/'stm32ai'
         #self.__stm32cubeai_bin = next((Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI').glob('*'))/'Utilities'/'linux'/'stm32ai'
 
     def _create_modeloutdir(self, modelpath: Path) -> None:

@@ -11,8 +11,8 @@ class STM32CubeAI:
         self.__mode = mode
         self.__stm32cubeai_args = stm32cubeai_args
 
-        # Project not compatible with 6.0.0 yet, and 6.0.0 is buggy anyway. Use 5.2.0
-        self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'5.2.0'/'Utilities'/'linux'/'stm32ai'
+        # Built-in project for 8.1.0
+        self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'8.1.0'/'Utilities'/'linux'/'stm32ai'
         #self.__stm32cubeai_bin = next((Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI').glob('*'))/'Utilities'/'linux'/'stm32ai'
 
     def __dataset_to_csv(self, dataset, outdir, limit):
