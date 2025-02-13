@@ -160,6 +160,11 @@ class PyTorch(LearningFramework[nn.Module]):
             self.val_metrics = metrics_collection.clone(prefix='val')
             self.test_metrics = metrics_collection.clone(prefix='test')
 
+        def apply_dataaugmentation(self,
+                                   batch: tuple[torch.Tensor, torch.Tensor],
+                                   dataaugmentation: DataAugmentationPyTorch) -> tuple[torch.Tensor, torch.Tensor]:
+            return dataaugmentation(batch, device=self.device)
+
         @override
         def on_before_batch_transfer(self,
                                     batch: tuple[torch.Tensor, torch.Tensor],
@@ -167,7 +172,7 @@ class PyTorch(LearningFramework[nn.Module]):
             if self.dataaugmentations:
                 for da in self.dataaugmentations:
                     if (self.trainer.training or da.evaluate) and da.before:
-                        batch = da(batch, device=self.device)
+                        batch = self.apply_dataaugmentation(batch, da)
             return batch
 
         @override
@@ -177,7 +182,7 @@ class PyTorch(LearningFramework[nn.Module]):
             if self.dataaugmentations:
                 for da in self.dataaugmentations:
                     if (self.trainer.training or da.evaluate) and da.after:
-                        batch = da(batch, device=self.device)
+                        batch = self.apply_dataaugmentation(batch, da)
             return batch
 
         @override
