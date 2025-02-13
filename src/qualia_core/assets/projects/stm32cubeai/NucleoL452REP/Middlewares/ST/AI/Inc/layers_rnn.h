@@ -2,23 +2,24 @@
   ******************************************************************************
   * @file    layers_rnn.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    18-May-2018
   * @brief   header file of RNN layers
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2018 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  @verbatim
+  @endverbatim
+  ******************************************************************************
   */
-#ifndef __LAYERS_RNN_H_
-#define __LAYERS_RNN_H_
+#ifndef LAYERS_RNN_H
+#define LAYERS_RNN_H
 #pragma once
 
 #include "layers_common.h"
@@ -32,13 +33,15 @@ AI_API_DECLARE_BEGIN
  * @brief LSTM layer with generic nonlinearities and peephole connections
  */
 typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_lstm_ {
-  AI_LAYER_COMMON_FIELDS_DECLARE
+  AI_LAYER_STATEFUL_FIELDS_DECLARE
   ai_size n_units;        /**< size of the hidden RNN state */
   func_nl activation_nl;  /**< activation nonlinearity (input to cell) */
   func_nl recurrent_nl;   /**< recurrent nonlinearity (hidden to cell) */
   func_nl out_nl;         /**< output nonlinearity (cell to hidden) */
   ai_bool go_backwards;   /**< process reversed input */
+  ai_bool return_state;    /**< return state */
   ai_bool reverse_seq;    /**< reverse output sequence */
+  ai_float cell_clip;     /**< cell clip value */
 } ai_layer_lstm;
 
 /*!
@@ -47,11 +50,12 @@ typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_lstm_ {
  * @brief Gated Recurrent Unit (GRU) layer with generic nonlinearities
  */
 typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_gru_ {
-  AI_LAYER_COMMON_FIELDS_DECLARE
+  AI_LAYER_STATEFUL_FIELDS_DECLARE
   ai_size n_units;        /**< size of the hidden RNN state */
   func_nl activation_nl;  /**< activation nonlinearity (input to cell) */
   func_nl recurrent_nl;   /**< recurrent nonlinearity (hidden to cell) */
   ai_bool reset_after;
+  ai_bool return_state;
   ai_bool go_backwards;   /**< process reversed input */
   ai_bool reverse_seq;    /**< reverse output sequence */
 } ai_layer_gru;
@@ -67,7 +71,29 @@ typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_rnn_ {
   func_nl activation_nl;  /**< activation nonlinearity (input to hidden) */
   ai_bool go_backwards;   /**< process reversed input */
   ai_bool reverse_seq;    /**< reverse output sequence */
+  ai_bool return_state;
 } ai_layer_rnn;
+
+
+/*!
+ * @brief Initialize a Long-Short Term Memory (LSTM) layer.
+ * @ingroup layers
+ *
+ * Function used to initialize lstm internal state
+ */
+AI_INTERNAL_API
+void init_lstm(ai_layer * layer);
+
+
+/*!
+ * @brief Destroy a Long-Short Term Memory (LSTM) layer state.
+ * @ingroup layers
+ *
+ * Function used to destroy lstm internal state
+ */
+AI_INTERNAL_API
+void destroy_lstm(ai_layer * layer);
+
 
 /*!
  * @brief Computes the activations of a Long-Short Term Memory (LSTM) layer.
@@ -93,6 +119,26 @@ typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_rnn_ {
  */
 AI_INTERNAL_API
 void forward_lstm(ai_layer * layer);
+
+
+/*!
+ * @brief Initialize a Gated Recurrent Unit (GRU) layer.
+ * @ingroup layers
+ *
+ * Function used to initialize gru internal state
+ */
+AI_INTERNAL_API
+void init_gru(ai_layer * layer);
+
+
+/*!
+ * @brief Destroy a Gated Recurrent Unit (GRU) layer state.
+ * @ingroup layers
+ *
+ * Function used to destroy gru internal state
+ */
+AI_INTERNAL_API
+void destroy_gru(ai_layer * layer);
 
 /*!
  * @brief Computes the activations of a Gated Recurrent Unit (GRU) layer.
@@ -135,4 +181,4 @@ void forward_rnn(ai_layer * layer);
 
 AI_API_DECLARE_END
 
-#endif /* __LAYERS_RNN_H_ */
+#endif /* LAYERS_RNN_H */

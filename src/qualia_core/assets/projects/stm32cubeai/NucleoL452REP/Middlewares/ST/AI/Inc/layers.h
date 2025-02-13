@@ -2,87 +2,76 @@
   ******************************************************************************
   * @file    layers.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    01-May-2017
   * @brief   header file of AI platform layers datatypes
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
+  ******************************************************************************
+  @verbatim
+  @endverbatim
   ******************************************************************************
   */
 
-#ifndef __LAYERS_H_
-#define __LAYERS_H_
+#ifndef LAYERS_H
+#define LAYERS_H
 #pragma once
 
 #include "layers_common.h"
 #include "layers_conv2d.h"
+#include "layers_custom.h"
+#include "layers_dense.h"
+#include "layers_formats_converters.h"
 #include "layers_generic.h"
+#include "layers_lite_graph.h"
 #include "layers_nl.h"
 #include "layers_norm.h"
+#include "layers_pad_dqnn.h"
+#include "layers_pad_generic.h"
 #include "layers_pool.h"
 #include "layers_rnn.h"
-#include "layers_dense.h"
+#include "layers_upsample_generic.h"
 #include "layers_sm.h"
+#include "layers_ml.h"
+#include "layers_ml_iforest.h"
+#include "layers_ml_svc.h"
+#include "layers_ml.h"
+#include "layers_ml_linearclassifier.h"
+#include "layers_ml_treeensembleclassifier.h"
+#include "layers_ml_treeensembleregressor.h"
+#include "layers_ml_svmregressor.h"
 
-#ifdef USE_OPERATORS
-  #include "layers_lambda.h"
-#endif /* USE_OPERATORS */
+#include "layers_conv2d_dqnn.h"
+#include "layers_dense_dqnn.h"
+#include "layers_pool_dqnn.h"
+#include "layers_generic_dqnn.h"
+#include "layers_upsample_generic.h"
+// #include "layers_template.h"
 
 
 AI_API_DECLARE_BEGIN
 
 /*!
- * @defgroup layers Layers
- * @brief Definition of the forward functions for the layers and the general
- * ai_layer datastructure used to abstract specific layer implementation in the
- * generic forward function definition
- *
- * The forward function for a layer computes the layer activations given the
- * activations of the previous layer. They are added to the layer as function
- * pointer and called implicitly by the @ref ai_layers_forward_all function.
- * The input activations are read from layer &rarr; in and the computed
- * activations stored in layer &rarr; out. The layer type needs to be compatible
- * with the forward function, but layers with the same layout (e.g. `mp` and
- * `ap`) can share the same structure.
- */
-
-/******************************************************************************/
-/* Forward Functions Section                                                  */
-/******************************************************************************/
-
-/*!
- * @brief Executes a single layer in the network.
+ * @struct ai_any_layer_ptr
  * @ingroup layers
- * @param layer the layer to process
- * @return pointer to the next layer
+ * @brief Generic union for typed layers pointers
  */
-AI_INTERNAL_API
-ai_layer* ai_layers_forward_layer(ai_layer* layer);
+typedef struct {
+  ai_layer_type type;              /*!< layer type id (see @ref ai_layer_type) */
+  union {
+#define LAYER_ENTRY(type_, id_, struct_, forward_func_, init_func_, destroy_func_) \
+   AI_CONCAT(ai_layer_, struct_)* struct_;
+#include "layers_list.h"
+  };
+} ai_any_layer_ptr;
 
-
-/*!
- * @brief Computes the ouptut of the network given the input.
- * @ingroup layers
- *
- * Given a network with the input pre-loaded in the net &rarr; in tensor,
- * computes the output by calling the forward functions of each layer and
- * selecting the next layer. When the layer has no successor or it's in a
- * loop-back configuration (layer &rarr; next is again layer), the function
- * stops. The result is stored in net &rarr; out.
- *
- * @param net the network to evaluate
- */
-AI_INTERNAL_API
-void ai_layers_forward_all(ai_network* net);
 
 AI_API_DECLARE_END
 
-#endif /* __LAYERS_H_ */
+#endif /*LAYERS_H*/

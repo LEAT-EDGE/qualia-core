@@ -2,24 +2,25 @@
   ******************************************************************************
   * @file    ai_datatypes_defines.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    18-Oct-2017
   * @brief   Definitions of AI platform private APIs types
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
+  ******************************************************************************
+  @verbatim
+  @endverbatim
   ******************************************************************************
   */
 
-#ifndef __AI_DATATYPES_DEFINES_H__
-#define __AI_DATATYPES_DEFINES_H__
+#ifndef AI_DATATYPES_DEFINES_H
+#define AI_DATATYPES_DEFINES_H
 #pragma once
 
 #include "ai_platform.h"
@@ -55,7 +56,7 @@
   { assert(cond); }
 #else
 #define AI_ASSERT(cond) \
-  AI_WRAP_FUNC(AI_NOP)
+  AI_WRAP_FUNC(/*AI_ASSERT*/)
 #endif  /*HAS_AI_ASSERT*/
 
 /******************************************************************************/
@@ -98,14 +99,29 @@
 /******************************************************************************/
 #if defined(_MSC_VER)
   #define AI_DECLARE_STATIC           static __inline
+  // #define AI_FORCE_INLINE             static __forceinline
+  #define AI_FORCE_INLINE             static __inline
+  #define AI_HINT_INLINE              static __inline
   #define AI_ALIGNED_TYPE(type, x)    type __declspec(align(x))
   #define AI_INTERFACE_ENTRY         __declspec(dllexport)
 #elif defined(__ICCARM__) || defined (__IAR_SYSTEMS_ICC__)
   #define AI_DECLARE_STATIC           static inline
+  // #define AI_FORCE_INLINE             static _Pragma("inline=forced")  // TODO: check this definition!
+  #define AI_FORCE_INLINE             static inline
+  #define AI_HINT_INLINE              static inline
   #define AI_ALIGNED_TYPE(type, x)    type
+  #define AI_INTERFACE_ENTRY          /* AI_INTERFACE_ENTRY */
+#elif defined(__GNUC__)
+  #define AI_DECLARE_STATIC           static __inline
+  #define AI_FORCE_INLINE             static __inline
+  #define AI_HINT_INLINE              static __inline
+  #define AI_ALIGNED_TYPE(type, x)    type __attribute__ ((aligned(x)))
   #define AI_INTERFACE_ENTRY          /* AI_INTERFACE_ENTRY */
 #else /* _MSC_VER */
   #define AI_DECLARE_STATIC           static __inline
+  // #define AI_FORCE_INLINE             static __forceinline
+  #define AI_FORCE_INLINE             static __inline
+  #define AI_HINT_INLINE              static __inline
   #define AI_ALIGNED_TYPE(type, x)    type __attribute__ ((aligned(x)))
   #define AI_INTERFACE_ENTRY         __attribute__((visibility("default")))
 #endif /* _MSC_VER */
@@ -113,19 +129,10 @@
 /******************************************************************************/
 #define AI_ALIGN_MASKED(value, mask)    ( ((value)+(mask))&(~(mask)) )
 
-
-#define AI_GET_REVISION(major, minor, micro) ( \
-            ((ai_u32)(major)<<24) | \
-            ((ai_u32)(minor)<<16) | \
-            ((ai_u32)(micro)<< 8) )
-
 #define AI_GET_VERSION_STRING(major, minor, micro) \
           AI_STRINGIFY_ARG(major) "." \
           AI_STRINGIFY_ARG(minor) "." \
           AI_STRINGIFY_ARG(micro) \
-
-#define AI_PACK(...) \
-  __VA_ARGS__
 
 
 #define AI_PACK_TENSORS_PTR(...) \
@@ -139,14 +146,16 @@
 #define AI_CR                         "\r\n"
 
 #if (defined HAS_AI_DEBUG || defined HAS_DEBUG_LIB)
+#include <stdio.h>
 #define AI_DEBUG(...)                __VA_ARGS__
+#define AI_DEBUG_PRINT(fmt, ...)     { printf(fmt, ##__VA_ARGS__); }
 #else
-#define AI_DEBUG(...)                AI_WRAP_FUNC(AI_NOP)
+#define AI_DEBUG(...)                AI_WRAP_FUNC(/*AI_DEBUG*/)
+#define AI_DEBUG_PRINT(fmt, ...)     AI_WRAP_FUNC(/*AI_DEBUG_PRINT*/)
 #endif
 
-#define AI_FLAG_NONE                  (0x0)
 #define AI_FLAG_SET(mask, flag)       (mask) |= (flag)
 #define AI_FLAG_UNSET(mask, flag)     (mask) &= (~(flag))
 #define AI_FLAG_IS_SET(mask, flag)    ((flag)==((mask)&(flag)))
 
-#endif    /*__AI_DATATYPES_DEFINES_H__*/
+#endif    /*AI_DATATYPES_DEFINES_H*/

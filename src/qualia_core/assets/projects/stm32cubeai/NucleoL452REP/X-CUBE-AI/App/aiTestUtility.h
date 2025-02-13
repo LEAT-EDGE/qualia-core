@@ -1,18 +1,17 @@
 /**
  ******************************************************************************
- * @file    aiSystemPerformance.h
- * @author  MCD Vertical Application Team
- * @brief   STM32 Utility functions for STM32 AI test application
+ * @file    aiTestUtility.h
+ * @author  MCD/AIS Team
+ * @brief   Utility functions for AI test application
  ******************************************************************************
  * @attention
  *
- * <h2><center>&copy; Copyright (c) YYYY STMicroelectronics.
+ * <h2><center>&copy; Copyright (c) 2019,2021 STMicroelectronics.
  * All rights reserved.</center></h2>
  *
- * This software component is licensed by ST under Ultimate Liberty license
- * SLA0044, the "License"; You may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *                             www.st.com/SLA0044
+ * This software is licensed under terms that can be found in the LICENSE file in
+ * the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
  *
  ******************************************************************************
  */
@@ -21,33 +20,88 @@
 #define __AI_TEST_UTILITY_H__
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
-#include <bsp_ai.h>  /* generated STM32 platform file to import the HAL and the UART definition */
-
+#include "ai_device_adaptor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050)
+
+/* -----------------------------------------------------------------------------
+ * Update STACK/HEAP monitor support
+ * -----------------------------------------------------------------------------
+ */
+
+#if defined(_IS_AC6_COMPILER) && _IS_AC6_COMPILER
 #define _APP_STACK_MONITOR_ 0   /* not yet supported */
-#define _APP_HEAP_MONITOR_  0   /* not yet supported */	
-#elif defined(__GNUC__)
+#define _APP_HEAP_MONITOR_  0   /* not yet supported */
+
+#elif defined(_IS_GCC_COMPILER) && _IS_GCC_COMPILER
 #define _APP_STACK_MONITOR_ 1
 #define _APP_HEAP_MONITOR_  1
-#elif defined (__ICCARM__)
+
+#elif defined(_IS_IAR_COMPILER) && _IS_IAR_COMPILER
 #define _APP_STACK_MONITOR_ 1
 #define _APP_HEAP_MONITOR_  0   /* not yet supported */
+
 #else
 #define _APP_STACK_MONITOR_ 0   /* not yet supported */
 #define _APP_HEAP_MONITOR_  0   /* not yet supported */
 #endif
 
 
-#if defined(CHECK_STM32_FAMILY)
-#if !defined(STM32F7) && !defined(STM32L4) && !defined(STM32L5) && !defined(STM32F4) && !defined(STM32H7) && !defined(STM32F3)
-#error Only STM32H7, STM32F7, STM32F4, STM32L4, STM32L5 or STM32F3 device are supported
+/* -----------------------------------------------------------------------------
+ * Check/update clock for time-stamp definition
+ * -----------------------------------------------------------------------------
+ */
+
+#if HAS_DWT_CTRL == 0 && HAS_PMU_CTRL == 0 && HAS_SYS_TICK == 0
+#error DWT/PMU or SYS_TICK should be defined.
 #endif
+
+#if HAS_SYS_TICK == 0
+/* Usage of the CORE_CLOCK ONLY is forced */
+#undef USE_CORE_CLOCK_ONLY
+#undef USE_SYSTICK_ONLY
+#define USE_CORE_CLOCK_ONLY 1
+#define USE_SYSTICK_ONLY 0
+// #warning Force USE_CORE_ONLY, SYS_TICK is not available.
+#endif
+
+#if HAS_DWT_CTRL == 0 && HAS_PMU_CTRL == 0
+/* Usage of the SYSTICK ONLY is forced */
+#undef USE_CORE_CLOCK_ONLY
+#undef USE_SYSTICK_ONLY
+#define USE_CORE_CLOCK_ONLY 0
+#define USE_SYSTICK_ONLY 1
+#endif
+
+#if !defined(USE_SYSTICK_ONLY)
+#define USE_SYSTICK_ONLY 0
+#endif
+
+#if !defined(USE_CORE_CLOCK_ONLY)
+#define USE_CORE_CLOCK_ONLY 0
+#endif
+
+#if USE_SYSTICK_ONLY != 0 && USE_SYSTICK_ONLY != 1
+#error USE_SYSTICK_ONLY should be equal to 0 or 1
+#endif
+
+#if USE_CORE_CLOCK_ONLY != 0 && USE_CORE_CLOCK_ONLY != 1
+#error USE_CORE_CLOCK_ONLY should be equal to 0 or 1
+#endif
+
+#if HAS_SYS_TICK == 0 && USE_SYSTICK_ONLY == 1
+#error USE_SYSTICK_ONLY can be not used (no SYS_TICK available)
+#endif
+
+#if HAS_DWT_CTRL == 0 && HAS_PMU_CTRL == 0 && USE_CORE_CLOCK_ONLY == 1
+#error USE_CORE_CLOCK_ONLY can be not used (no CORE_CLOCK available)
 #endif
 
 /* -----------------------------------------------------------------------------
@@ -55,7 +109,7 @@ extern "C" {
  * -----------------------------------------------------------------------------
  */
 
-#define _IO_MALLOC_TRACK_MODE 0  /* allows to track the allocated/released @/s */
+#define _IO_MALLOC_TRACK_MODE       0  /* allows to track the allocated/released @/s */
 #define _IO_MALLOC_TRACK_DEPTH_SIZE (16)
 
 struct io_malloc {
@@ -79,11 +133,20 @@ struct io_malloc {
 extern struct io_malloc io_malloc;
 
 
-#if defined(__GNUC__) && !defined(__ARMCC_VERSION)
-#define MON_ALLOC_RESET()\
-    memset(&io_malloc, 0, sizeof(struct io_malloc));\
+#if defined(_IS_GCC_COMPILER) && _IS_GCC_COMPILER
+
+#include <stdlib.h>
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+static inline void _mon_alloc_reset(void) {
+    memset((void *)&io_malloc, 0, sizeof(struct io_malloc));
     /* force a call of wrap functions */\
-    free(malloc(10))
+    free(malloc(10));
+}
+#pragma GCC pop_options
+#define MON_ALLOC_RESET()\
+    _mon_alloc_reset()
 #else
 #define MON_ALLOC_RESET()
 #endif
@@ -95,13 +158,14 @@ extern struct io_malloc io_malloc;
 #define MON_ALLOC_DISABLE() io_malloc.cfg &= ~1UL
 
 #define MON_ALLOC_REPORT() \
-    printf(" used heap    : %ld:%ld %ld:%ld (req:allocated,req:released) max=%ld cur=%ld (cfg=%ld)\r\n", \
+		LC_PRINT(" used heap    : %ld:%ld %ld:%ld (req:allocated,req:released) max=%ld cur=%ld (cfg=%ld)\r\n", \
         io_malloc.alloc_req, io_malloc.alloc, \
         io_malloc.free_req, io_malloc.free, \
         io_malloc.max, io_malloc.used, \
         (io_malloc.cfg & (3 << 1)) >> 1)
 
 #define MON_ALLOC_MAX_USED() (int)io_malloc.max
+#define MON_ALLOC_USED() (int)io_malloc.used
 
 #else
 
@@ -109,9 +173,10 @@ extern struct io_malloc io_malloc;
 #define MON_ALLOC_DISABLE()
 
 #define MON_ALLOC_REPORT() \
-    printf(" used heap    : DISABLED or NOT YET SUPPORTED\r\n")
+		LC_PRINT(" used heap    : DISABLED or NOT YET SUPPORTED\r\n")
 
 #define MON_ALLOC_MAX_USED() (-1)
+#define MON_ALLOC_USED() (-1)
 
 #endif
 
@@ -152,7 +217,7 @@ void stackMonInit(uint32_t ctrl, uint32_t cstack, uint32_t msize);
 
 #define MON_STACK_CHECK0()\
     if (__get_MSP() != io_stack.cstack) {\
-      printf("E: !current stack address is not coherent 0x%08lx instead 0x%08lx\r\n",\
+    	LC_PRINT("E: !current stack address is not coherent 0x%08lx instead 0x%08lx\r\n",\
           __get_MSP(), io_stack.cstack);\
     }
 
@@ -176,19 +241,19 @@ void stackMonInit(uint32_t ctrl, uint32_t cstack, uint32_t msize);
       io_stack.susage = rstack - io_stack.susage;\
     } else {\
       io_stack.susage = -1;\
-      printf("E: !stack overflow detected > %ld\r\n", rstack);\
-      printf("note: MIN_STACK_SIZE value/definition should be verified (app_x-cube-ai.h & linker file)");\
+      LC_PRINT("E: !stack overflow detected > %ld\r\n", rstack);\
+      LC_PRINT("note: MIN_STACK_SIZE value/definition should be verified (app_x-cube-ai.h & linker file)");\
     }\
     }
 
 #define MON_STACK_REPORT()\
     if (io_stack.stack_mon)\
-    printf(" used stack   : %ld bytes\r\n", io_stack.susage);\
+	LC_PRINT(" used stack   : %ld bytes\r\n", io_stack.susage);\
     else\
-    printf(" used stack   : NOT CALCULATED\r\n")
+	LC_PRINT(" used stack   : NOT CALCULATED\r\n")
 
 #define MON_STACK_STATE(msg)\
-    printf("D: %s (0x%08lx-0x%08lx %ld/%ld ctrl=0x%08lx\r\n",msg,\
+		LC_PRINT("D: %s (0x%08lx-0x%08lx %ld/%ld ctrl=0x%08lx\r\n",msg,\
         io_stack.estack, io_stack.cstack, io_stack.ustack_size, io_stack.mstack_size, io_stack.ctrl)
 
 #else
@@ -199,7 +264,7 @@ void stackMonInit(uint32_t ctrl, uint32_t cstack, uint32_t msize);
 #define MON_STACK_EVALUATE()
 
 #define MON_STACK_REPORT()\
-    printf(" used stack   : DISABLED\r\n");
+		LC_PRINT(" used stack   : DISABLED\r\n");
 
 #define MON_STACK_STATE(msg);
 
@@ -207,7 +272,7 @@ void stackMonInit(uint32_t ctrl, uint32_t cstack, uint32_t msize);
 
 
 /* -----------------------------------------------------------------------------
- * Timer/clock count services
+ * Timer/clock count functions
  * -----------------------------------------------------------------------------
  */
 
@@ -218,59 +283,107 @@ struct dwtTime {
   int us;
 };
 
-void dwtIpInit(void);
 
-__STATIC_INLINE void dwtReset(void) {
-  DWT->CYCCNT = 0; /* Clear DWT cycle counter */
-}
-
-__STATIC_INLINE  uint32_t dwtGetCycles(void) {
-  return DWT->CYCCNT;
-}
-
-uint32_t systemCoreClock(void);
 int dwtCyclesToTime(uint64_t clks, struct dwtTime *t);
 float dwtCyclesToFloatMs(uint64_t clks);
 
+
 struct cyclesCount {
+#if USE_SYSTICK_ONLY == 1
+  uint32_t tick_start;
+  __IOM uint32_t count_start;
+#else /* USE_SYSTICK_ONLY */
+#if USE_CORE_CLOCK_ONLY == 1
+  uint32_t dwt_start;
+#else /* USE_CORE_CLOCK_ONLY */
   uint32_t dwt_max;
   uint32_t dwt_start;
   uint32_t tick_start;
+#endif /* !USE_CORE_CLOCK_ONLY */
+#endif /* !USE_SYSTICK_ONLY */
 };
 
 extern struct cyclesCount cyclesCount;
 
 __STATIC_INLINE void cyclesCounterInit(void)
 {
+#if USE_SYSTICK_ONLY == 1
+  __IOM uint32_t ctrl = SysTick->CTRL;
+  uint32_t val = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk   | SysTick_CTRL_ENABLE_Msk;
+
+  LC_PRINT(" Timestamp    : SysTick only (%d)\r\n", (ctrl & val) == val);
+
+  cyclesCount.tick_start = port_hal_get_tick();
+  cyclesCount.count_start = SysTick->VAL;
+#else /* USE_SYSTICK_ONLY */
   struct dwtTime t;
+  uint32_t st;
+
+  port_dwt_init();
+  port_dwt_reset();
+  port_hal_delay(100);
+  st = port_dwt_get_cycles();
+  dwtCyclesToTime(st/100, &t);
+
+#if USE_CORE_CLOCK_ONLY == 1
+  LC_PRINT(" Timestamp    : DWT only (delay(1)=%d.%03d ms)\r\n",
+           t.s * 100 + t.ms, t.us);
+#else /* USE_CORE_CLOCK_ONLY == 1 */
+  LC_PRINT(" Timestamp    : SysTick + DWT (delay(1)=%d.%03d ms)\r\n",
+           t.s * 100 + t.ms, t.us);
   dwtCyclesToTime(UINT32_MAX, &t);
   cyclesCount.dwt_max = t.s * 1000 + t.ms;
-  dwtIpInit();
+#endif /* !USE_CORE_CLOCK_ONLY != 1 */
+  port_dwt_init();
+#endif /* !USE_SYSTICK_ONLY */
 }
 
 __STATIC_INLINE void cyclesCounterStart(void)
 {
-  cyclesCount.tick_start = HAL_GetTick();
-  dwtReset();
-  cyclesCount.dwt_start = dwtGetCycles();
+#if USE_SYSTICK_ONLY == 1
+  cyclesCount.tick_start = port_hal_get_tick();
+  cyclesCount.count_start = SysTick->VAL;
+#else
+#if USE_CORE_CLOCK_ONLY == 1
+  port_dwt_reset();
+  cyclesCount.dwt_start = port_dwt_get_cycles();
+#else
+  cyclesCount.tick_start = port_hal_get_tick();
+  port_dwt_reset();
+  cyclesCount.dwt_start = port_dwt_get_cycles();
+#endif
+#endif
 }
 
 __STATIC_INLINE uint64_t cyclesCounterEnd(void)
 {
-#if _APP_FIX_CLK_OVERFLOW == 1
-    struct dwtTime t;
-uint64_t dwt_e;
-uint64_t tick_e;
-dwt_e = dwtGetCycles() - cyclesCount.dwt_start;
-tick_e = HAL_GetTick() - cyclesCount.tick_start;
-dwtCyclesToTime(dwt_e, &t);
-if (tick_e > cyclesCount.dwt_max) {
-  /* overflow detected */
-  dwt_e = ((tick_e/cyclesCount.dwt_max) * (uint64_t)UINT32_MAX + (uint64_t)dwt_e);
-}
-return dwt_e;
+#if USE_SYSTICK_ONLY == 1
+  const uint32_t cur_val = SysTick->VAL;
+  uint32_t cur_load;
+  const uint32_t tick_e = port_hal_get_tick() - cyclesCount.tick_start;
+  uint64_t clk_n = 0ULL;
+  if (tick_e) {
+    cur_load = SysTick->LOAD;
+    clk_n = (cur_load - cur_val) + cyclesCount.count_start + (tick_e - 1) * (cur_load + 1);
+  }
+  else {
+    clk_n = cyclesCount.count_start - cur_val;
+  }
+  return clk_n;
 #else
-return (uint64_t)(dwtGetCycles() - cyclesCount.dwt_start);
+#if USE_CORE_CLOCK_ONLY == 1
+  return (uint64_t)(port_dwt_get_cycles() - cyclesCount.dwt_start);
+#else
+  uint64_t dwt_e;
+  uint64_t tick_e;
+  dwt_e = port_dwt_get_cycles() - cyclesCount.dwt_start;
+  tick_e = port_hal_get_tick() - cyclesCount.tick_start;
+  if (tick_e > cyclesCount.dwt_max) {
+    /* overflow detected */
+    dwt_e = ((tick_e/cyclesCount.dwt_max) * (uint64_t)UINT32_MAX + (uint64_t)dwt_e);
+  }
+  return dwt_e;
+#endif
 #endif
 }
 
@@ -285,10 +398,14 @@ void ioRawDisableLLWrite(void);
 bool ioRawWriteBuffer(uint8_t *buff, int count);
 bool ioRawReadBuffer(uint8_t *buff, int count);
 
+
 /* -----------------------------------------------------------------------------
  * System services
  * -----------------------------------------------------------------------------
  */
+
+#define crcIpInit()  port_hal_crc_ip_init()
+
 
 __STATIC_INLINE uint32_t disableInts(void)
 {
@@ -307,6 +424,21 @@ __STATIC_INLINE void restoreInts(uint32_t state)
 
 void systemSettingLog(void);
 uint32_t getFlashCacheConf(void);
+
+struct mcu_conf {
+  /* default/minimal configuration */
+  uint32_t sclk;    /* MCU frequency (Hz) */
+  uint32_t hclk;    /* main system bus frequency (Hz) */
+  uint32_t conf;    /* or-ed flag to describe cache,... (device dependent, see getFlashCacheConf() fct) */
+  uint32_t devid;   /* device ID */
+  uint32_t revid;   /* rev ID */
+#if defined(HAS_EXTRA_CONF) && HAS_EXTRA_CONF > 0
+  uint32_t extra[HAS_EXTRA_CONF];  /* extra info, device dependent */
+#endif
+};
+
+void getSysConf(struct mcu_conf *conf);
+
 
 #ifdef __cplusplus
 }

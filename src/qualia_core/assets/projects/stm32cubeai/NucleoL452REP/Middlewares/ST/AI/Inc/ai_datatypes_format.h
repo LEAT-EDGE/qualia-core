@@ -2,30 +2,31 @@
   ******************************************************************************
   * @file    ai_datatypes_format.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    18-Oct-2017
   * @brief   Definitions of AI platform private format handling routines
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
+  ******************************************************************************
+  @verbatim
+  @endverbatim
   ******************************************************************************
   */
 
-#ifndef __AI_DATATYPES_FORMAT_H__
-#define __AI_DATATYPES_FORMAT_H__
+#ifndef AI_DATATYPES_FORMAT_H
+#define AI_DATATYPES_FORMAT_H
 #pragma once
 
 #include "ai_platform.h"
 #include "ai_datatypes_defines.h"
 
-#include "core_datatypes.h"
+// #include "core_datatypes.h"
 
 /*!
  * @defgroup ai_datatypes_format Definiton and Macro of array and buffer formats
@@ -56,7 +57,7 @@
  * MSB                                                                       LSB
  * 31             25       24       23      21      17        14       7       0
  * /---------------------------------------------------------------------------/
- * / ATTR. FLAGS   |  FLOAT |  SIGN  |  LDIV |  TYPE |  PBITS  |  BITS | FBITS /
+ * / ATTR. FLAGS   |  FLOAT |  SIGN  |  LDIV |  TYPE |  PMASK  |  BITS | FBITS /
  * /---------------------------------------------------------------------------/
  * Where:
  * - FLAGS: is the reserved bits to store additional format attributes (e.g.
@@ -69,12 +70,12 @@
  * - TYPE : 4 bits mark the format "family" type. Actually 5 families are coded,
  *      @ref AI_FMT_FLOAT (float types)
  *      @ref AI_FMT_Q (fixed-point types in Qm.n format)
+ *      @ref AI_FMT_BOOL (boolean type)
  *      @ref AI_FMT_LUT4 (compressed lookup 16 formats)
  *      @ref AI_FMT_LUT8 (compressed lookup 256 formats)
- * - PBITS 3 bits padding bits used to set the number of padding bits
- *      (per element) to handle special aligned formats/ E.g. a 6 bit format
- *      where each element is stored byte aligned (8 bits) has 2 padding bits.
- *      Usually this is set to 0
+ * - PMASK 3 bits padding mask used to set the optional dimension for padding
+ *      to handle special aligned formats/ E.g. a 1 bit format
+ *      Usually this is set to 0x0
  * - BITS 7 bits set the total number of bits of the element, padding bits
  *      excluded. The bits are thus = sign bit + fractional bits + integer bits
  *      The number of integer bits could thus be known using the @ref
@@ -113,8 +114,8 @@
 #define _FMT_BITS_BIAS        (0)
 
 /*! Padding bits for handling formats not aligned to multiples of 8 bits */
-#define _FMT_PBITS_MASK       (0x7)
-#define _FMT_PBITS_BITS       (14)
+#define _FMT_PMASK_MASK       (0x7)
+#define _FMT_PMASK_BITS       (14)
 
 /*! bits reserved for identifying the family format, e.g. float, fixed-point..*/
 #define _FMT_TYPE_MASK        (0xF)
@@ -140,6 +141,7 @@
 #define AI_FMT_FLAG_IS_IO             (0x1<<27)
 #define AI_FMT_FLAG_VISITED           (0x1<<26)
 
+
 /******************************************************************************/
 /*!
  * Format "Class" type : this identify the family of the format:
@@ -148,11 +150,20 @@
 #define AI_FMT_NONE                   (0x0)
 #define AI_FMT_FLOAT                  (0x1)
 #define AI_FMT_Q                      (0x2)
+#define AI_FMT_BOOL                   (0x3)
 #define AI_FMT_LUT4                   (0x4)
 #define AI_FMT_LUT8                   (0x8)
 
 #define AI_FMT_QMASK \
-  ( (_FMT_FBITS_MASK<<_FMT_FBITS_BITS) | (_FMT_BITS_MASK<<_FMT_BITS_BITS) )
+  ( (_FMT_FBITS_MASK<<_FMT_FBITS_BITS) | \
+    (_FMT_BITS_MASK<<_FMT_BITS_BITS) | \
+    (_FMT_PMASK_MASK<<_FMT_PMASK_BITS) )
+
+#define AI_FMT_BINARY_MASK \
+  (AI_FMT_MASK & (~(_FMT_SIGN_MASK<<_FMT_SIGN_BITS)))
+
+#define AI_FMT_IS_BINARY(val_) \
+  (((val_) & AI_FMT_BINARY_MASK) == AI_ARRAY_FORMAT_U1)
 
 #define AI_FMT_GET(val_) \
   ( (AI_FMT_OBJ(val_)) & AI_FMT_MASK )
@@ -176,8 +187,8 @@
 #define AI_FMT_GET_FLOAT(fmt)    _FMT_GET(fmt, _FMT_FLOAT_MASK, _FMT_FLOAT_BITS)
 #define AI_FMT_SET_SIGN(val)     _FMT_SET(val, _FMT_SIGN_MASK, _FMT_SIGN_BITS)
 #define AI_FMT_GET_SIGN(fmt)     _FMT_GET(fmt, _FMT_SIGN_MASK, _FMT_SIGN_BITS)
-#define AI_FMT_SET_PBITS(val)    _FMT_SET(val, _FMT_PBITS_MASK, _FMT_PBITS_BITS)
-#define AI_FMT_GET_PBITS(fmt)    _FMT_GET(fmt, _FMT_PBITS_MASK, _FMT_PBITS_BITS)
+#define AI_FMT_SET_PMASK(val)    _FMT_SET(val, _FMT_PMASK_MASK, _FMT_PMASK_BITS)
+#define AI_FMT_GET_PMASK(fmt)    _FMT_GET(fmt, _FMT_PMASK_MASK, _FMT_PMASK_BITS)
 #define AI_FMT_SET_TYPE(val)     _FMT_SET(val, _FMT_TYPE_MASK, _FMT_TYPE_BITS)
 #define AI_FMT_GET_TYPE(fmt)     _FMT_GET(fmt, _FMT_TYPE_MASK, _FMT_TYPE_BITS)
 #define AI_FMT_SET_LDIV(val)     _FMT_SET(val, _FMT_LDIV_MASK, _FMT_LDIV_BITS)
@@ -198,7 +209,7 @@
  * as follow: int_bits = bits - fbits (fractional bits) - 1 (for the sign)
  */
 #define AI_FMT_GET_BITS_SIZE(fmt_) \
-  (AI_FMT_GET_BITS(fmt_)+AI_FMT_GET_PBITS(fmt_))
+  AI_FMT_GET_BITS(fmt_)
 
 /*! Macro used to compute the integer bits for a format */
 #define AI_FMT_GET_IBITS(fmt_) \
@@ -228,14 +239,20 @@
     (0==AI_BUFFER_FMT_GET_SIGN(fmt_)) )
 
 /*! Q ai_array format handlers ************************************************/
-#define AI_ARRAY_FMT_SET_Q(bits_, fbits_) \
+#define AI_ARRAY_FMT_Q(bits_, fbits_) \
   ( AI_FMT_MASK_Q(AI_ARRAY_FORMAT_Q) | AI_FMT_SET_BITS(bits_) | AI_FMT_SET_FBITS(fbits_) )
+
+#define AI_ARRAY_FMT_SET_Q(bits_, fbits_) \
+  AI_ARRAY_FMT_Q(bits_, fbits_)
 
 #define AI_ARRAY_FMT_IS_Q(fmt_) \
   ( AI_FMT_GET(AI_FMT_MASK_Q(AI_ARRAY_FORMAT_Q))==AI_FMT_GET(AI_FMT_MASK_Q(fmt_)) )
 
-#define AI_ARRAY_FMT_SET_UQ(bits_, fbits_) \
+#define AI_ARRAY_FMT_UQ(bits_, fbits_) \
   ( AI_FMT_MASK_Q(AI_ARRAY_FORMAT_UQ) | AI_FMT_SET_BITS(bits_) | AI_FMT_SET_FBITS(fbits_) )
+
+#define AI_ARRAY_FMT_SET_UQ(bits_, fbits_) \
+  AI_ARRAY_FMT_UQ(bits_, fbits_)
 
 #define AI_ARRAY_FMT_IS_UQ(fmt_) \
   ( AI_FMT_GET(AI_FMT_MASK_Q(AI_ARRAY_FORMAT_UQ))==AI_FMT_GET(AI_FMT_MASK_Q(fmt_)) )
@@ -295,12 +312,12 @@ typedef int32_t ai_array_format;
  */
 typedef enum {
 #define FMT_ENTRY(exp_, name_, type_id_, sign_bit_, float_bit_, \
-  pbits_, bits_, fbits_, ldiv_bits_) \
+  pmask_, bits_, fbits_, ldiv_bits_) \
     AI_ARRAY_FMT_ENTRY(name_) = (AI_FMT_SET_FLOAT(float_bit_) | \
                                  AI_FMT_SET_SIGN(sign_bit_) | \
                                  AI_FMT_SET_BITS(bits_) | \
                                  AI_FMT_SET_FBITS(fbits_) | \
-                                 AI_FMT_SET_PBITS(pbits_) | \
+                                 AI_FMT_SET_PMASK(pmask_) | \
                                  AI_FMT_SET_TYPE(type_id_) | \
                                  AI_FMT_SET_LDIV(ldiv_bits_)),
 #include "formats_list.h"
@@ -470,4 +487,4 @@ ai_size ai_array_get_elems_from_size(
 
 AI_API_DECLARE_END
 
-#endif /*__AI_DATATYPES_FORMAT_H__*/
+#endif /*AI_DATATYPES_FORMAT_H*/

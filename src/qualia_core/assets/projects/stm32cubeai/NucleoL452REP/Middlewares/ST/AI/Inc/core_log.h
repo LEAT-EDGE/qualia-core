@@ -2,27 +2,29 @@
   ******************************************************************************
   * @file    core_log.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    14-Aug-2018
   * @brief   header file of core log interfaces
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2018 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
+  ******************************************************************************
+  @verbatim
+  @endverbatim
   ******************************************************************************
   */
 
-#ifndef __CORE_LOG_H_
-#define __CORE_LOG_H_
+#ifndef CORE_LOG_H
+#define CORE_LOG_H
 #pragma once
 
 #include "ai_platform.h"
+#include "ai_datatypes_defines.h"
 
 /*!
  * @defgroup core_log Logger core routines wrapper interface
@@ -39,7 +41,8 @@
 
 #if defined HAS_LOG && (HAS_LOG>=0)
 #include "ai_log.h"
-  #define AI_LOG_SECTION(...)            { __VA_ARGS__ }
+  #define AI_LOG_SECTION(...) \
+    { __VA_ARGS__ }
 
   #define AI_LOG_ACQUIRE() \
     ai_log_acquire()
@@ -58,60 +61,75 @@
       AI_WRAP_FUNC(ai_log_set_fp(fp_);)
   #else
     #define AI_LOG_SET_FILE_POINTER(fp_) \
-      /*AI_LOG_SET_FILE_POINTER()*/
+      AI_WRAP_FUNC(/*AI_LOG_SET_FILE_POINTER()*/)
   #endif
 #else
-  #define AI_LOG_SECTION(...)                         /*AI_LOG_SECTION()*/
+  #define AI_LOG_SECTION(...)                         AI_WRAP_FUNC(/*AI_LOG_SECTION()*/)
 
   #define AI_LOG_ACQUIRE()                            (NULL)
-  #define AI_LOG_SET_LEVEL(level_)                    /*AI_LOG_SET_LEVEL()*/
-  #define AI_LOG_SET_QUIET(onoff_)                    /*AI_LOG_SET_QUIET()*/
-  #define AI_LOG_SET_LOCK_FN(fn_, udata_)             /*AI_LOG_SET_LOCK_FN()*/
-  #define AI_LOG_CHANNEL_PUSH(level_, fn_, udata_)    /*AI_LOG_CHANNEL_PUSH()*/
-  #define AI_LOG_CHANNEL_POP(fn_, udata_)             /*AI_LOG_CHANNEL_POP()*/
-  #define AI_LOG_SET_FILE_POINTER(fp_)                /*AI_LOG_SET_FILE_POINTER()*/
+  #define AI_LOG_SET_LEVEL(level_)                    AI_WRAP_FUNC(/*AI_LOG_SET_LEVEL()*/)
+  #define AI_LOG_SET_QUIET(onoff_)                    AI_WRAP_FUNC(/*AI_LOG_SET_QUIET()*/)
+  #define AI_LOG_SET_LOCK_FN(fn_, udata_)             AI_WRAP_FUNC(/*AI_LOG_SET_LOCK_FN()*/)
+  #define AI_LOG_CHANNEL_PUSH(level_, fn_, udata_)    AI_WRAP_FUNC(/*AI_LOG_CHANNEL_PUSH()*/)
+  #define AI_LOG_CHANNEL_POP(fn_, udata_)             AI_WRAP_FUNC(/*AI_LOG_CHANNEL_POP()*/)
+  #define AI_LOG_SET_FILE_POINTER(fp_)                AI_WRAP_FUNC(/*AI_LOG_SET_FILE_POINTER()*/)
+#endif
+
+#if defined HAS_LOG
+  #define AI_LOG_PRINT(level, fmt, ...) \
+    AI_WRAP_FUNC(ai_log_print(level, fmt, ##__VA_ARGS__);)
+#else
+  #define AI_LOG_PRINT(level, fmt, ...) \
+    AI_WRAP_FUNC(/*AI_LOG_PRINT(...)*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_SUDO)
-  #define AI_LOG_SUDO(...) AI_WRAP_FUNC(ai_log_log(LOG_SUDO, __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_SUDO(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_SUDO, __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_SUDO(...) /*AI_LOG_SUDO()*/
+  #define AI_LOG_SUDO(fmt, ...)         AI_WRAP_FUNC(/*AI_LOG_SUDO()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_TRACE)
-  #define AI_LOG_TRACE(...) AI_WRAP_FUNC(ai_log_log(LOG_TRACE, __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_TRACE(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_TRACE, __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_TRACE(...) /*AI_LOG_TRACE()*/
+  #define AI_LOG_TRACE(fmt, ...)        AI_WRAP_FUNC(/*AI_LOG_TRACE()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_DEBUG)
-  #define AI_LOG_DEBUG(...) AI_WRAP_FUNC(ai_log_log(LOG_DEBUG, __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_DEBUG(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_DEBUG, __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_DEBUG(...) /*AI_LOG_DEBUG()*/
+  #define AI_LOG_DEBUG(fmt, ...)        AI_WRAP_FUNC(/*AI_LOG_DEBUG()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_INFO)
-  #define AI_LOG_INFO(...)  AI_WRAP_FUNC(ai_log_log(LOG_INFO,  __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_INFO(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_INFO,  __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_INFO(...) /*AI_LOG_INFO()*/
+  #define AI_LOG_INFO(fmt, ...)         AI_WRAP_FUNC(/*AI_LOG_INFO()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_WARN)
-  #define AI_LOG_WARN(...)  AI_WRAP_FUNC(ai_log_log(LOG_WARN,  __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_WARN(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_WARN,  __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_WARN(...) /*AI_LOG_WARN()*/
+  #define AI_LOG_WARN(fmt, ...)         AI_WRAP_FUNC(/*AI_LOG_WARN()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_ERROR)
-  #define AI_LOG_ERROR(...) AI_WRAP_FUNC(ai_log_log(LOG_ERROR, __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_ERROR(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_ERROR, __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_ERROR(...) /*AI_LOG_ERROR()*/
+  #define AI_LOG_ERROR(fmt, ...)        AI_WRAP_FUNC(/*AI_LOG_ERROR()*/)
 #endif
 
 #if defined HAS_LOG && (HAS_LOG>=LOG_FATAL)
-  #define AI_LOG_FATAL(...) AI_WRAP_FUNC(ai_log_log(LOG_FATAL, __FILE__, __LINE__, __VA_ARGS__);)
+  #define AI_LOG_FATAL(fmt, ...) \
+    AI_WRAP_FUNC(ai_log_log(LOG_FATAL, __FILE__, __LINE__, fmt LOG_CR, ##__VA_ARGS__);)
 #else
-  #define AI_LOG_FATAL(...) /*AI_LOG_FATAL()*/
+  #define AI_LOG_FATAL(fmt, ...)        AI_WRAP_FUNC(/*AI_LOG_FATAL()*/)
 #endif
 
-#endif    /*__CORE_LOG_H_*/
+#endif    /*CORE_LOG_H*/

@@ -1,57 +1,34 @@
 
-#ifdef __cplusplus
- extern "C" {
-#endif
 /**
   ******************************************************************************
-  * @file           : app_x-cube-ai.c
-  * @brief          : AI program body
+  * @file    app_x-cube-ai.c
+  * @author  X-CUBE-AI C code generator
+  * @brief   AI program body
   ******************************************************************************
-  * This notice applies to any and all portions of this file
-  * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether
-  * inserted by the user or by software development tools
-  * are owned by their respective copyright owners.
+  * @attention
   *
-  * Copyright (c) 2018 STMicroelectronics International N.V.
+  * Copyright (c) 2025 STMicroelectronics.
   * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted, provided that the following conditions are met:
-  *
-  * 1. Redistribution of source code must retain the above copyright notice,
-  *    this list of conditions and the following disclaimer.
-  * 2. Redistributions in binary form must reproduce the above copyright notice,
-  *    this list of conditions and the following disclaimer in the documentation
-  *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other
-  *    contributors to this software may be used to endorse or promote products
-  *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this
-  *    software, must execute solely and exclusively on microcontroller or
-  *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under
-  *    this license is void and will automatically terminate your rights under
-  *    this license.
-  *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-  * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT
-  * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
+
+#ifdef __cplusplus
+ extern "C" {
+#endif
+
 /* Includes ------------------------------------------------------------------*/
+
+#if defined ( __ICCARM__ )
+#elif defined ( __CC_ARM ) || ( __GNUC__ )
+#endif
+
 /* System headers */
-#include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -65,22 +42,33 @@
 /* USER CODE BEGIN includes */
 /* USER CODE END includes */
 
-/*************************************************************************
-  *
-  */
+/* IO buffers ----------------------------------------------------------------*/
+
+DEF_DATA_IN
+
+DEF_DATA_OUT
+/* Activations buffers -------------------------------------------------------*/
+
+AI_ALIGNED(32)
+static uint8_t pool0[AI_NETWORK_DATA_ACTIVATION_1_SIZE];
+
+ai_handle data_activations0[] = {pool0};
+
+/* Entry points --------------------------------------------------------------*/
+
 void MX_X_CUBE_AI_Init(void)
 {
     MX_UARTx_Init();
     aiValidationInit();
-    /* USER CODE BEGIN 3 */
-    /* USER CODE END 3 */
+    /* USER CODE BEGIN 5 */
+    /* USER CODE END 5 */
 }
 
 void MX_X_CUBE_AI_Process(void)
 {
     aiValidationProcess();
-    /* USER CODE BEGIN 4 */
-    /* USER CODE END 4 */
+    /* USER CODE BEGIN 6 */
+    /* USER CODE END 6 */
 }
 /* Multiple network support --------------------------------------------------*/
 
@@ -91,18 +79,15 @@ static const ai_network_entry_t networks[AI_MNETWORK_NUMBER] = {
     {
         .name = (const char *)AI_NETWORK_MODEL_NAME,
         .config = AI_NETWORK_DATA_CONFIG,
-        .ai_get_info = ai_network_get_info,
+        .ai_get_report = ai_network_get_report,
         .ai_create = ai_network_create,
         .ai_destroy = ai_network_destroy,
         .ai_get_error = ai_network_get_error,
         .ai_init = ai_network_init,
         .ai_run = ai_network_run,
         .ai_forward = ai_network_forward,
-        .ai_data_weights_get_default = ai_network_data_weights_get,
-        .params = { AI_NETWORK_DATA_WEIGHTS(0),
-                AI_NETWORK_DATA_ACTIVATIONS(0)},
-        .extActBufferStartAddr = AI_NETWORK_DATA_ACTIVATIONS_START_ADDR,
-        .actBufferSize = AI_NETWORK_DATA_ACTIVATIONS_SIZE
+        .ai_data_params_get = ai_network_data_params_get,
+        .activations = data_activations0
     },
 };
 
@@ -223,12 +208,12 @@ ai_handle ai_mnetwork_destroy(ai_handle network)
 }
 
 AI_API_ENTRY
-ai_bool ai_mnetwork_get_info(ai_handle network, ai_network_report* report)
+ai_bool ai_mnetwork_get_report(ai_handle network, ai_network_report* report)
 {
     struct network_instance *inn;
     inn =  ai_mnetwork_handle((struct network_instance *)network);
     if (inn)
-        return inn->entry->ai_get_info(inn->handle, report);
+        return inn->entry->ai_get_report(inn->handle, report);
     else
         return false;
 }
@@ -249,24 +234,16 @@ ai_error ai_mnetwork_get_error(ai_handle network)
 }
 
 AI_API_ENTRY
-ai_bool ai_mnetwork_init(ai_handle network, const ai_network_params* params)
+ai_bool ai_mnetwork_init(ai_handle network)
 {
     struct network_instance *inn;
     ai_network_params par;
 
-    /* TODO: adding check ai_buffer activations/weights shape coherence */
-
     inn =  ai_mnetwork_handle((struct network_instance *)network);
     if (inn) {
-        par = inn->entry->params;
-        if (params->activations.n_batches)
-            par.activations = params->activations;
-        else
-            par.activations.data = params->activations.data;
-        if (params->params.n_batches)
-            par.params = params->params;
-        else
-            par.params.data = inn->entry->ai_data_weights_get_default();
+        inn->entry->ai_data_params_get(&par);
+        for (int idx=0; idx < par.map_activations.size; idx++)
+          AI_BUFFER_ARRAY_ITEM_SET_ADDRESS(&par.map_activations, idx, inn->entry->activations[idx]);
         return inn->entry->ai_init(inn->handle, &par);
     }
     else
@@ -306,22 +283,6 @@ AI_API_ENTRY
      if (inn && phandle && pparams) {
          *phandle = inn->handle;
          *pparams = inn->params;
-         return 0;
-     }
-     else
-         return -1;
- }
-
- AI_API_ENTRY
-int ai_mnetwork_get_ext_data_activations(ai_handle network,
-         ai_u32 *add,
-         ai_u32 *size)
- {
-     struct network_instance* inn;
-     inn =  ai_mnetwork_handle((struct network_instance *)network);
-     if (inn && add && size) {
-         *add = inn->entry->extActBufferStartAddr;
-         *size = inn->entry->actBufferSize;
          return 0;
      }
      else

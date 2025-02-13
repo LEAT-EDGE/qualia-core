@@ -2,23 +2,24 @@
   ******************************************************************************
   * @file    layers_nl.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    18-Apr-2018
   * @brief   header file of AI platform nonlinearity layers datatypes
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2018 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  @verbatim
+  @endverbatim
+  ******************************************************************************
   */
-#ifndef __LAYERS_NL_H_
-#define __LAYERS_NL_H_
+#ifndef LAYERS_NL_H
+#define LAYERS_NL_H
 #pragma once
 
 #include "layers_common.h"
@@ -45,13 +46,24 @@ typedef AI_ALIGNED_TYPE(struct, 4) ai_layer_nl_ {
 } ai_layer_nl;
 
 /*!
+ * @struct ai_layer_sm
+ * @ingroup layers_nl
+ * @brief Softmax Nonlinearity layer
+ *
+ * It is a sequential layer. see @ref ai_layer
+ */
+typedef ai_layer_nl ai_layer_sm;
+
+/*!
  * @typedef (*func_nl)
  * @ingroup layers_nl
  * @brief Fuction pointer for generic non linear transform
  * this function pointer abstracts a generic non linear layer.
  * see @ref nl_func_tanh_array_f32 and similar as examples.
  */
-typedef void (*func_nl)(ai_array *out, const ai_array *in,
+//typedef void (*func_nl)(ai_array *out, const ai_array *in,
+//                        const ai_size size, const ai_handle params);
+typedef void (*func_nl)(ai_tensor *out, const ai_tensor *in,
                         const ai_size size, const ai_handle params);
 
 /*!
@@ -63,7 +75,7 @@ typedef void (*func_nl)(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sm_channel_f32(ai_array *out, const ai_array *in,
+void nl_func_sm_channel_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size channel_size, const ai_handle params);
 
 /*!
@@ -77,11 +89,36 @@ void nl_func_sm_channel_f32(ai_array *out, const ai_array *in,
  * @param out_channel_step number of elements to move to next output element
  */
 AI_INTERNAL_API
-void nl_func_sm_array_f32(ai_array *out, ai_array *in,
+void nl_func_sm_array_f32(ai_tensor *out, ai_tensor *in,
                           const ai_size in_size,
                           const ai_size channel_size,
                           const ai_size in_channel_step,
                           const ai_size out_channel_step);
+
+/*!
+ * @brief Softmax zero pooling computed on a single float channel
+ * @ingroup layers_nl
+ * @param out opaque handler to float output channel
+ * @param in  opaque handler to float input channel
+ * @param channel_size number of elements of the input channel
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_sm_zero_channel_f32(ai_tensor *out, const ai_tensor *in,
+                            const ai_size channel_size, const ai_handle params);
+
+/*!
+ * @brief Probit non linearity
+ * @ingroup layers_nl
+ * @param out opaque handler to float output channel
+ * @param in  opaque handler to float input channel
+ * @param channel_size number of elements of the input channel
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_probit_f32(ai_tensor *out, const ai_tensor *in,
+                            const ai_size channel_size, const ai_handle params);
+
 
 /*!
  * @brief Computes the tanh function on a float data array
@@ -92,7 +129,7 @@ void nl_func_sm_array_f32(ai_array *out, ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_tanh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_tanh_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -104,7 +141,7 @@ void nl_func_tanh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_tanh_array_fixed(ai_array *out, const ai_array *in,
+void nl_func_tanh_array_fixed(ai_tensor *out, const ai_tensor *in,
                               const ai_size size, const ai_handle params);
 
 
@@ -117,7 +154,7 @@ void nl_func_tanh_array_fixed(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sigmoid_array_f32(ai_array *out, const ai_array *in,
+void nl_func_sigmoid_array_f32(ai_tensor *out, const ai_tensor *in,
                                const ai_size size, const ai_handle params);
 
 /*!
@@ -129,7 +166,7 @@ void nl_func_sigmoid_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sigmoid_array_fixed(ai_array *out, const ai_array *in,
+void nl_func_sigmoid_array_fixed(ai_tensor *out, const ai_tensor *in,
                                  const ai_size size, const ai_handle params);
 
 
@@ -142,8 +179,42 @@ void nl_func_sigmoid_array_fixed(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_hard_sigmoid_array_f32(ai_array *out, const ai_array *in,
+void nl_func_hard_sigmoid_array_f32(ai_tensor *out, const ai_tensor *in,
                                     const ai_size size, const ai_handle params);
+/*!
+ * @brief Computes the logistic function on a float data array
+ * @ingroup layers_nl
+ * @param in opaque handler to float, size should be 1
+ * @param out opaque handler to float output elem
+ * @param size number of elements in the input buffer
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_logistic_array_f32(ai_tensor *out, const ai_tensor *in,
+                               const ai_size size, const ai_handle params);
+/*!
+ * @brief Computes the swish function on a float data array
+ * @ingroup layers_nl
+ * @param in opaque handler to float, size should be 1
+ * @param out opaque handler to float output elem
+ * @param size number of elements in the input buffer
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_swish_array_f32(ai_tensor *out, const ai_tensor *in,
+                             const ai_size size, const ai_handle params);
+
+/*!
+ * @brief Computes the hard swish function on a float data array
+ * @ingroup layers_nl
+ * @param in opaque handler to float, size should be 1
+ * @param out opaque handler to float output elem
+ * @param size number of elements in the input buffer
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_hard_swish_array_f32(ai_tensor *out, const ai_tensor *in,
+                                  const ai_size size, const ai_handle params);
 
 /*!
  * @brief Computes the absolute value function on a float data array
@@ -154,7 +225,7 @@ void nl_func_hard_sigmoid_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_abs_array_f32(ai_array *out, const ai_array *in,
+void nl_func_abs_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -166,7 +237,7 @@ void nl_func_abs_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_cos_array_f32(ai_array *out, const ai_array *in,
+void nl_func_cos_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -178,7 +249,7 @@ void nl_func_cos_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_acos_array_f32(ai_array *out, const ai_array *in,
+void nl_func_acos_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -190,7 +261,7 @@ void nl_func_acos_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_cosh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_cosh_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -202,7 +273,7 @@ void nl_func_cosh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_acosh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_acosh_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -214,7 +285,7 @@ void nl_func_acosh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sin_array_f32(ai_array *out, const ai_array *in,
+void nl_func_sin_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -226,7 +297,7 @@ void nl_func_sin_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_asin_array_f32(ai_array *out, const ai_array *in,
+void nl_func_asin_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -238,7 +309,7 @@ void nl_func_asin_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sinh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_sinh_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -250,7 +321,7 @@ void nl_func_sinh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_asinh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_asinh_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -262,7 +333,7 @@ void nl_func_asinh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_tan_array_f32(ai_array *out, const ai_array *in,
+void nl_func_tan_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -274,7 +345,7 @@ void nl_func_tan_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_atan_array_f32(ai_array *out, const ai_array *in,
+void nl_func_atan_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -286,7 +357,7 @@ void nl_func_atan_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_atanh_array_f32(ai_array *out, const ai_array *in,
+void nl_func_atanh_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -298,7 +369,7 @@ void nl_func_atanh_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_erf_array_f32(ai_array *out, const ai_array *in,
+void nl_func_erf_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -310,7 +381,7 @@ void nl_func_erf_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_log_array_f32(ai_array *out, const ai_array *in,
+void nl_func_log_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -322,7 +393,19 @@ void nl_func_log_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_rsqrt_array_f32(ai_array *out, const ai_array *in,
+void nl_func_rsqrt_array_f32(ai_tensor *out, const ai_tensor *in,
+                             const ai_size size, const ai_handle params);
+
+/*!
+ * @brief Computes the squarefunction on a float data array
+ * @ingroup layers_nl
+ * @param in opaque handler to float, size should be 1
+ * @param out opaque handler to float output elem
+ * @param size number of elements in the input buffer
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_square_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -334,7 +417,7 @@ void nl_func_rsqrt_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_floor_array_f32(ai_array *out, const ai_array *in,
+void nl_func_floor_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -346,7 +429,7 @@ void nl_func_floor_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_ceil_array_f32(ai_array *out, const ai_array *in,
+void nl_func_ceil_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -358,7 +441,7 @@ void nl_func_ceil_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_round_array_f32(ai_array *out, const ai_array *in,
+void nl_func_round_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -370,7 +453,7 @@ void nl_func_round_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_exp_array_f32(ai_array *out, const ai_array *in,
+void nl_func_exp_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -382,8 +465,21 @@ void nl_func_exp_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_neg_array_f32(ai_array *out, const ai_array *in,
+void nl_func_neg_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
+
+/*!
+ * @brief Computes the sign negation function on a float data array
+ * @ingroup layers_nl
+ * @param in opaque handler to float, size should be 1
+ * @param out opaque handler to float output elem
+ * @param size number of elements in the input buffer
+ * @param params opaque handler to optional nl parameters
+ */
+AI_INTERNAL_API
+void nl_func_not_array_bool(ai_tensor *out, const ai_tensor *in,
+                           const ai_size size, const ai_handle params);
+
 
 /*!
  * @brief Computes the reciprocal function on a float data array
@@ -394,7 +490,7 @@ void nl_func_neg_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_reciprocal_array_f32(ai_array *out, const ai_array *in,
+void nl_func_reciprocal_array_f32(ai_tensor *out, const ai_tensor *in,
                                   const ai_size size, const ai_handle params);
 
 /*!
@@ -406,7 +502,7 @@ void nl_func_reciprocal_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_sqrt_array_f32(ai_array *out, const ai_array *in,
+void nl_func_sqrt_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -417,7 +513,7 @@ void nl_func_sqrt_array_f32(ai_array *out, const ai_array *in,
  * @param size number of elements in the input buffer
  */
 AI_INTERNAL_API
-void nl_func_soft_plus_array_f32(ai_array *out, const ai_array *in,
+void nl_func_soft_plus_array_f32(ai_tensor *out, const ai_tensor *in,
                                  const ai_size size, const ai_handle params);
 
 /*!
@@ -429,7 +525,7 @@ void nl_func_soft_plus_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_soft_sign_array_f32(ai_array *out, const ai_array *in,
+void nl_func_soft_sign_array_f32(ai_tensor *out, const ai_tensor *in,
                                  const ai_size size, const ai_handle params);
 
 /*!
@@ -440,7 +536,7 @@ void nl_func_soft_sign_array_f32(ai_array *out, const ai_array *in,
  * @param size number of elements in the input buffer
  */
 AI_INTERNAL_API
-void nl_func_sign_array_f32(ai_array *out, const ai_array *in,
+void nl_func_sign_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -452,7 +548,7 @@ void nl_func_sign_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_clip_array_f32(ai_array *out, const ai_array *in,
+void nl_func_clip_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
 /*!
@@ -463,7 +559,7 @@ void nl_func_clip_array_f32(ai_array *out, const ai_array *in,
  * @param axis direction of the max index to be searched
  */
 AI_INTERNAL_API
-void nl_func_hardmax_array_f32(ai_array *out, const ai_array *in,
+void nl_func_hardmax_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_shape *shape, const ai_handle params);
 
 /*!
@@ -475,7 +571,7 @@ void nl_func_hardmax_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_relu_generic_array_f32(ai_array *out, const ai_array *in,
+void nl_func_relu_generic_array_f32(ai_tensor *out, const ai_tensor *in,
                                     const ai_size size, const ai_handle params);
 
 /*!
@@ -487,7 +583,7 @@ void nl_func_relu_generic_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_relu_thresholded_array_f32(ai_array *out, const ai_array *in,
+void nl_func_relu_thresholded_array_f32(ai_tensor *out, const ai_tensor *in,
                                         const ai_size size, const ai_handle params);
 
 /*!
@@ -499,7 +595,7 @@ void nl_func_relu_thresholded_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_relu_array_f32(ai_array *out, const ai_array *in,
+void nl_func_relu_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -511,7 +607,7 @@ void nl_func_relu_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_relu_array_fixed(ai_array *out, const ai_array *in,
+void nl_func_relu_array_fixed(ai_tensor *out, const ai_tensor *in,
                               const ai_size size, const ai_handle params);
 
 /*!
@@ -522,7 +618,7 @@ void nl_func_relu_array_fixed(ai_array *out, const ai_array *in,
  * @param size total size (number of elements) to process on the input
  * @param params opaque handler to optional nl parameters
  */
-void nl_func_relu_array_integer(ai_array *out, const ai_array *in,
+void nl_func_relu_array_integer(ai_tensor *out, const ai_tensor *in,
                                 const ai_size size, const ai_handle params);
 
 /*!
@@ -533,7 +629,7 @@ void nl_func_relu_array_integer(ai_array *out, const ai_array *in,
  * @param size total size (number of elements) to process on the input
  * @param params opaque handler to optional nl parameters
  */
-void nl_func_clip_array_integer(ai_array *out, const ai_array *in,
+void nl_func_clip_array_integer(ai_tensor *out, const ai_tensor *in,
                                 const ai_size size, const ai_handle params);
 
 /*!
@@ -544,7 +640,7 @@ void nl_func_clip_array_integer(ai_array *out, const ai_array *in,
  * @param size total size (number of elements) to process on the input
  * @param params opaque handler to generated and used LUT
  */
-void nl_func_array_integer(ai_array *out, const ai_array *in,
+void nl_func_array_integer(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -556,7 +652,7 @@ void nl_func_array_integer(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_elu_array_f32(ai_array *out, const ai_array *in,
+void nl_func_elu_array_f32(ai_tensor *out, const ai_tensor *in,
                            const ai_size size, const ai_handle params);
 
 /*!
@@ -568,7 +664,7 @@ void nl_func_elu_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_relu_max_array_fixed(ai_array *out, const ai_array *in,
+void nl_func_relu_max_array_fixed(ai_tensor *out, const ai_tensor *in,
                                   const ai_size size, const ai_handle params);
 
 /*!
@@ -580,7 +676,7 @@ void nl_func_relu_max_array_fixed(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_selu_array_f32(ai_array *out, const ai_array *in,
+void nl_func_selu_array_f32(ai_tensor *out, const ai_tensor *in,
                             const ai_size size, const ai_handle params);
 
 /*!
@@ -593,9 +689,19 @@ void nl_func_selu_array_f32(ai_array *out, const ai_array *in,
  * @param params opaque handler to optional nl parameters
  */
 AI_INTERNAL_API
-void nl_func_prelu_array_f32(ai_array *out, const ai_array *in,
+void nl_func_prelu_array_f32(ai_tensor *out, const ai_tensor *in,
                              const ai_size size, const ai_handle params);
 
+/*!
+ * @brief Computes the prelu function on an integer-quantized data array
+ * @ingroup layers_nl
+ * @param in opaque handler to input elements to process
+ * @param out opaque handler to output elements
+ * @param size total size (number of elements) to process on the input
+ * @param params opaque handler to optional nl parameters
+ */
+void nl_func_prelu_array_integer(ai_tensor *out, const ai_tensor *in,
+                                 const ai_size size, const ai_handle params);
 
 /******************************************************************************/
 /** Forward Functions Section                                                **/
@@ -713,6 +819,22 @@ void forward_sigmoid_fixed(ai_layer *pLayer);
  */
 AI_INTERNAL_API
 void forward_hard_sigmoid(ai_layer* layer);
+
+/*!
+ * @brief Computes the activations of a swish nonlinear layer.
+ * @ingroup layers_nl
+ * @param layer the nonlinear (nl) layer
+ */
+AI_INTERNAL_API
+void forward_swish(ai_layer* layer);
+
+/*!
+ * @brief Computes the activations of a hard swish nonlinear layer.
+ * @ingroup layers_nl
+ * @param layer the nonlinear (nl) layer
+ */
+AI_INTERNAL_API
+void forward_hard_swish(ai_layer* layer);
 
 /*!
  * @brief Computes the activations of an exponential nonlinear layer.
@@ -875,6 +997,14 @@ AI_INTERNAL_API
 void forward_rsqrt(ai_layer* layer);
 
 /*!
+ * @brief Computes the activations of a square layer.
+ * @ingroup layers_nl
+ * @param layer the nonlinear (nl) layer
+ */
+AI_INTERNAL_API
+void forward_square(ai_layer* layer);
+
+/*!
  * @brief Computes the activations of an absolute value (abs) layer.
  * @ingroup layers_nl
  * @param layer the nonlinear (nl) layer
@@ -913,6 +1043,14 @@ void forward_round(ai_layer* layer);
  */
 AI_INTERNAL_API
 void forward_neg(ai_layer* layer);
+/*!
+ * @brief Computes the activations of a sign negation (not) layer.
+ * @ingroup layers_nl
+ * @param layer the nonlinear (nl) layer
+ */
+AI_INTERNAL_API
+void forward_not(ai_layer* layer);
+
 
 /*!
  * @brief Computes the activations of a reciprocal layer.
@@ -939,6 +1077,14 @@ AI_INTERNAL_API
 void forward_sm(ai_layer* layer);
 
 /*!
+ * @brief Computes the activations of a softmax nonlinear layer (integer version).
+ * @ingroup layers_nl
+ * @param layer the softmax (sm) layer
+ */
+AI_INTERNAL_API
+void forward_sm_integer(ai_layer* layer);
+
+/*!
  * @brief Computes the activations of an integer quantized nonlinear layer.
  *        Non linear operation is function of used LUT defined through 
  *        (pLayer->nl_params->data)
@@ -948,6 +1094,16 @@ void forward_sm(ai_layer* layer);
 AI_INTERNAL_API
 void forward_nl_integer(ai_layer *pLayer);
 
+/*!
+ * @brief Computes the activations of an integer quantized PReLu.
+ *        Slope params are located like weights, not params because they are 
+ *        quantized
+ * @ingroup layers_nl
+ * @param layer the nonlinear (nl) layer
+ */
+AI_INTERNAL_API
+void forward_prelu_integer(ai_layer *pLayer);
+
 AI_API_DECLARE_END
 
-#endif    /*__LAYERS_NL_H_*/
+#endif    /*LAYERS_NL_H*/

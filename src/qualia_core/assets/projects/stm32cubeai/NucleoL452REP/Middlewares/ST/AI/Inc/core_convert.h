@@ -2,40 +2,25 @@
   ******************************************************************************
   * @file    core_convert.h
   * @author  AST Embedded Analytics Research Platform
-  * @date    16-Aug-2018
   * @brief   header file of core utils routines
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2018 STMicroelectronics</center></h2>
+  * Copyright (c) 2018 STMicroelectronics.
+  * All rights reserved.
   *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
+  ******************************************************************************
+  @verbatim
+  @endverbatim
   ******************************************************************************
   */
 
-#ifndef __CORE_CONVERT_H_
-#define __CORE_CONVERT_H_
+#ifndef CORE_CONVERT_H
+#define CORE_CONVERT_H
 #pragma once
 
 #include "ai_platform.h"
@@ -77,6 +62,96 @@ AI_INTERNAL_API
 void node_convert_integer(ai_node *pNode);
 
 /*!
+ * @brief Convert float tensor to binary
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_if32os1(ai_node *pNode);
+
+
+/*!
+ * @brief Convert binary tensor to float
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is8os1(ai_node *pNode);
+
+
+/*!
+ * @brief Convert binary tensor to signed int 8 bit
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is1os8(ai_node *pNode);
+
+
+/*!
+ * @brief Convert binary tensor to signed int 16 bit
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is1os16(ai_node *pNode);
+
+
+/*!
+ * @brief Convert binary tensor to float
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is1of32(ai_node *pNode);
+
+
+/*!
+ * @brief Convert signed int 16 bit tensor to float
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is16of32(ai_node *pNode);
+
+
+/*!
+ * @brief Convert unsigned int 16 bit tensor to float
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_iu16of32(ai_node *pNode);
+
+
+/*!
+ * @brief Convert float tensor to signed int 16 bit
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_if32os16(ai_node *pNode);
+
+
+/*!
+ * @brief Convert float tensor to unsigned int 16 bit
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_if32ou16(ai_node *pNode);
+
+
+/*!
+ * @brief Convert signed int 16 bit tensor to unsigned int 16 bit
+ * @ingroup core_convert
+ * @param[in] pNode in a handler to node (layer or operator)
+ */
+AI_INTERNAL_API
+void node_convert_is16ou16(ai_node *pNode);
+
+
+/*!
  * @brief Convert a shape struct into a stride struct
  * @ingroup core_convert
  * @param[in] in a pointer to a shape to convert
@@ -86,4 +161,4 @@ AI_INTERNAL_API
 void core_shape_to_stride(ai_stride* out, const ai_shape* in);
 
 
-#endif    /*__CORE_CONVERT_H_*/
+#endif    /*CORE_CONVERT_H*/

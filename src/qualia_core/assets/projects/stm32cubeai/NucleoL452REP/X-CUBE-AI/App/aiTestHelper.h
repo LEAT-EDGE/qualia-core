@@ -1,18 +1,17 @@
 /**
  ******************************************************************************
- * @file    aiSystemPerformance.h
- * @author  MCD Vertical Application Team
- * @brief   STM32 Helper functions for STM32 AI test application
+ * @file    aiTestHelper.h
+ * @author  MCD/AIS Team
+ * @brief   Helper functions for AI test application
  ******************************************************************************
  * @attention
  *
- * <h2><center>&copy; Copyright (c) YYYY STMicroelectronics.
+ * <h2><center>&copy; Copyright (c) 2019,2021 STMicroelectronics.
  * All rights reserved.</center></h2>
  *
- * This software component is licensed by ST under Ultimate Liberty license
- * SLA0044, the "License"; You may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *                             www.st.com/SLA0044
+ * This software is licensed under terms that can be found in the LICENSE file in
+ * the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
  *
  ******************************************************************************
  */
@@ -22,6 +21,8 @@
 
 #include <stdint.h>
 
+#if !defined(TFLM_RUNTIME) && !defined(NO_STM_AI_RUNTIME)
+
 #include <ai_platform.h>
 
 
@@ -29,21 +30,18 @@
 extern "C" {
 #endif
 
-#define AI_BUFFER_NULL(ptr_)  \
-    AI_BUFFER_OBJ_INIT( \
-        AI_BUFFER_FORMAT_NONE|AI_BUFFER_FMT_FLAG_CONST, \
-        0, 0, 0, 0, \
-        AI_HANDLE_PTR(ptr_))
 
 void aiPlatformVersion(void);
 
 ai_u32 aiBufferSize(const ai_buffer* buffer);
 void aiLogErr(const ai_error err, const char *fct);
-void aiPrintLayoutBuffer(const char *msg, int idx, const ai_buffer* buffer);
 void aiPrintNetworkInfo(const ai_network_report* report);
+void aiPrintBufferInfo(const ai_buffer *buffer);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* !TFLM_RUNTIME */
 
 #endif /* __AI_TEST_HELPER_H__ */

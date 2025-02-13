@@ -1,18 +1,17 @@
 /**
  ******************************************************************************
  * @file    aiValidation.c
- * @author  MCD Vertical Application Team
+ * @author  MCD/AIS Team
  * @brief   AI Validation application
  ******************************************************************************
  * @attention
  *
- * <h2><center>&copy; Copyright (c) YYYY STMicroelectronics.
+ * <h2><center>&copy; Copyright (c) 2019,2021 STMicroelectronics.
  * All rights reserved.</center></h2>
  *
- * This software component is licensed by ST under Ultimate Liberty license
- * SLA0044, the "License"; You may not use this file except in compliance with
- * the License. You may obtain a copy of the License at:
- *                             www.st.com/SLA0044
+ * This software is licensed under terms that can be found in the LICENSE file in
+ * the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
  *
  ******************************************************************************
  */
@@ -37,7 +36,27 @@
  *  - v5.0 - Replace Inspector interface by Observer interface,
  *           Host API (stm32nn.py module) is fully compatible.
  *           code clean-up: remove legacy code/add comments
+ *  - v5.1 - minor - let irq enabled if USB CDC is used
+ *  - v5.2 - Use the fix cycle count overflow support
+ *  - v5.3 - Add support to use SYSTICK only (remove direct call to DWT fcts)
+ *  - v6.0 - Update with new API to support the fragmented activations/weights buffer
+ *           activations and io buffers are fully handled by app_x-cube-ai.c/h files
+ *           Align code with the new ai_buffer struct definition
+ *  - v6.1 - Add support for IO tensor with shape > 4 (up to 6)
+ *  - v7.0 - migration to PB msg interface 3.0
+ *           align code with ai_device_adpaptor.h file (remove direct call of HAL_xx fcts)
+ *
  */
+
+#if !defined(USE_OBSERVER)
+#define USE_OBSERVER         1 /* 0: remove the registration of the user CB to evaluate the inference time by layer */
+#endif
+
+#if !defined(USE_RW_MEMORY)
+#define USE_RW_MEMORY        0 /* 0: remove the registration of the RW memory services */
+#endif
+
+#if defined(USE_OBSERVER) && USE_OBSERVER == 1
 
 #ifndef HAS_INSPECTOR
 #define HAS_INSPECTOR
@@ -47,12 +66,29 @@
 #define HAS_OBSERVER
 #endif
 
+#endif
+
+#if defined(USE_RW_MEMORY) && USE_RW_MEMORY == 1
+#define HAS_RW_MEMORY
+#else
+#undef HAS_RW_MEMORY
+#endif
+
+#define USE_CORE_CLOCK_ONLY  0 /* 1: remove usage of the HAL_GetTick() to evaluate the number of CPU clock. Only the Core
+                                *    DWT IP is used. HAL_Tick() is requested to avoid an overflow with the DWT clock counter
+                                *    (32b register) - USE_SYSTICK_ONLY should be set to 0.
+                                */
+#define USE_SYSTICK_ONLY     0 /* 1: use only the SysTick to evaluate the time-stamps (for Cortex-m0 based device, this define is forced)
+                                *    (see aiTestUtility.h file)
+                                */
+
 /* System headers */
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
+#include <stdarg.h>
 
 /* APP Header files */
 #include <aiValidation.h>
@@ -60,14 +96,35 @@
 #include <aiTestHelper.h>
 #include <aiPbMgr.h>
 
-/* AI x-cube-ai files */
-#include <bsp_ai.h>
+#ifdef HAS_RW_MEMORY
+#include <aiPbMemRWServices.h>
+#endif
+
 
 /* AI header files */
 #include <ai_platform.h>
 #include <core_datatypes.h>   /* AI_PLATFORM_RUNTIME_xxx definition */
+#include <ai_datatypes_internal.h>
 #include <core_common.h>      /* for GET_TENSOR_LIST_OUT().. definition */
+#include <core_private.h>      /* for GET_TENSOR_LIST_OUT().. definition */
 
+#if defined(SR5E1)
+#include <sr5e1_ai_validate_cfg.h>
+#else
+#include <app_x-cube-ai.h>
+#endif
+
+#define _AI_RUNTIME_ID EnumAiRuntime_AI_RT_STM_AI
+
+#if defined(HAS_RW_MEMORY) && defined(HAS_OBSERVER)
+#define _CAP (void *)(EnumCapability_CAP_READ_WRITE | EnumCapability_CAP_OBSERVER | (_AI_RUNTIME_ID << 16))
+#elif defined(HAS_OBSERVER)
+#define _CAP (void *)(EnumCapability_CAP_OBSERVER | (_AI_RUNTIME_ID << 16))
+#elif defined(HAS_RW_MEMORY)
+#define _CAP (void *)(EnumCapability_CAP_READ_WRITE | (_AI_RUNTIME_ID << 16))
+#else
+#define _CAP (void *)(_AI_RUNTIME_ID << 16)
+#endif
 
 /* -----------------------------------------------------------------------------
  * TEST-related definitions
@@ -77,11 +134,312 @@
 /* APP configuration 0: disabled 1: enabled */
 #define _APP_DEBUG_         			0
 
-#define _APP_VERSION_MAJOR_     (0x05)
+#define _APP_VERSION_MAJOR_     (0x07)
 #define _APP_VERSION_MINOR_     (0x00)
 #define _APP_VERSION_   ((_APP_VERSION_MAJOR_ << 8) | _APP_VERSION_MINOR_)
 
-#define _APP_NAME_   "AI Validation (Observer based)"
+#define _APP_NAME_   "AI Validation"
+
+
+/* -----------------------------------------------------------------------------
+ * Helper functions
+ * -----------------------------------------------------------------------------
+ */
+
+static size_t _get_buffer_size(const ai_buffer* buffer)
+{
+  const ai_u32 batch_ = AI_BUFFER_SHAPE_ELEM(buffer, AI_SHAPE_BATCH);
+  return (size_t)AI_BUFFER_BYTE_SIZE(AI_BUFFER_SIZE(buffer) * batch_, buffer->format);
+}
+
+static size_t _get_buffer_element_size(const ai_buffer* buffer)
+{
+  const ai_u32 batch_ = AI_BUFFER_SHAPE_ELEM(buffer, AI_SHAPE_BATCH);
+  return (size_t)AI_BUFFER_SIZE(buffer) * batch_;
+}
+
+static size_t _get_element_size(const ai_buffer* buffer)
+{
+  const ai_bool is_binary = (AI_BUFFER_FMT_SAME(AI_BUFFER_FORMAT(buffer), AI_BUFFER_FORMAT_S1) ||
+      AI_BUFFER_FMT_SAME(AI_BUFFER_FORMAT(buffer), AI_BUFFER_FORMAT_U1));
+  if (is_binary)
+    return 4;
+
+  return (size_t)AI_BUFFER_BYTE_SIZE(1, buffer->format);
+}
+
+static uint32_t _ai_version_to_uint32(const ai_platform_version *version)
+{
+  return version->major << 24 | version->minor << 16 | version->micro << 8 | version->reserved;
+}
+
+struct _data_tensor_desc {
+  const ai_buffer *buffer;
+  uint32_t flags;
+  float  scale;
+  int32_t zero_point;
+};
+
+struct _mempool_attr_desc {
+  const char* name;
+  uint32_t  size;
+  uintptr_t addr;
+};
+
+/* ---- Protobuf IO port adaptations ---- */
+
+static void fill_tensor_desc_msg(const ai_buffer *buff,
+                                 aiTensorDescMsg* msg,
+                                 struct _encode_uint32 *array_u32,
+                                 uint32_t flags,
+                                 float scale,
+                                 int32_t zero_point
+                                 )
+{
+  array_u32->size = buff->shape.size;
+  array_u32->data = (uint32_t *)buff->shape.data;
+  array_u32->offset = sizeof(buff->shape.data[0]);
+
+  msg->name[0] = 0;
+  msg->format = (uint32_t)buff->format;
+  msg->flags = flags;
+
+  msg->n_dims = buff->shape.type << 24 | array_u32->size;
+
+  msg->size = _get_buffer_element_size(buff);
+
+  const ai_buffer_meta_info *meta_info = AI_BUFFER_META_INFO(buff);
+
+  msg->scale = scale;
+  msg->zeropoint = zero_point;
+  if (AI_BUFFER_META_INFO_INTQ(meta_info)) {
+    msg->scale = AI_BUFFER_META_INFO_INTQ_GET_SCALE(meta_info, 0);
+    msg->zeropoint = AI_BUFFER_META_INFO_INTQ_GET_ZEROPOINT(meta_info, 0);
+  }
+
+  msg->addr = (uint32_t)buff->data;
+}
+
+static void encode_ai_buffer_to_tensor_desc(size_t index, void* data, aiTensorDescMsg* msg,
+    struct _encode_uint32 *array_u32)
+{
+  struct _data_tensor_desc *info = (struct _data_tensor_desc *)data;
+  ai_buffer *buff = &((ai_buffer *)(info->buffer))[index];
+
+  fill_tensor_desc_msg(buff, msg, array_u32, info->flags, info->scale, info->zero_point);
+}
+
+
+static void encode_mempool_to_tensor_desc(size_t index, void* data,
+                                         aiTensorDescMsg* msg,
+                                         struct _encode_uint32 *array_u32)
+{
+  struct _mempool_attr_desc *info = (struct _mempool_attr_desc *)data;
+
+  array_u32->size = 1;
+  array_u32->data = (void *)&info->size;
+  array_u32->offset = 4;
+
+  if (info->name)
+    aiPbStrCopy(info->name, &msg->name[0],
+        sizeof(msg->name));
+  else
+    msg->name[0] = 0;
+  msg->format = AI_BUFFER_FORMAT_U8;
+  msg->size = info->size;
+  msg->n_dims = AI_SHAPE_BCWH << 24 | array_u32->size;
+  msg->scale = 0.0;
+  msg->zeropoint = 0;
+  msg->addr = (uint32_t)info->addr;
+  msg->flags = EnumTensorFlag_TENSOR_FLAG_MEMPOOL;
+}
+
+static void send_model_info(const reqMsg *req, respMsg *resp,
+    EnumState state, const ai_network_report *nn,
+    bool inputs_in_acts, bool outputs_in_acts)
+{
+  uint32_t flags;
+  resp->which_payload = respMsg_minfo_tag;
+
+  aiPbStrCopy(nn->model_name, &resp->payload.minfo.name[0],
+      sizeof(resp->payload.minfo.name));
+  resp->payload.minfo.rtid = _AI_RUNTIME_ID;
+  aiPbStrCopy(nn->model_signature, &resp->payload.minfo.signature[0],
+      sizeof(resp->payload.minfo.signature));
+  aiPbStrCopy(nn->compile_datetime, &resp->payload.minfo.compile_datetime[0],
+      sizeof(resp->payload.minfo.compile_datetime));
+
+  resp->payload.minfo.runtime_version = _ai_version_to_uint32(&nn->runtime_version);
+  resp->payload.minfo.tool_version = _ai_version_to_uint32(&nn->tool_version);
+
+  resp->payload.minfo.n_macc = (uint64_t)nn->n_macc;
+  resp->payload.minfo.n_nodes = nn->n_nodes;
+
+  flags = EnumTensorFlag_TENSOR_FLAG_INPUT;
+  if (inputs_in_acts)
+    flags |= EnumTensorFlag_TENSOR_FLAG_IN_MEMPOOL;
+
+  struct _data_tensor_desc tensor_desc_ins = {&nn->inputs[0], flags, 0.0, 0};
+  struct _encode_tensor_desc tensor_ins = {
+      &encode_ai_buffer_to_tensor_desc, nn->n_inputs, &tensor_desc_ins };
+  resp->payload.minfo.n_inputs = nn->n_inputs;
+  resp->payload.minfo.inputs.funcs.encode = encode_tensor_desc;
+  resp->payload.minfo.inputs.arg = (void *)&tensor_ins;
+
+  flags = EnumTensorFlag_TENSOR_FLAG_OUTPUT;
+  if (outputs_in_acts)
+    flags |= EnumTensorFlag_TENSOR_FLAG_IN_MEMPOOL;
+				
+  struct _data_tensor_desc tensor_desc_outs = {&nn->outputs[0], flags, 0.0, 0};
+  struct _encode_tensor_desc tensor_outs = {
+      &encode_ai_buffer_to_tensor_desc, nn->n_outputs, &tensor_desc_outs };
+  resp->payload.minfo.n_outputs = nn->n_outputs;
+  resp->payload.minfo.outputs.funcs.encode = encode_tensor_desc;
+  resp->payload.minfo.outputs.arg = (void *)&tensor_outs;
+
+  ai_size size_acts = 0;
+  if (nn->map_activations.size) {
+    for (int i=0; i<nn->map_activations.size; i++)
+      size_acts += nn->map_activations.buffer[i].size;
+   }
+  struct _mempool_attr_desc tensor_desc_acts = {"acts", size_acts, 0};
+  struct _encode_tensor_desc tensor_acts = {
+      &encode_mempool_to_tensor_desc, 1, &tensor_desc_acts };
+  resp->payload.minfo.n_activations = 1;
+  resp->payload.minfo.activations.funcs.encode = encode_tensor_desc;
+  resp->payload.minfo.activations.arg = (void *)&tensor_acts;
+
+  ai_size size_params = 0;
+  if (nn->map_weights.size) {
+    for (int i=0; i<nn->map_weights.size; i++)
+      size_params += nn->map_weights.buffer[i].size;
+  }
+  struct _mempool_attr_desc tensor_desc_w = {"params", size_params, 0};
+  struct _encode_tensor_desc tensor_w = {
+      &encode_mempool_to_tensor_desc, 1, &tensor_desc_w };
+  resp->payload.minfo.n_params = 1;
+  resp->payload.minfo.params.funcs.encode = encode_tensor_desc;
+  resp->payload.minfo.params.arg = (void *)&tensor_w;
+
+  aiPbMgrSendResp(req, resp, state);
+}
+
+static bool receive_ai_data(const reqMsg *req, respMsg *resp,
+    EnumState state, ai_buffer *buffer, bool first_only, bool direct_write)
+{
+  bool res = true;
+  uint32_t temp;
+  aiPbData data = { 0, _get_buffer_size(buffer), (uintptr_t)buffer->data, 0};
+
+  if ((first_only) || (direct_write))
+    data.size = _get_element_size(buffer);
+  if (direct_write)
+    data.addr = (uintptr_t)&temp;
+
+  aiPbMgrReceiveData(&data);
+
+  /* Send ACK and wait ACK (or send ACK only if error) */
+  if (data.nb_read != data.size) {
+    aiPbMgrSendAck(req, resp, EnumState_S_ERROR,
+        data.nb_read,
+        EnumError_E_INVALID_SIZE);
+    res = false;
+  }
+  else {
+
+  if ((first_only) && (!direct_write))/* broadcast the value */
+    {
+      const size_t el_s = data.size;
+      const uintptr_t r_ptr = (uintptr_t)buffer->data;
+      uintptr_t w_ptr = r_ptr + el_s;
+      for (size_t pos = 1; pos <  _get_buffer_size(buffer) / el_s; pos++)
+      {
+        memcpy((void *)w_ptr, (void *)r_ptr, el_s);
+        w_ptr += el_s;
+      }
+    }
+
+    aiPbMgrSendAck(req, resp, state, data.size, EnumError_E_NONE);
+    if ((state == EnumState_S_WAITING) ||
+        (state == EnumState_S_PROCESSING))
+      aiPbMgrWaitAck();
+  }
+
+  return res;
+}
+
+static bool send_ai_io_tensor(const reqMsg *req, respMsg *resp,
+    EnumState state, const ai_buffer *buffer,
+    const uint32_t flags,
+    float scale, int32_t zero_point)
+{
+  struct _encode_uint32 array_u32;
+
+  /* Build the PB message */
+  resp->which_payload = respMsg_tensor_tag;
+
+  /*-- Flags field */
+  // resp->payload.tensor.flags = flags;
+
+  /*-- Tensor desc field */
+  fill_tensor_desc_msg(buffer, &resp->payload.tensor.desc, &array_u32, flags, scale, zero_point);
+  resp->payload.tensor.desc.dims.funcs.encode = encode_uint32;
+  resp->payload.tensor.desc.dims.arg = &array_u32;
+
+  /*-- Data field */
+  resp->payload.tensor.data.addr = (uint32_t)buffer->data;
+  if (flags & EnumTensorFlag_TENSOR_FLAG_NO_DATA) {
+    resp->payload.tensor.data.size = 0;
+  } else {
+    resp->payload.tensor.data.size = _get_buffer_size(buffer);
+  }
+  struct aiPbData data = { 0, resp->payload.tensor.data.size, resp->payload.tensor.data.addr, 0};
+  resp->payload.tensor.data.datas.funcs.encode = &encode_data_cb;
+  resp->payload.tensor.data.datas.arg = (void *)&data;
+
+  /* Send the PB message */
+  aiPbMgrSendResp(req, resp, state);
+
+  return true;
+
+#if 0
+  /* Waiting ACK */
+  if (state == EnumState_S_PROCESSING)
+    return aiPbMgrWaitAck();
+  else
+    return true;
+#endif
+}
+
+#if defined(HAS_DEDICATED_PRINT_PORT) && HAS_DEDICATED_PRINT_PORT == 1
+#define PB_LC_PRINT(debug, fmt, ...) LC_PRINT(fmt, ##__VA_ARGS__)
+#else
+
+#define _PRINT_BUFFER_SIZE  80
+
+static char _print_buffer[_PRINT_BUFFER_SIZE];
+
+void _print_debug(bool debug, const char* fmt, ...)
+{
+  va_list ap;
+  size_t s;
+
+  if (!debug)
+    return;
+
+  va_start(ap, fmt);
+  s = LC_VSNPRINT(_print_buffer, _PRINT_BUFFER_SIZE, fmt, ap);
+  va_end(ap);
+  while (s) {
+    if ((_print_buffer[s] == '\n') || (_print_buffer[s] == '\r'))
+      _print_buffer[s] = 0;
+    s--;
+  }
+  aiPbMgrSendLogV2(EnumState_S_WAITING, 1, &_print_buffer[0]);
+}
+
+#define PB_LC_PRINT(debug, fmt, ...) _print_debug(debug, fmt, ##__VA_ARGS__)
+#endif
 
 
 /* -----------------------------------------------------------------------------
@@ -107,26 +465,18 @@ struct ai_network_user_obs_ctx {
 struct ai_network_user_obs_ctx  net_obs_ctx; /* execution the models is serialized,
                                                 only one context is requested */
 
-#endif
+#endif /* HAS_OBSERVER */
 
 struct ai_network_exec_ctx {
   ai_handle handle;
   ai_network_report report;
+  bool inputs_in_activations;
+  bool outputs_in_activations;
+  bool debug;
 #ifdef HAS_OBSERVER
   struct ai_network_user_obs_ctx *obs_ctx;
-#endif
+#endif /* HAS_OBSERVER */
 } net_exec_ctx[AI_MNETWORK_NUMBER] = {0};
-
-
-#if AI_MNETWORK_DATA_ACTIVATIONS_INT_SIZE != 0
-AI_ALIGNED(4)
-static ai_u8 activations[AI_MNETWORK_DATA_ACTIVATIONS_INT_SIZE];
-#endif
-
-
-DEF_DATA_IN;
-
-DEF_DATA_OUT;
 
 
 /* -----------------------------------------------------------------------------
@@ -142,7 +492,7 @@ static ai_u32 aiOnExecNode_cb(const ai_handle cookie,
   struct ai_network_exec_ctx *ctx = (struct ai_network_exec_ctx*)cookie;
   struct ai_network_user_obs_ctx  *obs_ctx = ctx->obs_ctx;
 
-  volatile uint64_t ts = dwtGetCycles(); /* time stamp to mark the entry */
+  volatile uint64_t ts = cyclesCounterEnd(); /* time stamp to mark the entry */
 
   if (flags & AI_OBSERVER_PRE_EVT) {
     obs_ctx->n_cb_in++;
@@ -152,7 +502,7 @@ static ai_u32 aiOnExecNode_cb(const ai_handle cookie,
     uint32_t type;
     ai_tensor_list *tl;
 
-    dwtReset();
+    cyclesCounterStart();
     /* "ts" here indicates the execution time of the
      * operator because the dwt cycle CPU counter has been
      * reset by the entry cb.
@@ -160,20 +510,18 @@ static ai_u32 aiOnExecNode_cb(const ai_handle cookie,
     obs_ctx->tnodes += ts;
     obs_ctx->n_cb_out++;
 
+    type = (EnumOperatorFlag_OPERATOR_FLAG_INTERNAL << 24);
     if (flags & AI_OBSERVER_LAST_EVT)
-      type = EnumLayerType_LAYER_TYPE_INTERNAL_LAST;
-    else
-      type = EnumLayerType_LAYER_TYPE_INTERNAL;
-
-    type = type << 16;
-
-    if (obs_ctx->no_data)
-      type |= PB_BUFFER_TYPE_SEND_WITHOUT_DATA;
+      type |= (EnumOperatorFlag_OPERATOR_FLAG_LAST << 24);
     type |= (node->type & (ai_u16)0x7FFF);
+
+    aiOpPerf perf = {dwtCyclesToFloatMs(ts), 0,  2, (uint32_t *)&ts};
+
+    aiPbMgrSendOperator(obs_ctx->creq, obs_ctx->cresp, EnumState_S_PROCESSING,
+        NULL, type, node->id, &perf);
 
     tl = GET_TENSOR_LIST_OUT(node->tensors);
     AI_FOR_EACH_TENSOR_LIST_DO(i, t, tl) {
-      ai_buffer buffer;
       ai_float scale = AI_TENSOR_INTEGER_GET_SCALE(t, 0);
       ai_i32 zero_point = 0;
 
@@ -182,26 +530,33 @@ static ai_u32 aiOnExecNode_cb(const ai_handle cookie,
       else
         zero_point = AI_TENSOR_INTEGER_GET_ZEROPOINT_U8(t, 0);
 
-      buffer.format = AI_TENSOR_GET_FMT(t);
-      buffer.n_batches = 1;
-      buffer.data = AI_TENSOR_ARRAY_GET_DATA_ADDR(t);
-      buffer.height = AI_SHAPE_H(AI_TENSOR_SHAPE(t));
-      buffer.width = AI_SHAPE_W(AI_TENSOR_SHAPE(t));
-      buffer.channels = AI_SHAPE_CH(AI_TENSOR_SHAPE(t));
-      buffer.meta_info = NULL;
+      const ai_buffer_format fmt = AI_TENSOR_GET_FMT(t);
+      const ai_shape *shape = AI_TENSOR_SHAPE(t);  /* Note that = ai_buffer_shape */
 
-      aiPbMgrSendAiBuffer4(obs_ctx->creq, obs_ctx->cresp, EnumState_S_PROCESSING,
-          type,
-          node->id,
-          dwtCyclesToFloatMs(ts),
-          &buffer,
-          scale, zero_point);
+      ai_buffer buffer =
+          AI_BUFFER_INIT(
+            AI_FLAG_NONE,                                       /* flags */
+            fmt,                                                /* format */
+            AI_BUFFER_SHAPE_INIT_FROM_ARRAY(shape->type,
+                                            shape->size,
+                                            shape->data),       /* shape */
+            AI_TENSOR_SIZE(t),                                  /* size */
+            NULL,                                               /* meta info */
+            AI_TENSOR_ARRAY_GET_DATA_ADDR(t));                  /* data */
 
-      obs_ctx->tcom += dwtGetCycles();
-      break; /* currently (X-CUBE-AI 5.x) only one output tensor is available by operator */
+      uint32_t tens_flags = EnumTensorFlag_TENSOR_FLAG_INTERNAL;
+      if (i == (GET_TENSOR_LIST_SIZE(tl) - 1))
+        tens_flags |= EnumTensorFlag_TENSOR_FLAG_LAST;
+      if (obs_ctx->no_data)
+        tens_flags |= EnumTensorFlag_TENSOR_FLAG_NO_DATA;
+
+      send_ai_io_tensor(obs_ctx->creq, obs_ctx->cresp, EnumState_S_PROCESSING,
+          &buffer, tens_flags, scale, zero_point);
     }
+    obs_ctx->tcom += cyclesCounterEnd();
   }
-  dwtReset();
+
+  cyclesCounterStart();
   return 0;
 }
 #endif
@@ -226,41 +581,20 @@ static uint64_t aiObserverAdjustInferenceTime(struct ai_network_exec_ctx *ctx,
   return tend;
 }
 
-static void aiObserverSendReport(const reqMsg *req, respMsg *resp,
-    EnumState state, struct ai_network_exec_ctx *ctx,
-    const ai_float dur_ms)
-{
-#ifdef HAS_OBSERVER
-  struct ai_network_user_obs_ctx  *obs_ctx = ctx->obs_ctx;
-
-  if (obs_ctx->is_enabled == false)
-    return;
-
-  resp->which_payload = respMsg_report_tag;
-  resp->payload.report.id = 0;
-  resp->payload.report.elapsed_ms = dur_ms;
-  resp->payload.report.n_nodes = ctx->report.n_nodes;
-  resp->payload.report.signature = 0;
-  resp->payload.report.num_inferences = 1;
-  aiPbMgrSendResp(req, resp, state);
-  aiPbMgrWaitAck();
-#endif
-}
-
 static int aiObserverConfig(struct ai_network_exec_ctx *ctx,
     const reqMsg *req)
 {
 #ifdef HAS_OBSERVER
-  net_obs_ctx.no_data = false;
+  net_obs_ctx.no_data = true;
   net_obs_ctx.is_enabled = false;
-  if ((req->param & EnumRunParam_P_RUN_MODE_INSPECTOR) ==
-      EnumRunParam_P_RUN_MODE_INSPECTOR)
+  if ((req->param & EnumRunParam_P_RUN_MODE_PER_LAYER) ==
+      EnumRunParam_P_RUN_MODE_PER_LAYER)
     net_obs_ctx.is_enabled = true;
 
-  if ((req->param & EnumRunParam_P_RUN_MODE_INSPECTOR_WITHOUT_DATA) ==
-      EnumRunParam_P_RUN_MODE_INSPECTOR_WITHOUT_DATA) {
+  if ((req->param & EnumRunParam_P_RUN_MODE_PER_LAYER_WITH_DATA) ==
+      EnumRunParam_P_RUN_MODE_PER_LAYER_WITH_DATA) {
     net_obs_ctx.is_enabled = true;
-    net_obs_ctx.no_data = true;
+    net_obs_ctx.no_data = false;
   }
 
   net_obs_ctx.tcom = 0ULL;
@@ -269,7 +603,9 @@ static int aiObserverConfig(struct ai_network_exec_ctx *ctx,
   net_obs_ctx.n_cb_out = 0;
 
   ctx->obs_ctx = &net_obs_ctx;
-#endif
+
+#endif /* HAS_OBSERVER */
+
 return 0;
 }
 
@@ -306,7 +642,9 @@ static int aiObserverBind(struct ai_network_exec_ctx *ctx,
   if (!res) {
     return -1;
   }
-#endif
+
+#endif /* HAS_OBSERVER */
+
   return 0;
 }
 
@@ -365,11 +703,9 @@ static struct ai_network_exec_ctx *aiExecCtx(const char *nn_name, int pos)
 static int aiBootstrap(struct ai_network_exec_ctx *ctx, const char *nn_name)
 {
   ai_error err;
-  ai_u32 ext_addr;
-  ai_u32 sz;
 
   /* Creating the instance of the  network ------------------------- */
-  printf("Creating the network \"%s\"..\r\n", nn_name);
+  LC_PRINT("Creating the network \"%s\"..\r\n", nn_name);
 
   err = ai_mnetwork_create(nn_name, &ctx->handle, NULL);
   if (err.type) {
@@ -378,49 +714,17 @@ static int aiBootstrap(struct ai_network_exec_ctx *ctx, const char *nn_name)
   }
 
   /* Initialize the instance --------------------------------------- */
-  printf("Initializing the network\r\n");
+  LC_PRINT("Initializing the network\r\n");
 
-  /* Addresses of the weights and activations buffers
-   *
-   * - @ of the weights buffer is always provided by the multiple network wrapper
-   *   thanks to the ai_<network>_data_weights_get() function (see app_x-cube-ai.c file
-   *   generated by the X-CUBE-AI plug-in).
-   * - @ of the activations buffer can be a local buffer (activations object) or a buffer
-   *   located in the external memory (network dependent feature). For the last case,
-   *   the address (hard-coded @) is defined by the X-CUBE-AI plug-in and stored in the
-   *   multiple network structure (see app_x-cube-ai.c file, ai_network_entry_t definition).
-   *   0xFFFFFFFF indicates that the local buffer should be used.
-   */
-  ai_network_params params = {
-      AI_BUFFER_NULL(NULL),
-      AI_BUFFER_NULL(NULL)
-  };
-
-  if (ai_mnetwork_get_ext_data_activations(ctx->handle, &ext_addr, &sz) == 0) {
-    if (ext_addr == 0xFFFFFFFF) {
-#if AI_MNETWORK_DATA_ACTIVATIONS_INT_SIZE != 0
-      params.activations.data = (ai_handle)activations;
-      if (sz > AI_MNETWORK_DATA_ACTIVATIONS_INT_SIZE) {
-        printf("E: APP error (aiBootstrap for %s) - size of the local activations buffer is not enough\r\n",
-            nn_name);
-        ai_mnetwork_destroy(ctx->handle);
-        ctx->handle = AI_HANDLE_NULL;
-        return -5;
-      }
-#else
-      printf("E: APP error (aiBootstrap for %s) - a local activations buffer is requested\r\n",
-          nn_name);
-      ai_mnetwork_destroy(ctx->handle);
-      ctx->handle = AI_HANDLE_NULL;
-      return -5;
-#endif
-    }
-    else {
-      params.activations.data = (ai_handle)ext_addr;
-    }
+  if (!ai_mnetwork_get_report(ctx->handle, &ctx->report)) {
+    err = ai_mnetwork_get_error(ctx->handle);
+    aiLogErr(err, "ai_mnetwork_get_info");
+    ai_mnetwork_destroy(ctx->handle);
+    ctx->handle = AI_HANDLE_NULL;
+    return -2;
   }
 
-  if (!ai_mnetwork_init(ctx->handle, &params)) {
+  if (!ai_mnetwork_init(ctx->handle)) {
     err = ai_mnetwork_get_error(ctx->handle);
     aiLogErr(err, "ai_mnetwork_init");
     ai_mnetwork_destroy(ctx->handle);
@@ -429,7 +733,7 @@ static int aiBootstrap(struct ai_network_exec_ctx *ctx, const char *nn_name)
   }
 
   /* Display the network info -------------------------------------- */
-  if (ai_mnetwork_get_info(ctx->handle,
+  if (ai_mnetwork_get_report(ctx->handle,
       &ctx->report)) {
     aiPrintNetworkInfo(&ctx->report);
   } else {
@@ -438,6 +742,23 @@ static int aiBootstrap(struct ai_network_exec_ctx *ctx, const char *nn_name)
     ai_mnetwork_destroy(ctx->handle);
     ctx->handle = AI_HANDLE_NULL;
     return -2;
+  }
+
+  ctx->inputs_in_activations = false;
+  ctx->outputs_in_activations = false;
+
+  for (int i = 0; i < ctx->report.n_inputs; i++) {
+    if (!ctx->report.inputs[i].data)
+      ctx->report.inputs[i].data = AI_HANDLE_PTR(data_ins[i]);
+    else
+      ctx->inputs_in_activations = true;
+  }
+
+  for (int i = 0; i < ctx->report.n_outputs; i++) {
+    if (!ctx->report.outputs[i].data)
+      ctx->report.outputs[i].data = AI_HANDLE_PTR(data_outs[i]);
+    else
+      ctx->outputs_in_activations = true;
   }
 
   return 0;
@@ -457,13 +778,13 @@ static int aiInit(void)
   }
 
   /* Discover and initialize the network(s) ------------------------ */
-  printf("Discovering the network(s)...\r\n");
+  LC_PRINT("Discovering the network(s)...\r\n");
 
   idx = 0;
   do {
     nn_name = ai_mnetwork_find(NULL, idx);
     if (nn_name) {
-      printf("\r\nFound network \"%s\"\r\n", nn_name);
+      LC_PRINT("\r\nFound network \"%s\"\r\n", nn_name);
       res = aiBootstrap(&net_exec_ctx[idx], nn_name);
       if (res)
         nn_name = NULL;
@@ -480,7 +801,7 @@ static void aiDeInit(void)
   int idx;
 
   /* Releasing the instance(s) ------------------------------------- */
-  printf("Releasing the instance(s)...\r\n");
+  LC_PRINT("Releasing the instance(s)...\r\n");
 
   for (idx=0; idx<AI_MNETWORK_NUMBER; idx++) {
     if (net_exec_ctx[idx].handle != AI_HANDLE_NULL) {
@@ -500,6 +821,23 @@ static void aiDeInit(void)
  * -----------------------------------------------------------------------------
  */
 
+void aiPbCmdSysInfo(const reqMsg *req, respMsg *resp, void *param)
+{
+  UNUSED(param);
+  struct mcu_conf conf;
+
+  getSysConf(&conf);
+
+  resp->which_payload = respMsg_sinfo_tag;
+
+  resp->payload.sinfo.devid = conf.devid;
+  resp->payload.sinfo.sclock = conf.sclk;
+  resp->payload.sinfo.hclock = conf.hclk;
+  resp->payload.sinfo.cache = conf.conf;
+
+  aiPbMgrSendResp(req, resp, EnumState_S_IDLE);
+}
+
 void aiPbCmdNNInfo(const reqMsg *req, respMsg *resp, void *param)
 {
   struct ai_network_exec_ctx *ctx;
@@ -508,8 +846,8 @@ void aiPbCmdNNInfo(const reqMsg *req, respMsg *resp, void *param)
 
   ctx = aiExecCtx(req->name, req->param);
   if (ctx)
-    aiPbMgrSendNNInfo(req, resp, EnumState_S_IDLE,
-        &ctx->report);
+    send_model_info(req, resp, EnumState_S_IDLE, &ctx->report,
+        ctx->inputs_in_activations, ctx->outputs_in_activations);
   else
     aiPbMgrSendAck(req, resp, EnumState_S_ERROR,
         EnumError_E_INVALID_PARAM, EnumError_E_INVALID_PARAM);
@@ -518,13 +856,12 @@ void aiPbCmdNNInfo(const reqMsg *req, respMsg *resp, void *param)
 void aiPbCmdNNRun(const reqMsg *req, respMsg *resp, void *param)
 {
   ai_i32 batch;
-  uint32_t tend;
+  uint64_t tend;
   bool res;
   struct ai_network_exec_ctx *ctx;
-  uint32_t ints;
 
-  ai_buffer ai_input[AI_MNETWORK_IN_NUM];
-  ai_buffer ai_output[AI_MNETWORK_OUT_NUM];
+  ai_buffer *ai_input;
+  ai_buffer *ai_output;
 
   UNUSED(param);
 
@@ -536,31 +873,19 @@ void aiPbCmdNNRun(const reqMsg *req, respMsg *resp, void *param)
     return;
   }
 
+  ctx->debug = req->param & EnumRunParam_P_RUN_CONF_DEBUG?true:false;
   aiObserverConfig(ctx, req);
+  bool first_only = req->param & EnumRunParam_P_RUN_CONF_SAME_VALUE?true:false;
+  bool direct_write = req->param & EnumRunParam_P_RUN_CONF_DIRECT_WRITE?true:false;
 
-  /* Fill the input tensor descriptors */
-  for (int i = 0; i < ctx->report.n_inputs; i++) {
-    ai_input[i] = ctx->report.inputs[i];
-    ai_input[i].n_batches  = 1;
-    if (ctx->report.inputs[i].data)
-      ai_input[i].data = AI_HANDLE_PTR(ctx->report.inputs[i].data);
-    else
-      ai_input[i].data = AI_HANDLE_PTR(data_ins[i]);
-  }
+  PB_LC_PRINT(ctx->debug, "RUN: Waiting data.. opt=0x%x, param=0x%x\r\n", req->opt, req->param);
 
-  /* Fill the output tensor descriptors */
-  for (int i = 0; i < ctx->report.n_outputs; i++) {
-    ai_output[i] = ctx->report.outputs[i];
-    ai_output[i].n_batches = 1;
-    if (ctx->report.outputs[i].data)
-      ai_output[i].data = AI_HANDLE_PTR(ctx->report.outputs[i].data);
-    else
-      ai_output[i].data = AI_HANDLE_PTR(data_outs[i]);
-  }
+  ai_input = ctx->report.inputs;
+  ai_output = ctx->report.outputs;
 
   /* 1 - Send a ACK (ready to receive a tensor) -------------------- */
   aiPbMgrSendAck(req, resp, EnumState_S_WAITING,
-      aiPbAiBufferSize(&ai_input[0]), EnumError_E_NONE);
+      _get_buffer_size(&ai_input[0]), EnumError_E_NONE);
 
   /* 2 - Receive all input tensors --------------------------------- */
   for (int i = 0; i < ctx->report.n_inputs; i++) {
@@ -568,7 +893,7 @@ void aiPbCmdNNRun(const reqMsg *req, respMsg *resp, void *param)
     EnumState state = EnumState_S_WAITING;
     if ((i + 1) == ctx->report.n_inputs)
       state = EnumState_S_PROCESSING;
-    res = aiPbMgrReceiveAiBuffer3(req, resp, state, &ai_input[i]);
+    res = receive_ai_data(req, resp, state, &ai_input[i], first_only, direct_write);
     if (res != true)
       return;
   }
@@ -576,9 +901,9 @@ void aiPbCmdNNRun(const reqMsg *req, respMsg *resp, void *param)
   aiObserverBind(ctx, req, resp);
 
   /* 3 - Processing ------------------------------------------------ */
-  ints = disableInts();
+  PB_LC_PRINT(ctx->debug, "RUN: processing\r\n");
 
-  dwtReset();
+  cyclesCounterStart();
 
   batch = ai_mnetwork_run(ctx->handle, ai_input, ai_output);
   if (batch != 1) {
@@ -588,38 +913,41 @@ void aiPbCmdNNRun(const reqMsg *req, respMsg *resp, void *param)
         EnumError_E_GENERIC, EnumError_E_GENERIC);
     return;
   }
-  tend = dwtGetCycles();
+  tend = cyclesCounterEnd();
+  PB_LC_PRINT(ctx->debug, "RUN: processing done\r\n");
 
   tend = aiObserverAdjustInferenceTime(ctx, tend);
 
   /* 4 - Send basic report (optional) ------------------------------ */
-  aiObserverSendReport(req, resp, EnumState_S_PROCESSING, ctx,
-      dwtCyclesToFloatMs(tend));
+  aiOpPerf perf = {dwtCyclesToFloatMs(tend), 0,  2, (uint32_t *)&tend};
+  aiPbMgrSendOperator(req, resp, EnumState_S_PROCESSING, ctx->report.model_name, 0, 0, &perf);
 
+  PB_LC_PRINT(ctx->debug, "RUN: send output tensors\r\n");
   /* 5 - Send all output tensors ----------------------------------- */
   for (int i = 0; i < ctx->report.n_outputs; i++) {
     EnumState state = EnumState_S_PROCESSING;
-    if ((i + 1) == ctx->report.n_outputs)
+    uint32_t flags =  EnumTensorFlag_TENSOR_FLAG_OUTPUT;
+    if (req->param & EnumRunParam_P_RUN_MODE_PERF) {
+      flags |= EnumTensorFlag_TENSOR_FLAG_NO_DATA;
+    }
+    if ((i + 1) == ctx->report.n_outputs) {
       state = EnumState_S_DONE;
-    aiPbMgrSendAiBuffer4(req, resp, state,
-        EnumLayerType_LAYER_TYPE_OUTPUT << 16 | 0,
-        0, dwtCyclesToFloatMs(tend),
-        &ai_output[i], 0.0f, 0);
+      flags |= EnumTensorFlag_TENSOR_FLAG_LAST;
+    }
+    send_ai_io_tensor(req, resp, state, &ai_output[i], flags, 0.0, 0);
   }
 
-  restoreInts(ints);
   aiObserverUnbind(ctx);
 }
 
 static aiPbCmdFunc pbCmdFuncTab[] = {
-#ifdef HAS_INSPECTOR
-    AI_PB_CMD_SYNC((void *)EnumCapability_CAP_INSPECTOR),
-#else
-    AI_PB_CMD_SYNC(NULL),
-#endif
-    AI_PB_CMD_SYS_INFO(NULL),
+    AI_PB_CMD_SYNC(_CAP),
+    { EnumCmd_CMD_SYS_INFO, &aiPbCmdSysInfo, NULL },
     { EnumCmd_CMD_NETWORK_INFO, &aiPbCmdNNInfo, NULL },
     { EnumCmd_CMD_NETWORK_RUN, &aiPbCmdNNRun, NULL },
+#if defined(HAS_RW_MEMORY)
+    AI_PB_MEMORY_RW_SERVICES(),
+#endif
 #if defined(AI_PB_TEST) && AI_PB_TEST == 1
     AI_PB_CMD_TEST(NULL),
 #endif
@@ -634,11 +962,14 @@ static aiPbCmdFunc pbCmdFuncTab[] = {
 
 int aiValidationInit(void)
 {
-  printf("\r\n#\r\n");
-  printf("# %s %d.%d\r\n", _APP_NAME_ , _APP_VERSION_MAJOR_, _APP_VERSION_MINOR_);
-  printf("#\r\n");
+  LC_PRINT("\r\n#\r\n");
+  LC_PRINT("# %s %d.%d\r\n", _APP_NAME_ , _APP_VERSION_MAJOR_, _APP_VERSION_MINOR_);
+  LC_PRINT("#\r\n");
 
   systemSettingLog();
+
+  crcIpInit();
+  cyclesCounterInit();
 
   return 0;
 }
@@ -649,23 +980,27 @@ int aiValidationProcess(void)
 
   r = aiInit();
   if (r) {
-    printf("\r\nE:  aiInit() r=%d\r\n", r);
-    HAL_Delay(2000);
+    LC_PRINT("\r\nE:  aiInit() r=%d\r\n", r);
+    port_hal_delay(2000);
     return r;
   } else {
-    printf("\r\n");
-    printf("-------------------------------------------\r\n");
-    printf("| READY to receive a CMD from the HOST... |\r\n");
-    printf("-------------------------------------------\r\n");
-    printf("\r\n");
-    printf("# Note: At this point, default ASCII-base terminal should be closed\r\n");
-    printf("# and a stm32com-base interface should be used\r\n");
-    printf("# (i.e. Python stm32com module). Protocol version = %d.%d\r\n",
+    LC_PRINT("\r\n");
+    LC_PRINT("-------------------------------------------\r\n");
+    LC_PRINT("| READY to receive a CMD from the HOST... |\r\n");
+    LC_PRINT("-------------------------------------------\r\n");
+    LC_PRINT("\r\n");
+    LC_PRINT("# Note: At this point, default ASCII-base terminal should be closed\r\n");
+    LC_PRINT("# and a serial COM interface should be used\r\n");
+    LC_PRINT("# (i.e. Python ai_runner module). Protocol version = %d.%d\r\n",
         EnumVersion_P_VERSION_MAJOR,
         EnumVersion_P_VERSION_MINOR);
   }
 
   aiPbMgrInit(pbCmdFuncTab);
+
+#if defined(SR5E1)
+  SR5E1_UART_Init();
+#endif /* SR5E1 */
 
   do {
     r = aiPbMgrWaitAndProcess();
@@ -676,8 +1011,8 @@ int aiValidationProcess(void)
 
 void aiValidationDeInit(void)
 {
-  printf("\r\n");
+  LC_PRINT("\r\n");
   aiDeInit();
-  printf("bye bye ...\r\n");
+  LC_PRINT("bye bye ...\r\n");
 }
 

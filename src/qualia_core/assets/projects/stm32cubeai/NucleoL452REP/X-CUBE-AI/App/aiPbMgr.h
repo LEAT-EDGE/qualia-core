@@ -1,26 +1,25 @@
 /**
-  ******************************************************************************
-  * @file    aiPbMgr.h
-  * @author  MCD Vertical Application Team
-  * @brief   Helper function for AI ProtoBuffer support
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) YYYY STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    aiPbMgr.h
+ * @author  MCD/AIS Team
+ * @brief   Helper function for AI ProtoBuffer support
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2019,2021 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software is licensed under terms that can be found in the LICENSE file in
+ * the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 
 #ifndef _AI_PB_MGR_H_
 #define _AI_PB_MGR_H_
 
-#include "ai_platform.h"
+#include <stdint.h>
 
 #include "pb.h"
 #include "stm32msg.pb.h"
@@ -29,17 +28,14 @@
 #define AI_PB_TEST 0
 #endif
 
-/* AI_PB_FULL_IO - force the upload of the ai_buffer with AI_BUFFER_FMT_FLAG_IS_IO flag
- *                 (see aiPbMgrSendAiBuffer3() function) */
-#ifndef AI_PB_FULL_IO
-#define AI_PB_FULL_IO 0
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* --------------------------- */
+
+/*---------------------------------------------------------------------------*/
+/* Nanopb stack initialization & manager                                     */
+/*---------------------------------------------------------------------------*/
 
 typedef struct _aiPbCmdFunc {
         EnumCmd cmd;
@@ -48,53 +44,89 @@ typedef struct _aiPbCmdFunc {
 } aiPbCmdFunc;
 
 void aiPbMgrInit(const aiPbCmdFunc *funcs);
-
 int aiPbMgrWaitAndProcess(void);
-
-/* --------------------------- */
-
-void aiPbMgrSendAck(const reqMsg *req, respMsg *resp,
-        EnumState state, uint32_t param, EnumError error);
-
-void aiPbMgrSendResp(const reqMsg *req, respMsg *resp, EnumState state);
-
-bool aiPbMgrReceiveAiBuffer3(const reqMsg *req, respMsg *resp,
-        EnumState state, ai_buffer *buffer);
-
-#define PB_BUFFER_TYPE_SEND_WITHOUT_DATA ((uint32_t)(1U << 31))
-
-bool aiPbMgrSendAiBuffer4(const reqMsg *req, respMsg *resp, EnumState state,
-    uint32_t type, uint32_t id, ai_float dur_ms, const ai_buffer *buffer,
-    ai_float scale, ai_i32 zero_point);
-
-bool aiPbMgrSendLog(const reqMsg *req, respMsg *resp,
-        EnumState state, uint32_t lvl, const char *str);
-
-void aiPbMgrSendNNInfo(const reqMsg *req, respMsg *resp,
-        EnumState state, const ai_network_report *nn);
-
-bool aiPbMgrWaitAck(void);
-
-/* --------------------------- */
-
-uint32_t aiPbAiBufferSize(const ai_buffer *buffer);
-void aiPbStrCopy(const char *src, char *dst, uint32_t max);
-uint32_t aiPbVersionToUint32(const ai_platform_version *ver);
-
-/* --------------------------- */
 
 void aiPbCmdSync(const reqMsg *req, respMsg *resp, void *param);
 #define AI_PB_CMD_SYNC(par) { EnumCmd_CMD_SYNC, &aiPbCmdSync, (par) }
-
-void aiPbCmdSysInfo(const reqMsg *req, respMsg *resp, void *param);
-#define AI_PB_CMD_SYS_INFO(par) { EnumCmd_CMD_SYS_INFO, &aiPbCmdSysInfo, (par) }
 
 #define AI_PB_CMD_END      { (EnumCmd)0, NULL, NULL }
 
 #if defined(AI_PB_TEST) && (AI_PB_TEST == 1)
 void aiPbTestCmd(const reqMsg *req, respMsg *resp, void *param);
 #define AI_PB_CMD_TEST(par) { EnumCmd_CMD_TEST, &aiPbTestCmd, (par) }
+
+bool aiPbTestModeEnabled();
 #endif
+
+
+/*---------------------------------------------------------------------------*/
+/* Nanopb services                                                           */
+/*---------------------------------------------------------------------------*/
+
+/* built-in services */
+
+void aiPbMgrSendResp(const reqMsg *req, respMsg *resp, EnumState state);
+
+void aiPbMgrSendAck(const reqMsg *req, respMsg *resp,
+                    EnumState state, uint32_t param, EnumError error);
+
+bool aiPbMgrSendLog(const reqMsg *req, respMsg *resp,
+        EnumState state, uint32_t lvl, const char *str);
+
+bool aiPbMgrSendLogV2(EnumState state, uint32_t lvl, const char *str);
+
+bool aiPbMgrWaitAck(void);
+
+typedef struct aiPbData {
+  uint32_t  type;
+  uint32_t  size;
+  uintptr_t addr;
+  uint32_t  nb_read;
+} aiPbData;
+
+bool aiPbMgrReceiveData(aiPbData *data);
+
+bool aiPbMgrSendData(const reqMsg *req, respMsg *resp, EnumState state,
+                     aiPbData *data);
+
+typedef struct aiOpPerf {
+  float duration;        /* duration in ms */
+  uint32_t counter_type; /* */
+  uint32_t counter_n;    /* */
+  uint32_t *counters;    /* */
+} aiOpPerf;
+
+bool aiPbMgrSendOperator(const reqMsg *req, respMsg *resp,
+                         EnumState state, const char *name,
+                         const uint32_t type, const uint32_t id,
+                         aiOpPerf *perf);
+
+/* low-level services */
+
+struct _encode_uint32 {
+  size_t size;
+  void *data;
+  uint32_t offset;
+};
+
+struct _encode_tensor_desc {
+  void (*cb)(size_t index, void* data, aiTensorDescMsg* msg,
+             struct _encode_uint32 *array_u32);
+  size_t size;
+  void* data;
+};
+
+bool encode_tensor_desc(pb_ostream_t *stream, const pb_field_t *field,
+                        void * const *arg);
+bool encode_uint32(pb_ostream_t *stream, const pb_field_t *field,
+                   void * const *arg);
+bool encode_data_cb(pb_ostream_t *stream, const pb_field_t *field,
+                    void * const *arg);
+
+void aiPbStrCopy(const char *src, char *dst, uint32_t max);
+
+
+uint32_t aiPbTensorFormat(EnumDataFmtType data_fmt_type, bool sign_bit, int bits, int fbits);
 
 
 #ifdef __cplusplus
