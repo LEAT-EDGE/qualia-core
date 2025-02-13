@@ -50,7 +50,7 @@ class Keras2TFLite(Converter[keras.Model]):
 
     def __init__(self,
                  quantize: str,
-                 new_converter: bool = False) -> None:  # noqa: FBT001, FBT002
+                 new_converter: bool = True) -> None:  # noqa: FBT001, FBT002
         super().__init__()
 
         if not self.__check_quantize(quantize):
