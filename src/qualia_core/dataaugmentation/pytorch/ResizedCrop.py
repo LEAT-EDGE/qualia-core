@@ -20,6 +20,7 @@ class ResizedCrop(DataAugmentationPyTorch):
                  size: list[int],
                  scale: list[float] | None = None,
                  ratio: list[float] | None = None,
+                 interpolation_mode: str = 'bilinear',
                  antialias: bool = True,  # noqa: FBT001, FBT002
                  evaluate: bool = False,  # noqa: FBT001, FBT002
                  before: bool = False,  # noqa: FBT001, FBT002
@@ -30,10 +31,12 @@ class ResizedCrop(DataAugmentationPyTorch):
 
         scale = scale if scale is not None else [0.08, 1.0]
         ratio = ratio if ratio is not None else [0.75, 4/3]
+        interpolation = torchvision.transforms.InterpolationMode(interpolation_mode)
         self.randomresizedcrop = torchvision.transforms.RandomResizedCrop(size=size,
                                                                           scale=tuple(scale),
                                                                           ratio=tuple(ratio),
-                                                                          antialias=antialias)
+                                                                          antialias=antialias,
+                                                                          interpolation=interpolation)
 
     def apply(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         resizedcropped_x = self.randomresizedcrop(x)

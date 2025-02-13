@@ -18,6 +18,7 @@ class Rotation2D(DataAugmentationPyTorch):
 
     def __init__(self,
                  angle: list[int] | None = None,
+                 interpolation_mode: str = 'nearest',
                  evaluate: bool = False,  # noqa: FBT001, FBT002
                  before: bool = False,  # noqa: FBT001, FBT002
                  after: bool = True) -> None:  # noqa: FBT001, FBT002
@@ -26,7 +27,9 @@ class Rotation2D(DataAugmentationPyTorch):
         super().__init__(evaluate=evaluate, before=before, after=after)
 
         angle = angle if angle is not None else [-45, 45]
-        self.randomrotation = torchvision.transforms.RandomRotation(angle)
+        interpolation = torchvision.transforms.InterpolationMode(interpolation_mode)
+        self.randomrotation = torchvision.transforms.RandomRotation(angle,
+                                                                    interpolation=interpolation)
 
     def apply(self, x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         rotated_x = self.randomrotation(x)
