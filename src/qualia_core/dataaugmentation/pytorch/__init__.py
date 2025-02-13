@@ -3,6 +3,7 @@ from .AutoAugment import AutoAugment
 from .CMSISMFCC import CMSISMFCC
 from .Crop import Crop
 from .Cutout1D import Cutout1D
+from .ExponentialNoise import ExponentialNoise
 from .GaussianNoise import GaussianNoise
 from .HorizontalFlip import HorizontalFlip
 from .IntToFloat32 import IntToFloat32
@@ -23,6 +24,7 @@ __all__ = [
            'AutoAugment',
            'Crop',
            'Cutout1D',
+           'ExponentialNoise',
            'GaussianNoise',
            'HorizontalFlip',
            'IntToFloat32',
