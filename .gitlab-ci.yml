@@ -19,9 +19,11 @@ default:
     - pip install --break-system-packages --upgrade --force-reinstall --no-deps optree # optree currently broken in Arch repos
     - pacman -U --noconfirm /mnt/hdd/Software/STMicroelectronics/STM32CubeIDE/stm32cubeide-1.12.0-2-x86_64.pkg.tar.zst
     - pacman -U --noconfirm /mnt/hdd/Software/Ambiq/ambiqsuite-2.5.1-2-any.pkg.tar.zst
-    - mkdir -p ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/5.2.0/Utilities
-    - unzip /mnt/hdd/Software/STMicroelectronics/X-CUBE-AI/en.x-cube-ai-v5-2-0-linux.zip
-    - unzip -q stm32ai-linux-5.2.0.zip -d ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/5.2.0/Utilities
+    - mkdir -p ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities
+    - unzip /mnt/hdd/Software/STMicroelectronics/X-CUBE-AI/en.x-cube-ai-linux_v8.1.0.zip
+    - unzip -q stm32ai-linux-8.1.0.zip -d ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities
+    - pacman -U /mnt/hdd/Software/ArchLinux/execstack-20130503-9-x86_64.pkg.tar.zst
+    - execstack -c ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities/linux/onnxruntime/capi/onnxruntime_pybind11_state.cpython-39-x86_64-linux-gnu.so
 
 stages:          # List of stages for jobs, and their order of execution
   - test
