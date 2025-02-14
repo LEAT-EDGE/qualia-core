@@ -17,7 +17,6 @@ default:
     - pacman -S --noconfirm --needed python-blosc2 python-fsspec python-typing_extensions python-pydantic
     - pacman -S --noconfirm --needed cmake ninja
     - pip install --break-system-packages --upgrade --force-reinstall --no-deps optree # optree currently broken in Arch repos
-    - pacman -U --noconfirm /mnt/hdd/Software/STMicroelectronics/STM32CubeIDE/stm32cubeide-1.12.0-2-x86_64.pkg.tar.zst
     - pacman -U --noconfirm /mnt/hdd/Software/Ambiq/ambiqsuite-2.5.1-2-any.pkg.tar.zst
     - mkdir -p ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities
     - unzip /mnt/hdd/Software/STMicroelectronics/X-CUBE-AI/en.x-cube-ai-linux_v8.1.0.zip
