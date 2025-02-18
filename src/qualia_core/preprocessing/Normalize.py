@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Iterable
 from typing import Callable, ClassVar
 
 from qualia_core.datamodel.RawDataModel import RawDataModel
@@ -51,7 +52,7 @@ class Normalize(Preprocessing[RawDataModel, RawDataModel]):
 
     def __init__(self,
                  method: str = 'z-score',
-                 axis: list[int] | None = None,
+                 axis: int | list[int] | None = None,
                  debug: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__()
 
@@ -65,7 +66,13 @@ class Normalize(Preprocessing[RawDataModel, RawDataModel]):
             raise ValueError
 
         self.__method = self.methods[method].__get__(self)
-        self.__axis = tuple(axis) if axis is not None else (0,)
+
+        if axis is None:
+            self.__axis = (0,)
+        elif isinstance(axis, Iterable):
+            self.__axis = tuple(axis)
+        else:
+            self.__axis = (axis,)
 
     @override
     def __call__(self, datamodel: RawDataModel) -> RawDataModel:
