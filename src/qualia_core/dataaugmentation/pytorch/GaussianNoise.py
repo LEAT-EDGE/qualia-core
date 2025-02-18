@@ -29,7 +29,7 @@ class GaussianNoise(DataAugmentationPyTorch):
             self.noisedist = torch.distributions.normal.Normal(torch.tensor(0.0, device=device),
                                                                torch.tensor(self.sigma, device=device))
 
-        noise = self.noisedist.sample(x.shape[-1:]) # Generate noise for each time sample
+        noise = self.noisedist.sample(x.shape) # Generate noise for all dimensions
 
         noisy_x = x + noise
 
