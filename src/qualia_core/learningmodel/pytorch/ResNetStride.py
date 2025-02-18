@@ -12,7 +12,7 @@ from qualia_core.learningmodel.pytorch.layers import Add
 from qualia_core.typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from types import ModuleType  # noqa: TCH003
+    from types import ModuleType  # noqa: TC003
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -59,11 +59,11 @@ class BasicBlock(nn.Module):
                  padding: int,
                  batch_norm: bool,  # noqa: FBT001
                  bn_momentum: float,
-                 force_projection_with_stride: bool) -> None:  # noqa: FBT001
+                 force_projection_with_pooling: bool) -> None:  # noqa: FBT001
         super().__init__()
 
         self.batch_norm = batch_norm
-        self.force_projection_with_stride = force_projection_with_stride
+        self.force_projection_with_pooling = force_projection_with_pooling
         self.in_planes = in_planes
         self.planes = planes
         self.pool_size = pool_size
@@ -89,7 +89,7 @@ class BasicBlock(nn.Module):
         if self.pool_size != 1:
             self.spool = layers_t.MaxPool(pool_size)
         if (self.in_planes != self.expansion * self.planes
-            or self.force_projection_with_stride and self.pool_size != 1
+            or self.force_projection_with_pooling and self.pool_size != 1
             or self.stride != 1):
             self.sconv = layers_t.Conv(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=not batch_norm)
             if batch_norm:
@@ -120,7 +120,7 @@ class BasicBlock(nn.Module):
         tmp = x
 
         if (self.in_planes != self.expansion * self.planes
-            or self.force_projection_with_stride and self.pool_size != 1
+            or self.force_projection_with_pooling and self.pool_size != 1
             or self.stride != 1):
             tmp = self.sconv(tmp)
 
@@ -153,7 +153,7 @@ class ResNetStride(nn.Module):
                  postpool: str = 'max',
                  batch_norm: bool = False,  # noqa: FBT001, FBT002
                  bn_momentum: float = 0.1,
-                 force_projection_with_stride: bool = True,  # noqa: FBT001, FBT002
+                 force_projection_with_pooling: bool = False,  # noqa: FBT001, FBT002
 
                  dims: int = 1,
                  basicblockbuilder: BasicBlockBuilder | None = None) -> None:
@@ -189,7 +189,7 @@ class ResNetStride(nn.Module):
                         padding=padding,
                         batch_norm=batch_norm,
                         bn_momentum=bn_momentum,
-                        force_projection_with_stride=force_projection_with_stride)
+                        force_projection_with_pooling=force_projection_with_pooling)
             basicblockbuilder = builder
 
         self.in_planes = filters[0]
