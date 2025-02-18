@@ -1,10 +1,23 @@
 from __future__ import annotations
+
+import ctypes
+import errno
 import logging
+import os
 import sys
+from enum import IntEnum
 from pathlib import Path
+from typing import Any, ClassVar, cast
+
 import numpy as np
-from qualia_core.datamodel.RawDataModel import RawData, RawDataSets, RawDataModel
+
+from qualia_core.datamodel.RawDataModel import RawData, RawDataModel, RawDataSets
 from qualia_core.dataset.RawDataset import RawDataset
+from qualia_core.typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence  # noqa: TC003
+    from ctypes import _CDataType
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -12,6 +25,48 @@ else:
     from typing_extensions import override
 
 logger = logging.getLogger(__name__)
+
+class IDXType(IntEnum):
+    """List of possible data types of an IDX file."""
+
+    UINT8 = 0x08
+    INT8 = 0x09
+    INT16 = 0x0B
+    INT32 = 0x0C
+    FLOAT32 = 0x0D
+    FLOAT64 = 0x0E
+
+    def as_numpy_dtype(self) -> np.dtype[Any]:
+        """Convert the selected enum type to a numpy.dtype object, with big-endian byte order.
+
+        Returns:
+            numpy.dtype for the corresponding data type
+
+        """
+        mapping = {
+                IDXType.UINT8: np.uint8,
+                IDXType.INT8: np.int8,
+                IDXType.INT16: np.int16,
+                IDXType.INT32: np.int32,
+                IDXType.FLOAT32: np.float32,
+                IDXType.FLOAT64: np.float64,
+                }
+        return np.dtype(mapping[self]).newbyteorder('>')
+
+class IDXMagicNumber(ctypes.BigEndianStructure):
+    """Magic number of IDX file format.
+
+    Header of 4 bytes.
+    - First 2 bytes are always 0
+    - 3rd byte is the data type, one of :class:`IDXType`
+    - 4th byte is the number of dimensions that follow the magic number
+    """
+
+    _fields_: ClassVar[Sequence[tuple[str, type[_CDataType]] | tuple[str, type[_CDataType], int]]] = [
+            ('null', ctypes.c_uint16),
+            ('dtype', ctypes.c_uint8),
+            ('n_dims', ctypes.c_uint8),
+            ]
 
 
 class MNISTBase(RawDataset):
@@ -31,31 +86,32 @@ class MNISTBase(RawDataset):
     - data in row-major order
     """
 
-    def __init__(self, path: str = '', variant: str = 'raw') -> None:
+    def __init__(self, path: str = '', dtype: str = 'float32') -> None:
         """Initialize an MNIST-style dataset.
 
         Args:
             path: Directory containing the IDX files
-            variant: Dataset variant (default: 'raw'). Currently unused but
-                    maintained for consistency with other Qualia datasets.
+            dtype: Data type to convert images to
+
         """
         super().__init__()
         self.__path = Path(path)
-        self.__variant = variant
+        self.__dtype = dtype
 
         # MNIST datasets don't use a validation set, so we remove it
         if 'valid' in self.sets:
             self.sets.remove('valid')
 
-    def _read_idx_file(self, filepath: Path) -> np.ndarray:
+    def _read_idx_file(self, filepath: Path) -> np.ndarray[Any, Any]:
         """Read data from an IDX file format.
 
         The IDX file format begins with a magic number containing:
         - first 2 bytes: zero
-        - third byte: data type (0x08: unsigned byte)
+        - third byte: data type
         - fourth byte: number of dimensions
-        Following this are the dimension sizes (4 bytes each)
+        Following this are the dimension sizes (4 bytes each).
         Finally comes the data in row-major order.
+        All integers in most significant byte first order.
 
         Args:
             filepath: Path to the IDX file to read
@@ -66,32 +122,36 @@ class MNISTBase(RawDataset):
         Raises:
             FileNotFoundError: If the file doesn't exist
             ValueError: If the file format is invalid
+
         """
         if not filepath.exists():
-            raise FileNotFoundError(f"IDX file not found: {filepath}")
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), filepath)
 
         with filepath.open('rb') as f:
-            # Read the magic number
-            magic = int.from_bytes(f.read(4), byteorder='big')
-            n_dims = magic % 256  # Last byte is number of dimensions
+            # Decode the first 4 bytes "magic number"
+            magic = IDXMagicNumber.from_buffer_copy(f.read(4))
 
-            # Verify this is an unsigned byte IDX file (type 0x08)
-            dtype = (magic >> 8) % 256
-            if dtype != 0x08:
-                raise ValueError(f"Expected unsigned byte data (0x08), got {dtype}")
+            if magic.null != 0:
+                logger.error('First 2 bytes of IDX files expected to be 0x%04x, got 0x%04x', b'\0\0', magic.null)
+                raise ValueError
+
+            dtype = IDXType(magic.dtype)
+
+            # Dims is an array of n_dims 32-bit unsigned integers in most significant byte first order
+            dims_ctype = cast(ctypes.c_uint32, ctypes.c_uint32.__ctype_be__) * magic.n_dims # type: ignore[attr-defined]
 
             # Read the dimension sizes
-            dims = []
-            for _ in range(n_dims):
-                dims.append(int.from_bytes(f.read(4), byteorder='big'))
+            dims_bytes = f.read(ctypes.sizeof(dims_ctype))
+            dims = dims_ctype.from_buffer_copy(dims_bytes)
 
-            # Read all the data and reshape to the specified dimensions
-            data = np.frombuffer(f.read(), dtype=np.uint8)
-            data = data.reshape(dims)
+            # Read all the remaining data with the declared dtype
+            data = np.fromfile(f, dtype=dtype.as_numpy_dtype())
+            # And reshape to the specified dimensions
+            return data.reshape(dims)
 
-            return data
-
-    def _load_data(self, images_file: str, labels_file: str) -> tuple[np.ndarray, np.ndarray]:
+    def _load_data(self,
+                   images_file: str,
+                   labels_file: str) -> tuple[np.ndarray[Any, np.dtype[np.float32]], np.ndarray[Any, np.dtype[np.uint8]]]:
         """Load and preprocess a set of images and labels.
 
         This method:
@@ -108,6 +168,7 @@ class MNISTBase(RawDataset):
             Tuple of (images, labels) where:
             - images is float32 array of shape [N, 28, 28, 1], values in [0, 1]
             - labels is uint8 array of shape [N] with values 0-9
+
         """
         # Load raw data from IDX files
         images = self._read_idx_file(self.__path / images_file)
@@ -115,9 +176,8 @@ class MNISTBase(RawDataset):
 
         # Images need to be:
         # - Reshaped to [N, H, W, C] format (adding channel dimension)
-        # - Converted to float32 for training
-        # - Normalized to [0, 1] range
-        images = images.reshape(-1, 28, 28, 1).astype(np.float32) / 255.0
+        # - Converted to the chosen dtype
+        images = np.expand_dims(images, -1).astype(self.__dtype)
 
         return images, labels
 
@@ -143,6 +203,7 @@ class MNISTBase(RawDataset):
             Each set has:
             - Images: float32 [N, 28, 28, 1] arrays, values in [0, 1]
             - Labels: uint8 [N] arrays with values 0-9
+
         """
         logger.info('Loading MNIST-style dataset from %s', self.__path)
 
@@ -156,27 +217,15 @@ class MNISTBase(RawDataset):
         logger.info('Shapes: train_x=%s, train_y=%s, test_x=%s, test_y=%s',
                     train_x.shape, train_y.shape, test_x.shape, test_y.shape)
 
+
         # Package everything in Qualia's containers
         return RawDataModel(
             sets=RawDataSets(
                 train=RawData(train_x, train_y),
-                test=RawData(test_x, test_y)
+                test=RawData(test_x, test_y),
             ),
-            name=self.name
+            name=self.name,
         )
-
-    @property
-    @override
-    def name(self) -> str:
-        """Get the dataset name.
-
-        Returns a combination of the class name and variant,
-        used for logging and file naming.
-
-        Returns:
-            String like 'MNIST_raw' or 'FashionMNIST_raw'
-        """
-        return f'{self.__class__.__name__}_{self.__variant}'
 
 
 class MNIST(MNISTBase):
@@ -192,7 +241,7 @@ class MNIST(MNISTBase):
     Labels:
     - 0-9: Corresponding digits
     """
-    pass
+
 
 
 class FashionMNIST(MNISTBase):
@@ -212,4 +261,4 @@ class FashionMNIST(MNISTBase):
     3: Dress          8: Bag
     4: Coat           9: Ankle boot
     """
-    pass
+
