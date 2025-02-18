@@ -51,7 +51,7 @@ class Normalize(Preprocessing[RawDataModel, RawDataModel]):
 
     def __init__(self,
                  method: str = 'z-score',
-                 axis: tuple[int, ...] = (0,),
+                 axis: list[int] | None = None,
                  debug: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__()
 
@@ -65,7 +65,7 @@ class Normalize(Preprocessing[RawDataModel, RawDataModel]):
             raise ValueError
 
         self.__method = self.methods[method].__get__(self)
-        self.__axis = axis
+        self.__axis = tuple(axis) if axis is not None else (0,)
 
     @override
     def __call__(self, datamodel: RawDataModel) -> RawDataModel:
