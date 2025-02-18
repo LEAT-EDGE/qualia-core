@@ -1,7 +1,11 @@
+
 from __future__ import annotations
 
 import logging
+import platform
+import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -19,10 +23,21 @@ class TensorFlowInitializer:
         # If PYTHONHASHSEED is not set to 0 or CUBLAS_WORKSPACE_CONFIG not set to ':4096:8' (required for CuBlas determinism)
         # restart interpreter (env var has to be set before python starts)
         if os.environ.get('PYTHONHASHSEED', '') != str(seed) or os.environ.get('CUBLAS_WORKSPACE_CONFIG', '') != ':4096:8':
-            os.execle(sys.executable,
-                      sys.executable,
-                      *sys.argv,
-                      {'PYTHONHASHSEED': str(seed), 'CUBLAS_WORKSPACE_CONFIG': ':4096:8', **os.environ})
+            if platform.system() == 'Windows':
+                # Workaround missing ".exe" in sys.argv[0] when called from a wrapper
+                scriptpath = Path(sys.argv[0])
+                if not scriptpath.exists() and scriptpath.with_suffix('.exe').exists():
+                    scriptpath = scriptpath.with_suffix('.exe')
+                ret = subprocess.run((sys.executable, scriptpath, *sys.argv[1:]),  # noqa: S603
+                                     env={'PYTHONHASHSEED': str(seed), 'CUBLAS_WORKSPACE_CONFIG': ':4096:8',
+                                          **os.environ},
+                                     check=False)
+                sys.exit(ret.returncode)
+            else:
+                os.execle(sys.executable,
+                          sys.executable,
+                          *sys.argv,
+                          {'PYTHONHASHSEED': str(seed), 'CUBLAS_WORKSPACE_CONFIG': ':4096:8', **os.environ})
 
         import random
         random.seed(seed)
