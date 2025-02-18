@@ -47,8 +47,25 @@ class CMake(Deployer):
     def _create_outdir(self, outdir: Path) -> None:
         outdir.mkdir(parents=True, exist_ok=True)
 
+    def _clean_cmake_files(self, outdir: Path) -> None:
+        """Emulate ``cmake --fresh`` for CMake < 3.24.
+
+        According to CMake's sources, ``cmake --fresh`` calls ``cmCacheManager::DeleteCache``
+        which deletes the ``CMakeCache.txt`` file and the ``CMakeFiles`` directory in the current CMake project output directory.
+
+        :param outdir: CMake project output directory
+        """
+        (outdir/'CMakeCache.txt').unlink(missing_ok=True)
+        if (outdir/'CMakeFiles').exists():
+            shutil.rmtree(outdir/'CMakeFiles')
+
     def __get_cmake_version(self) -> tuple[int, int, int]:
         _, cmake_version_outputs = subprocesstee.run('cmake', '--version')
+
+        if 1 not in cmake_version_outputs:
+            logger.warning('Could not get output of `cmake --version`')
+            return (0, 0, 0)
+
         cmake_version_str = re.search(r'([.\d]+)', cmake_version_outputs[1].decode('utf-8'), re.MULTILINE)
 
         # Decoding into tuple of ints is good enough as CMake versions are specified as <major>.<minor>.<patch>
@@ -73,7 +90,7 @@ class CMake(Deployer):
         if self.__get_cmake_version() >= (3, 24, 0):
             args = ('--fresh', *args)
         else:
-            shutil.rmtree(outdir)
+            self._clean_cmake_files(outdir)
 
         if not self._run('cmake',
                          '-G', generator,

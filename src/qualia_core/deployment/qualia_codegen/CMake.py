@@ -29,6 +29,12 @@ class CMake(ToolchainCMake):
     evaluator = QualiaEvaluator # Suggested evaluator
 
     @override
+    def _clean_cmake_files(self, outdir: Path) -> None:
+        super()._clean_cmake_files(outdir)
+        # Also clean CMake files under the libqualia-neuralnetwork subdirectory
+        super()._clean_cmake_files(outdir/'libqualia-neuralnetwork')
+
+    @override
     def _build(self,
                modeldir: Path,
                optimize: str,
