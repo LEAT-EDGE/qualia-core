@@ -1,0 +1,102 @@
+[bench]
+name = "FashionMNIST_ResNetv1_float32_train"
+seed = 2
+first_run = 1
+last_run = 1
+use_test_as_valid = true
+
+[learningframework]
+kind = 'PyTorch'
+
+[deploy]
+target = 'Linux'
+converter.kind = 'QualiaCodeGen'
+quantize = ['float32']
+optimize = ['']
+compress = [1]
+
+[dataset]
+kind = "FashionMNIST"
+params.path = "data/Fashion-MNIST/"
+# kind = "MNIST"
+# params.path = "data/MNIST/"
+params.dtype = 'float32'
+
+[[preprocessing]]
+kind = "Class2BinMatrix"
+
+[[preprocessing]]
+kind = "Normalize"
+params.method = 'min-max'
+params.axis = [0, 1, 2, 3] # Single normalization value for the entire tensor
+params.debug = true
+
+# [[data_augmentation]]
+# kind = "HorizontalFlip"
+# params.before = false
+# params.after = true
+
+# [[data_augmentation]]
+# kind = "Rotation2D"
+# params.angle = [-5, 5]
+# params.interpolation_mode = 'bilinear'
+# params.before = false
+# params.after = true
+
+# [[data_augmentation]]
+# kind = "ResizedCrop"
+# params.size = [28, 28]
+# params.scale = [0.85, 1.15]
+# params.ratio = [0.9, 1.1]
+# params.before = false
+# params.after = true
+
+# [[data_augmentation]]
+# kind = "GaussianNoise"
+# params.sigma = 0.01
+# params.before = false
+# params.after = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
+
+[model_template]
+kind = "ResNetStride"
+epochs = 30
+batch_size = 512
+params.dims = 2
+
+[model_template.optimizer]
+kind = "Adam"
+params.lr = 0.01
+params.weight_decay	= 5e-4
+
+[model_template.optimizer.scheduler]
+kind = "MultiStepLR"
+params.milestones	= [5, 10, 20, 25]
+params.gamma = 0.25
+
+[[model]]
+name = "fashion-mnist_resnetv1"
+params.prepool      = 1
+params.filters      = [ 8,  8, 16, 32, 64, 128]
+params.kernel_sizes = [ 3,  3,  3,  3,  3, 3]
+params.paddings     = [ 1,  1,  1,  1,  1, 1]
+params.strides      = [ 1,  2,  2,  2,  2, 2]
+params.pool_sizes   = [ 1,  1,  1,  1,  1, 1]
+params.num_blocks   = [     1,  1,  1,  1, 1]
+params.batch_norm   = true
+disabled = true
+
+[[model]]
+name = "fashion-mnist_resnetv1_small"
+params.prepool      = 1
+params.filters      = [ 8,  8, 12, 16, 24, 32]
+params.kernel_sizes = [ 7,  3,  3,  3,  3, 3]
+params.paddings     = [ 3,  1,  1,  1,  1, 1]
+params.strides      = [ 1,  2,  2,  2,  2, 2]
+params.pool_sizes   = [ 1,  1,  1,  1,  1, 1]
+params.num_blocks   = [     1,  1,  1,  1, 1]
+params.batch_norm   = true
+disabled = false
