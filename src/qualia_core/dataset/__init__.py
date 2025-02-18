@@ -8,5 +8,7 @@ from .GTSRB import GTSRB
 from .HD import HD
 from .UCI_HAR import UCI_HAR
 from .WSMNIST import WSMNIST
+from .MNIST import FashionMNIST
+from .MNIST import MNIST
 
-__all__ = ['BrainMIX', 'CIFAR10', 'CORe50', 'EllcieHAR', 'EZBirds', 'GSC', 'GTSRB', 'HD', 'UCI_HAR', 'WSMNIST']
+__all__ = ['BrainMIX', 'CIFAR10', 'CORe50', 'EllcieHAR', 'EZBirds', 'GSC', 'GTSRB', 'HD', 'UCI_HAR', 'WSMNIST', 'MNIST', 'FashionMNIST']
