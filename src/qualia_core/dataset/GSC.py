@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import sys
 import time
@@ -154,7 +155,7 @@ class GSC(RawDataset):
 
         data_buffer = smm.SharedMemory(size=data_array.nbytes)
 
-        data_shared = np.frombuffer(data_buffer.buf, dtype=data_array.dtype).reshape(data_array.shape)
+        data_shared = np.frombuffer(data_buffer.buf, count=data_array.size, dtype=data_array.dtype).reshape(data_array.shape)
 
         np.copyto(data_shared, data_array)
 
@@ -210,7 +211,7 @@ class GSC(RawDataset):
                 dtypes = [f.result()[2] for f in futures]
                 bufs = [SharedMemory(n) for n in names]
 
-                data_list = [np.frombuffer(buf.buf, dtype=dtype).reshape(shape)
+                data_list = [np.frombuffer(buf.buf, count=math.prod(shape), dtype=dtype).reshape(shape)
                           for shape, dtype, buf in zip(shapes, dtypes, bufs)]
 
                 data_array = np.concatenate(data_list) if data_list else None
