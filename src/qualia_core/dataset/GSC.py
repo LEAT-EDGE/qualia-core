@@ -17,6 +17,7 @@ import numpy.typing
 from qualia_core.datamodel import RawDataModel
 from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
 from qualia_core.utils.file import DirectoryReader
+from qualia_core.utils.process.init_process import init_process
 from qualia_core.utils.process.SharedMemoryManager import SharedMemoryManager
 
 from .RawDataset import RawDataset
@@ -168,17 +169,6 @@ class GSC(RawDataset):
         logger.info('Process %s finished in %s s.', i, time.time() - start)
         return ret
 
-    @staticmethod
-    def _init_process() -> None:
-        import os
-
-        # On Windows, we need to call setup_root_logger again since it creates a new process with CreateProcess()
-        # instead of using fork() as on POSIX.
-        if os.name == 'nt':
-            from qualia_core.utils.logger.setup_root_logger import setup_root_logger
-
-            setup_root_logger(colored=True)
-
     def __threaded_loader(self,
                           training_files: list[Path],
                           testing_files: list[Path],
@@ -202,7 +192,7 @@ class GSC(RawDataset):
                     validation_chunks,
                     testing_chunks)
 
-        with SharedMemoryManager() as smm, ProcessPoolExecutor(initializer=self._init_process) as executor:
+        with SharedMemoryManager() as smm, ProcessPoolExecutor(initializer=init_process) as executor:
             if smm.address is None: # After smm is started in context, address is necessary non-None
                 raise RuntimeError
 
