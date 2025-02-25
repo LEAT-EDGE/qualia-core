@@ -250,10 +250,10 @@ class GSC(RawDataset):
             label = class_list[file.parent.name]
             if label is None: # Drop sample excluded from class list
                 continue
-            if str(file.relative_to(path)) in testing_list:
+            if file.relative_to(path).as_posix() in testing_list:
                 testing_files.append(file)
                 testing_labels.append(label)
-            elif self.__train_valid_split and str(file.relative_to(path)) in validation_list:
+            elif self.__train_valid_split and file.relative_to(path).as_posix() in validation_list:
                 validation_files.append(file)
                 validation_labels.append(label)
             else:
