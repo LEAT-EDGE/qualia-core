@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from multiprocessing import shared_memory
 from multiprocessing.managers import BaseProxy, Token, dispatch
@@ -18,6 +19,15 @@ else:
     from typing_extensions import override
 
 logger = logging.getLogger(__name__)
+
+class SharedMemoryPersistent(shared_memory.SharedMemory):
+    @override
+    def close(self) -> None:
+        """Make :meth:`shared_memory.SharedMemory.close` ineffective on Windows."""
+        if os.name == 'nt':
+            return
+
+        super().close()
 
 class SharedMemoryProxy(BaseProxy):
     _exposed_ = ('__getattribute__',)
@@ -45,25 +55,36 @@ class SharedMemoryManager(SharedMemoryManagerBase):
     def SharedMemory(self, size: int) -> shared_memory.SharedMemory:
         """Return a new SharedMemory instance with the specified size in bytes, created and tracked by the manager.
 
+        Reference count on remote manager is not decremented to keep reference count above 1
+        so that SharedMemory object does not get destroyed when child process exits
+        and parent process has not accessed it yet. Otherwise, on Windows, the segment becomes inaccessible.
+
+
+        The returned :class:`SharedMemoryPersistent` is a local :class:`shared_memory.SharedMemory` object
+        that connects to the same segment as the remote object.
+        On Windows, this local object has its :meth:`SharedMemoryPersistent.close` method ineffective on Windows
+        in order to prevent deletion of the shared segment when the child process exits.
+
+        The SharedMemory object is still tracked with track_segment so that :meth:`close()` and unlink() get called
+        when the SharedMemoryManager gets destroyed.
+
         :param size: Size of shared memory segment in bytes
         """
-        address = self._address
-        authkey = self._authkey
         logger.debug('Requesting creation of a SharedMemory object')
-        # Create type on remote manager process
+
+        # Create object on remote manager process
         token, exp = self._create('SharedMemory', create=True, size=size)
         proxy = SharedMemoryProxy(token,
                                   self._serializer,
                                   manager=self,
-                                  authkey=authkey,
+                                  authkey=self._authkey,
                                   exposed=exp,
                                   )
-        with self._Client(address, authkey=authkey) as conn:
-            dispatch(conn, None, 'decref', (token.id,))
-        with self._Client(address, authkey=authkey) as conn:
-            # Track SharedMemory object on remote manager process to manage its lifetime
+
+        # Track SharedMemory object on remote manager process to manage its lifetime
+        with self._Client(self._address, authkey=self._authkey) as conn:
             dispatch(conn, None, 'track_segment', (proxy.name,))
-        # Return an actual SharedMemory object that uses the same segment name as the remote object
-        return shared_memory.SharedMemory(proxy.name)
+
+        return SharedMemoryPersistent(proxy.name)
 
 SharedMemoryManager.register('SharedMemory', shared_memory.SharedMemory, SharedMemoryProxy, create_method=False)
