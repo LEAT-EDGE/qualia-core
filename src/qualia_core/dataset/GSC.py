@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import sys
 import time
 import wave
 from concurrent.futures import Future, ProcessPoolExecutor
-from multiprocessing.managers import SharedMemoryManager
 from multiprocessing.shared_memory import SharedMemory
 from pathlib import Path
 from typing import Any, Callable, Final
@@ -17,6 +17,7 @@ import numpy.typing
 from qualia_core.datamodel import RawDataModel
 from qualia_core.datamodel.RawDataModel import RawData, RawDataSets
 from qualia_core.utils.file import DirectoryReader
+from qualia_core.utils.process.SharedMemoryManager import SharedMemoryManager
 
 from .RawDataset import RawDataset
 
@@ -122,7 +123,7 @@ class GSC(RawDataset):
             self.sets.remove('valid')
         self.__record_length = record_length
 
-    def load_wave(self, recording: Path) -> numpy.typing.NDArray[np.float32]:
+    def load_wave(self, recording: Path) -> np.ndarray[Any, np.dtype[np.float32]]:
         with wave.open(str(recording)) as f:
             data = f.readframes(f.getnframes())
 
@@ -131,13 +132,18 @@ class GSC(RawDataset):
         return data_array
 
     def _load_files(self,
+                    smm_address: str | tuple[str, int],
                     i: int,
-                    files: numpy.typing.NDArray[Any], # Path or object not supported as NDArray generic
-                    loader: Callable[[Path],
-                                     numpy.typing.NDArray[np.float32]]) -> tuple[str, tuple[int, ...], numpy.typing.DTypeLike]:
+                    files: np.ndarray[Any, Any], # Path or object not supported as NDArray generic
+                    loader: Callable[[Path], np.ndarray[Any, np.dtype[np.float32]]]) -> tuple[str,
+                                                                                              tuple[int, ...],
+                                                                                              numpy.typing.DTypeLike]:
         start = time.time()
 
-        data_list: list[numpy.typing.NDArray[np.float32]] = []
+        smm = SharedMemoryManager(address=smm_address)
+        smm.connect()
+
+        data_list: list[np.ndarray[Any, np.dtype[np.float32]]] = []
         logger.info('Process %s loading %s files...', i, len(files))
 
         for file in files:
@@ -147,9 +153,9 @@ class GSC(RawDataset):
         data_array = np.array(data_list)
         del data_list
 
-        data_buffer = SharedMemory(size=data_array.nbytes, create=True)
+        data_buffer = smm.SharedMemory(size=data_array.nbytes)
 
-        data_shared = np.frombuffer(data_buffer.buf, dtype=data_array.dtype).reshape(data_array.shape)
+        data_shared = np.frombuffer(data_buffer.buf, count=data_array.size, dtype=data_array.dtype).reshape(data_array.shape)
 
         np.copyto(data_shared, data_array)
 
@@ -162,14 +168,25 @@ class GSC(RawDataset):
         logger.info('Process %s finished in %s s.', i, time.time() - start)
         return ret
 
+    @staticmethod
+    def _init_process() -> None:
+        import os
+
+        # On Windows, we need to call setup_root_logger again since it creates a new process with CreateProcess()
+        # instead of using fork() as on POSIX.
+        if os.name == 'nt':
+            from qualia_core.utils.logger.setup_root_logger import setup_root_logger
+
+            setup_root_logger(colored=True)
+
     def __threaded_loader(self,
                           training_files: list[Path],
                           testing_files: list[Path],
                           validation_files: list[Path],
-                          loader: Callable[[Path],
-                                           numpy.typing.NDArray[np.float32]]) -> tuple[numpy.typing.NDArray[np.float32] | None,
-                                                                                       numpy.typing.NDArray[np.float32] | None,
-                                                                                       numpy.typing.NDArray[np.float32] | None]:
+                          loader: Callable[[Path], np.ndarray[Any, np.dtype[np.float32]]]) -> tuple[
+                                  np.ndarray[Any, np.dtype[np.float32]] | None,
+                                  np.ndarray[Any, np.dtype[np.float32]] | None,
+                                  np.ndarray[Any, np.dtype[np.float32]] | None]:
         cpus: int | None = os.cpu_count()
         total_chunks: int = cpus // 2 if cpus is not None else 2
         total_files = len(training_files) + len(validation_files) + len(testing_files)
@@ -185,24 +202,27 @@ class GSC(RawDataset):
                     validation_chunks,
                     testing_chunks)
 
-        with SharedMemoryManager() as smm, ProcessPoolExecutor() as executor:
-            train_futures = [executor.submit(self._load_files, i, files, loader)
+        with SharedMemoryManager() as smm, ProcessPoolExecutor(initializer=self._init_process) as executor:
+            if smm.address is None: # After smm is started in context, address is necessary non-None
+                raise RuntimeError
+
+            train_futures = [executor.submit(self._load_files, smm.address, i, files, loader)
                        for i, files in enumerate(training_files_chunks)]
-            valid_futures = [executor.submit(self._load_files, i, files, loader)
+            valid_futures = [executor.submit(self._load_files, smm.address, i, files, loader)
                        for i, files in enumerate(validation_files_chunks)]
-            test_futures = [executor.submit(self._load_files, i, files, loader)
+            test_futures = [executor.submit(self._load_files, smm.address, i, files, loader)
                        for i, files in enumerate(testing_files_chunks)]
 
             def load_results(futures: list[Future[tuple[str,
                                                         tuple[int, ...],
-                                                        numpy.typing.DTypeLike]]]) -> numpy.typing.NDArray[np.float32] | None:
+                                                        numpy.typing.DTypeLike]]]) -> np.ndarray[Any, np.dtype[np.float32]] | None:
 
                 names = [f.result()[0] for f in futures]
                 shapes = [f.result()[1] for f in futures]
                 dtypes = [f.result()[2] for f in futures]
                 bufs = [SharedMemory(n) for n in names]
 
-                data_list = [np.frombuffer(buf.buf, dtype=dtype).reshape(shape)
+                data_list = [np.frombuffer(buf.buf, count=math.prod(shape), dtype=dtype).reshape(shape)
                           for shape, dtype, buf in zip(shapes, dtypes, bufs)]
 
                 data_array = np.concatenate(data_list) if data_list else None
@@ -242,10 +262,10 @@ class GSC(RawDataset):
             label = class_list[file.parent.name]
             if label is None: # Drop sample excluded from class list
                 continue
-            if str(file.relative_to(path)) in testing_list:
+            if file.relative_to(path).as_posix() in testing_list:
                 testing_files.append(file)
                 testing_labels.append(label)
-            elif self.__train_valid_split and str(file.relative_to(path)) in validation_list:
+            elif self.__train_valid_split and file.relative_to(path).as_posix() in validation_list:
                 validation_files.append(file)
                 validation_labels.append(label)
             else:
