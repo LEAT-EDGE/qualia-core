@@ -28,12 +28,12 @@ class Linux(CMake):
                             resources_to_path(files('qualia_codegen_core.examples'))/'Linux',
                          outdir=outdir if outdir is not None else Path('out')/'deploy'/'Linux')
 
-        self.__size_bin = 'size'
+        self._size_bin = 'size'
 
     @override
     def deploy(self, tag: str) -> Deploy | None:
         logger.info('Running locally, nothing to deploy')
 
-        return Deploy(rom_size=self._rom_size(self._outdir/tag/'Linux', str(self.__size_bin)),
-                      ram_size=self._ram_size(self._outdir/tag/'Linux', str(self.__size_bin)),
+        return Deploy(rom_size=self._rom_size(self._outdir/tag/'Linux', str(self._size_bin)),
+                      ram_size=self._ram_size(self._outdir/tag/'Linux', str(self._size_bin)),
                       evaluator=self.evaluator)
