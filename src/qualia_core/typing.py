@@ -27,7 +27,7 @@ else:
                                         int,
                                         float,
                                         bool])
-RecursiveConfigDict = dict[str, 'RecursiveConfigUnion']
+RecursiveConfigDict = dict[str, RecursiveConfigUnion]
 
 
 class GenericModuleConfigDict(TypedDict):
