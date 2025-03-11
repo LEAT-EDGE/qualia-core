@@ -94,6 +94,7 @@ class PyTorch(LearningFramework[nn.Module]):
             'avgclsacc': lambda num_outputs: MulticlassAccuracyOneHot(average='macro', num_classes=num_outputs),
             'mse': lambda _: torchmetrics.MeanSquaredError(),
             'mae': lambda _: torchmetrics.MeanAbsoluteError(),
+            'mape': lambda _: torchmetrics.MeanAbsolutePercentageError(),
             'corr': lambda num_outputs: torchmetrics.PearsonCorrCoef(num_outputs=num_outputs),
             'slope': lambda _: SlopeMetric(),
         }
