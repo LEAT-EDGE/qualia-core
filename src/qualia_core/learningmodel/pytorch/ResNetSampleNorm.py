@@ -9,7 +9,7 @@ from .LearningModelPyTorch import LearningModelPyTorch
 from .ResNetStride import BasicBlockBuilder, ResNetStride
 
 if TYPE_CHECKING:
-    import torch  # noqa: TCH002
+    import torch  # noqa: TC002
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -31,7 +31,7 @@ class ResNetSampleNorm(LearningModelPyTorch):
                  postpool: str = 'max',
                  batch_norm: bool = False,  # noqa: FBT001, FBT002
                  bn_momentum: float = 0.1,
-                 force_projection_with_stride: bool = True,  # noqa: FBT001, FBT002
+                 force_projection_with_pooling: bool = True,  # noqa: FBT001, FBT002
 
                  dims: int = 1,
                  basicblockbuilder: BasicBlockBuilder | None = None,
@@ -51,7 +51,7 @@ class ResNetSampleNorm(LearningModelPyTorch):
                          postpool=postpool,
                          batch_norm=batch_norm,
                          bn_momentum=bn_momentum,
-                         force_projection_with_stride=force_projection_with_stride,
+                         force_projection_with_pooling=force_projection_with_pooling,
                          dims=dims,
                          basicblockbuilder=basicblockbuilder)
 
