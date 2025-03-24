@@ -28,8 +28,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class QualiaCodeGen(Converter[Any]):
-    deployers = qualia_core.deployment.qualia_codegen #: Suggested deployers
+    deployers = qualia_core.deployment.qualia_codegen  #: Suggested deployers
 
     _number_type: type[int | float]
     _h: str | None = None
@@ -39,12 +40,14 @@ class QualiaCodeGen(Converter[Any]):
                  quantize: str,
                  long_width: int | None = None,
                  outdir: str | None = None,
-                 metrics: list[str] | None = None) -> None:
+                 metrics: list[str] | None = None,
+                 dump_featuremaps: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__()
 
         self.__quantize = quantize
         self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
         self.__metrics = metrics if metrics is not None else ['acc']
+        self._dump_featuremaps = dump_featuremaps
 
         if quantize == 'float32':
             self._number_type = float
@@ -152,7 +155,7 @@ class QualiaCodeGen(Converter[Any]):
 
     def convert_modelgraph_to_c(self, modelgraph: ModelGraph, output_path: Path) -> str | bool:
         from qualia_codegen_core import Converter
-        converter = Converter(output_path=output_path)
+        converter = Converter(output_path=output_path, dump_featuremaps=self._dump_featuremaps)
         return converter.convert_model(modelgraph)
 
     def convert_metrics_to_cpp(self, metrics: list[str], output_path: Path) -> str | None:
