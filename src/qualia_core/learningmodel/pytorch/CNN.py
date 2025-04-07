@@ -18,6 +18,7 @@ class CNN(nn.Sequential):
         batch_norm: bool=False,
         dropouts: Union[float, list[float]] = 0.0,
         pool_sizes: list=[2, 2, 0],
+        separables: list[bool] | None = None,
         fc_units: list=[84],
         prepool: int=1,
         postpool: int=1,
@@ -40,6 +41,9 @@ class CNN(nn.Sequential):
         if not isinstance(dropouts, list):
             dropouts = [dropouts] * (len(filters) + len(fc_units))
 
+        if separables is None:
+            separables = [False] * len(filters)
+
         layers = OrderedDict()
 
         if not isinstance(prepool, int) and math.prod(prepool) > 1 or prepool > 1:
@@ -58,15 +62,52 @@ class CNN(nn.Sequential):
             layers['maxpool1'] = layers_t.MaxPool(pool_sizes[0])
 
         i = 2
-        for in_filters, out_filters, kernel, pool_size, padding, stride, dropout in zip(filters, filters[1:], kernel_sizes[1:],
-                                                                                        pool_sizes[1:], paddings[1:], strides[1:],
-                                                                                        dropouts[1:]):
-            layers[f'conv{i}'] = layers_t.Conv(in_channels=in_filters, out_channels=out_filters, kernel_size=kernel, padding=padding, stride=stride)
+        for (in_filters,
+             out_filters,
+             kernel,
+             pool_size,
+             padding,
+             stride,
+             dropout,
+             separable) in zip(filters,
+                               filters[1:],
+                               kernel_sizes[1:],
+                               pool_sizes[1:],
+                               paddings[1:],
+                               strides[1:],
+                               dropouts[1:],
+                               separables[1:]):
+            if separable:
+                layers[f'conv{i}_dw'] = layers_t.Conv(in_channels=in_filters,
+                                                      out_channels=out_filters,
+                                                      kernel_size=kernel,
+                                                      padding=padding,
+                                                      stride=stride,
+                                                      groups=out_filters)
 
-            if batch_norm:
-                layers[f'bn{i}'] = layers_t.BatchNorm(out_filters)
+                if batch_norm:
+                    layers[f'bn{i}_dw'] = layers_t.BatchNorm(out_filters)
 
-            layers[f'relu{i}'] = nn.ReLU()
+                layers[f'relu{i}_dw'] = nn.ReLU()
+
+                layers[f'conv{i}_pw'] = layers_t.Conv(in_channels=in_filters,
+                                                      out_channels=out_filters,
+                                                      kernel_size=1,
+                                                      padding=0,
+                                                      stride=1)
+
+                if batch_norm:
+                    layers[f'bn{i}_pw'] = layers_t.BatchNorm(out_filters)
+
+                layers[f'relu{i}_pw'] = nn.ReLU()
+            else:
+
+                layers[f'conv{i}'] = layers_t.Conv(in_channels=in_filters, out_channels=out_filters, kernel_size=kernel, padding=padding, stride=stride)
+
+                if batch_norm:
+                    layers[f'bn{i}'] = layers_t.BatchNorm(out_filters)
+
+                layers[f'relu{i}'] = nn.ReLU()
 
             if dropout:
                 layers[f'dropout{i}'] = nn.Dropout(dropout)
@@ -92,7 +133,7 @@ class CNN(nn.Sequential):
             in_features = np.array(input_shape[:-1]) // np.array(prepool)
             for _, kernel, pool, padding, stride in zip(filters, kernel_sizes, pool_sizes, paddings, strides):
                 in_features += np.array(padding) * 2
-                in_features -= (kernel - 1)
+                in_features -= (np.array(kernel) - 1)
                 in_features = np.ceil(in_features / stride).astype(int)
                 if pool:
                     in_features = in_features // pool
