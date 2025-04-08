@@ -30,6 +30,7 @@ else:
 logger = logging.getLogger(__name__)
 
 class GSC(RawDataset):
+    # 35 classes
     class_list_no_background_noise: Final[dict[str, int | None]] = {
         '_background_noise_': None, # Drop background noise
         'backward': 0,
@@ -69,6 +70,7 @@ class GSC(RawDataset):
         'zero': 34,
     }
 
+    # 10 classes
     class_list_digits: Final[dict[str, int | None]] = {
         '_background_noise_': None, # Drop background noise
         'backward': None,
@@ -108,14 +110,59 @@ class GSC(RawDataset):
         'zero': 0,
     }
 
-    def __init__(self,
+    # 12 classes
+    # https://github.com/tensorflow/datasets/blob/master/tensorflow_datasets/datasets/speech_commands/speech_commands_dataset_builder.py
+    class_list_tensorflow: Final[dict[str, int | None]] = {
+        '_background_noise_': 10,  # silence
+        '_silence_': 10,
+        '_unknown_': 11,
+        'backward': 11,  # unknown
+        'bed': 11,  # unknown
+        'bird': 11,  # unknown
+        'cat': 11,  # unknown
+        'dog': 11,  # unknown
+        'down': 0,
+        'eight': 11,  # unknown
+        'five': 11,  # unknown
+        'follow': 11,  # unknown
+        'forward': 11,  # unknown
+        'four': 11,  # unknown
+        'go': 1,
+        'happy': 11,  # unknown
+        'house': 11,  # unknown
+        'learn': 11,  # unknown
+        'left': 2,
+        'marvin': 11,  # unknown
+        'nine': 11,  # unknown
+        'no': 3,
+        'off': 4,
+        'on': 5,
+        'one': 11,  # unknown
+        'right': 6,
+        'seven': 11,  # unknown
+        'sheila': 11,  # unknown
+        'six': 11,  # unknown
+        'stop': 7,
+        'three': 11,  # unknown
+        'tree': 11,  # unknown
+        'two': 11,  # unknown
+        'up': 8,
+        'visual': 11,  # unknown
+        'wow': 11,  # unknown
+        'yes': 9,
+        'zero': 11,  # unknown
+    }
+
+    def __init__(self,  # noqa: PLR0913, PLR0917
                  path: str,
+                 test_path: str | None = None,
                  variant: str = 'v2',
                  subset: str = 'digits',
                  train_valid_split: bool = False,  # noqa: FBT001, FBT002
                  record_length: int = 16000) -> None:
         super().__init__()
         self._path = Path(path)
+        self._test_path = Path(test_path) if test_path is not None else None
         self.__variant = variant
         self.__subset = subset
         self.__dr = DirectoryReader()
@@ -128,9 +175,20 @@ class GSC(RawDataset):
         with wave.open(str(recording)) as f:
             data = f.readframes(f.getnframes())
 
-        data_array = np.frombuffer(data, dtype=np.int16).copy().astype(np.float32)
-        data_array.resize((self.__record_length, 1)) # Resize to 1s (16kHz) with zero-padding, 1 channel
+        return np.frombuffer(data, dtype=np.int16).copy().astype(np.float32)
+
+    def load_and_resize_wave(self, recording: Path) -> np.ndarray[Any, np.dtype[np.float32]]:
+        data_array = self.load_wave(recording)
+        data_array.resize((self.__record_length, 1))  # Resize to 1s (16kHz) with zero-padding, 1 channel
         return data_array
+
+    def load_and_split_wave(self, recording: Path) -> np.ndarray[Any, np.dtype[np.float32]]:
+        data_array = self.load_wave(recording)
+        stride = self.__record_length // 2
+        shape = (data_array.size - self.__record_length + 1, self.__record_length)
+        strides = data_array.strides * 2
+        view = np.lib.stride_tricks.as_strided(data_array, strides=strides, shape=shape)[0::stride]
+        return np.expand_dims(view.copy(), -1)
 
     def _load_files(self,
                     smm_address: str | tuple[str, int],
@@ -229,7 +287,6 @@ class GSC(RawDataset):
 
         return train_x_array, valid_x_array, test_x_array
 
-
     def _load_v2(self, path: Path, class_list: dict[str, int | None]) -> RawDataModel:
         start = time.time()
 
@@ -238,21 +295,28 @@ class GSC(RawDataset):
         with (path/'validation_list.txt').open() as f:
             validation_list = f.read().splitlines()
 
-        with (path/'testing_list.txt').open() as f:
-            testing_list = f.read().splitlines()
+        if self.__subset == 'tensorflow':  # Do not use test samples from train archive for tensorflow 12-class subset
+            testing_list: list[str] = []
+        else:
+            with (path/'testing_list.txt').open() as f:
+                testing_list = f.read().splitlines()
 
         # Build files list for train and test
         training_files: list[Path] = []
         validation_files: list[Path] = []
         testing_files: list[Path] = []
+        bg_noise_training_files: list[Path] = []
         training_labels: list[int] = []
         validation_labels: list[int] = []
         testing_labels: list[int] = []
         for file in list(directory):
             label = class_list[file.parent.name]
-            if label is None: # Drop sample excluded from class list
+            if label is None:  # Drop sample excluded from class list
                 continue
-            if file.relative_to(path).as_posix() in testing_list:
+            if file.parent.name == '_background_noise_':  # Special handling needed for background noise
+                if file.name != 'running_tap.wav':  # This specific file is used as validation, exclude from training
+                    bg_noise_training_files.append(file)
+            elif file.relative_to(path).as_posix() in testing_list:
                 testing_files.append(file)
                 testing_labels.append(label)
             elif self.__train_valid_split and file.relative_to(path).as_posix() in validation_list:
@@ -262,7 +326,34 @@ class GSC(RawDataset):
                 training_files.append(file)
                 training_labels.append(label)
 
-        train_x, valid_x, test_x = self.__threaded_loader(training_files, testing_files, validation_files, loader=self.load_wave)
+        # tensorflow-dataset 12 classes subset uses a separate test archive
+        if self.__subset == 'tensorflow':
+            if self._test_path is None:
+                logger.error('Missing params.test_path, required for tensorflow subset')
+                raise ValueError
+            test_directory = self.__dr.read(self._test_path, ext='.wav', recursive=True)
+            for file in list(test_directory):
+                label = class_list[file.parent.name]
+                if label is None:
+                    continue
+                testing_files.append(file)
+                testing_labels.append(label)
+
+        train_x, valid_x, test_x = self.__threaded_loader(training_files,
+                                                          testing_files,
+                                                          validation_files,
+                                                          loader=self.load_and_resize_wave)
+
+        if class_list['_background_noise_'] is not None:
+            logger.info('Loading background noise...')
+            bg_noise_train_x = np.concatenate([self.load_and_split_wave(file) for file in bg_noise_training_files])
+            bg_noise_valid_x = self.load_and_split_wave(path/'_background_noise_'/'running_tap.wav')
+
+            train_x = np.concatenate((train_x, bg_noise_train_x)) if train_x is not None else bg_noise_train_x
+            training_labels += [class_list['_background_noise_']] * len(bg_noise_train_x)
+
+            valid_x = np.concatenate((valid_x, bg_noise_valid_x)) if valid_x is not None else bg_noise_valid_x
+            validation_labels += [class_list['_background_noise_']] * len(bg_noise_valid_x)
 
         train_y = np.array(training_labels) if training_labels else None
         valid_y = np.array(validation_labels) if validation_labels else None
@@ -293,8 +384,10 @@ class GSC(RawDataset):
             class_list = GSC.class_list_digits
         elif self.__subset == 'no_background_noise':
             class_list = GSC.class_list_no_background_noise
+        elif self.__subset == 'tensorflow':
+            class_list = GSC.class_list_tensorflow
         else:
-            logger.error('Only digits or no_background_noise subsets supported')
+            logger.error('Only digits, no_background_noise or tensorflow subsets supported')
             raise ValueError
 
         return self._load_v2(self._path, class_list=class_list)
