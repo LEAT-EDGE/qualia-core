@@ -295,11 +295,9 @@ class GSC(RawDataset):
         with (path/'validation_list.txt').open() as f:
             validation_list = f.read().splitlines()
 
-        if self.__subset == 'tensorflow':  # Do not use test samples from train archive for tensorflow 12-class subset
-            testing_list: list[str] = []
-        else:
-            with (path/'testing_list.txt').open() as f:
-                testing_list = f.read().splitlines()
+        # For tensorflow 12-class subset, these files are excluded from train set but the test set is built from the train archive
+        with (path/'testing_list.txt').open() as f:
+            testing_list = f.read().splitlines()
 
         # Build files list for train and test
         training_files: list[Path] = []
