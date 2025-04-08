@@ -18,7 +18,8 @@ compress = [1]
 kind = "GSC"
 params.variant = "v2"
 params.path = "data/speech_commands_v0.02/"
-params.subset = "digits"
+params.test_path = "data/speech_commands_test_set_v0.02/"
+params.subset = "tensorflow"
 params.train_valid_split = true
 
 [[preprocessing]]
