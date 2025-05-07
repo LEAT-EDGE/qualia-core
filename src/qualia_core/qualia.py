@@ -8,12 +8,16 @@ from typing import Any, TypeVar
 import colorful as cf  # type: ignore[import-untyped]
 
 from qualia_core.learningmodel.LearningModel import LearningModel
-from qualia_core.typing import TYPE_CHECKING, ModelParamsConfigDict, OptimizerConfigDict
+from qualia_core.typing import TYPE_CHECKING, DeployerConfigDict, ModelParamsConfigDict, OptimizerConfigDict
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
     from qualia_core.datamodel.DataModel import DataModel  # noqa: TCH001
     from qualia_core.datamodel.RawDataModel import RawData, RawDataModel  # noqa: TCH001
+    from qualia_core.deployment.Deploy import Deploy
+    from qualia_core.deployment.Deployer import Deployer
     from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking  # noqa: TCH001
     from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
     from qualia_core.typing import RecursiveConfigDict
@@ -200,13 +204,31 @@ def prepare_deploy(
             deployers = ca.deployers
     return getattr(deployers, deploy_target)(**deployer_params).prepare(tag=tag, model=ca, optimize=optimize, compression=compress)
 
-def deploy(model_kind, deploy_target, tag='main', deployers=None, deployer_params={}):
-    if not deployers: # no custom deployers passed as parameter, check if model suggests custom converter
+
+def get_deployer(model_kind,
+                 deploy_target: str,
+                 deployers: ModuleType | None = None,
+                 deployer_params: DeployerConfigDict | None = None) -> Deployer:
+    deployer_params = deployer_params if deployer_params is not None else {}
+
+    if not deployers:  # no custom deployers passed as parameter, check if model suggests custom converter
         converter = getattr(model_kind, 'converter', False)
-        if converter and converter.deployers: # Converter suggested deployers
+        if converter and converter.deployers:  # Converter suggested deployers
             deployers = converter.deployers
 
-    return getattr(deployers, deploy_target)(**deployer_params).deploy(tag=tag)
+    return getattr(deployers, deploy_target)(**deployer_params)
+
+
+def deploy(model_kind: ModuleType,
+           deploy_target: str,
+           tag: str = 'main',
+           deployers: ModuleType | None = None,
+           deployer_params: DeployerConfigDict | None = None) -> Deploy | None:
+    return get_deployer(model_kind=model_kind,
+                        deploy_target=deploy_target,
+                        deployers=deployers,
+                        deployer_params=deployer_params).deploy(tag=tag)
+
 
 def evaluate(
     datamodel,
