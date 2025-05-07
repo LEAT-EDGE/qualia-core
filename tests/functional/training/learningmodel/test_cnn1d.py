@@ -55,7 +55,7 @@ class TestModelsCNN1D(TestCase):
         # 1st conv block
         self.assertIsInstance(trainresult.model.layers[1], Conv1D)
         self.assertEqual(tuple(trainresult.model.layers[1].kernel.shape), (5, 1, 4)) # 4*1*5 = 20
-        self.assertEqual(tuple(trainresult.model.layers[1].bias.shape), (4, )) # 4
+        self.assertIsNone(trainresult.model.layers[1].bias) # 4
         self.assertIsInstance(trainresult.model.layers[2], Activation)
         self.assertEqual(trainresult.model.layers[2].activation, relu)
         self.assertIsInstance(trainresult.model.layers[3], BatchNormalization)
@@ -72,7 +72,7 @@ class TestModelsCNN1D(TestCase):
         # 2nd conv block
         self.assertIsInstance(trainresult.model.layers[6], Conv1D)
         self.assertEqual(tuple(trainresult.model.layers[6].kernel.shape), (3, 4, 6)) # 6*4*3 = 72
-        self.assertEqual(tuple(trainresult.model.layers[6].bias.shape), (6, )) # 6
+        self.assertIsNone(trainresult.model.layers[6].bias) # 6
         self.assertIsInstance(trainresult.model.layers[7], Activation)
         self.assertEqual(trainresult.model.layers[7].activation, relu)
         self.assertIsInstance(trainresult.model.layers[8], BatchNormalization)
@@ -109,7 +109,7 @@ class TestModelsCNN1D(TestCase):
 
 
         # first layer 10 weights/10 biases, second layer 10*10 weights (10 inputs, 10 outputs)/10 biases, 3rd layer 10*2 weights (10 inputs 2 outputs)/2 biases, 4 bytes (float32)
-        self.assertEqual(trainresult.mem_params, (4*1*5 + 4 + 4*4 + 6*4*3 + 6 + 6*4 + 10*12 +10 + 10*10 + 10 + 2*10 + 2) * 4)
+        self.assertEqual(trainresult.mem_params, (4*1*5 + 4*4 + 6*4*3 + 6*4 + 10*12 +10 + 10*10 + 10 + 2*10 + 2) * 4)
         self.assertEqual(trainresult.acc, 0.5) # Same data in one or the other class, should have 50% acc
         self.assertEqual(trainresult.framework, framework)
 
@@ -146,7 +146,7 @@ class TestModelsCNN1D(TestCase):
         # 1st conv block
         self.assertIsInstance(trainresult.model[1], Conv1d)
         self.assertEqual(tuple(trainresult.model[1].weight.shape), (4, 1, 5)) # 4*1*5 = 20
-        self.assertEqual(tuple(trainresult.model[1].bias.shape), (4, )) # 4
+        self.assertIsNone(trainresult.model[1].bias) # 4
         self.assertIsInstance(trainresult.model[2], BatchNorm1d)
         self.assertEqual(tuple(trainresult.model[2].weight.shape), (4,)) # 4
         self.assertEqual(tuple(trainresult.model[2].bias.shape), (4, )) # 4
@@ -160,7 +160,7 @@ class TestModelsCNN1D(TestCase):
         # 2nd conv block
         self.assertIsInstance(trainresult.model[6], Conv1d)
         self.assertEqual(tuple(trainresult.model[6].weight.shape), (6, 4, 3)) # 6*4*3 = 72
-        self.assertEqual(tuple(trainresult.model[6].bias.shape), (6, )) # 6
+        self.assertIsNone(trainresult.model[6].bias) # 6
         self.assertIsInstance(trainresult.model[7], BatchNorm1d)
         self.assertEqual(tuple(trainresult.model[7].weight.shape), (6,)) # 6
         self.assertEqual(tuple(trainresult.model[7].bias.shape), (6, )) # 6
@@ -187,6 +187,6 @@ class TestModelsCNN1D(TestCase):
         self.assertEqual(trainresult.model[16].bias.shape, (2, )) # 2
 
 
-        self.assertEqual(trainresult.mem_params, (4*1*5 + 4 + 4*2 + 6*4*3 + 6 + 6*2 + 10*12 +10 + 10*10 + 10 + 2*10 + 2) * 4)
+        self.assertEqual(trainresult.mem_params, (4*1*5 + 4*2 + 6*4*3 + 6*2 + 10*12 +10 + 10*10 + 10 + 2*10 + 2) * 4)
         self.assertEqual(trainresult.acc, 0.5) # Same data in one or the other class, should have 50% acc
         self.assertEqual(trainresult.framework, framework)

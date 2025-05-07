@@ -47,7 +47,7 @@ def CNN(input_shape,
     for f, ks, ps, padding, stride, dropout in zip(filters, kernel_sizes, pool_sizes, paddings, strides, dropouts):
         if isinstance(padding, Iterable) and sum(padding) > 0 or padding > 0:
             model.add(layers_t.ZeroPadding(padding=padding))
-        model.add(layers_t.Conv(filters=f, kernel_size=ks, strides=stride))
+        model.add(layers_t.Conv(filters=f, kernel_size=ks, strides=stride, use_bias=not batch_norm))
         model.add(Activation('relu'))
         if batch_norm:
             model.add(BatchNormalization())
