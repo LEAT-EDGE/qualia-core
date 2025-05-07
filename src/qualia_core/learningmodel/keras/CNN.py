@@ -6,6 +6,7 @@ def CNN(input_shape,
         filters: tuple=(6, 16, 120),
         kernel_sizes: tuple=(3, 3, 5),
         paddings: tuple=(0, 0, 0),
+        strides: list[int] = [1, 1, 1],
         batch_norm: bool=False,
         dropouts: Union[float, list[float]] = 0.0,
         pool_sizes: tuple=(2, 2, 0),
@@ -43,10 +44,10 @@ def CNN(input_shape,
     if prepool:
         model.add(layers_t.AveragePooling(pool_size=prepool))
 
-    for f, ks, ps, padding, dropout in zip(filters, kernel_sizes, pool_sizes, paddings, dropouts):
+    for f, ks, ps, padding, stride, dropout in zip(filters, kernel_sizes, pool_sizes, paddings, strides, dropouts):
         if isinstance(padding, Iterable) and sum(padding) > 0 or padding > 0:
             model.add(layers_t.ZeroPadding(padding=padding))
-        model.add(layers_t.Conv(filters=f, kernel_size=ks))
+        model.add(layers_t.Conv(filters=f, kernel_size=ks, strides=stride))
         model.add(Activation('relu'))
         if batch_norm:
             model.add(BatchNormalization())
