@@ -12,6 +12,8 @@ class TestModelsCNN2D(TestCase):
             'filters': (4, 6),
             'fc_units': (10, 10),
             'kernel_sizes': (5, 3),
+            'strides': [1, 1],
+            'paddings': [0, 0],
             'batch_norm': True,
             'dropouts': [0.5, 0.5, 0, 0],
             'pool_sizes': (4, 2),
