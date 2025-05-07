@@ -104,6 +104,15 @@ def qualia(action: str,
                                                    deployers=deployers,
                                                    data=data,
                                                    config=config))
+    elif action == 'evaluate':
+        evaluate_command = command.Evaluate()
+        loggers.update(evaluate_command(qualia=qualia,
+                                        learningframework=learningframework,
+                                        dataaugmentations=dataaugmentations,
+                                        converter=converter,
+                                        deployers=deployers,
+                                        data=data,
+                                        config=config))
     elif action == 'parameter_research':
         parameter_research = command.ParameterResearch()
         loggers.update(parameter_research(qualia=qualia,
