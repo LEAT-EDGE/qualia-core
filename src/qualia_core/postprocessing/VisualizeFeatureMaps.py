@@ -65,6 +65,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                           trainresult: TrainResult,
                           data_range: tuple[int | None, int | None]) -> OrderedDict[str, numpy.typing.NDArray[Any]] | None:
         feature_maps: OrderedDict[str, torch.Tensor] = OrderedDict()
+        counts: OrderedDict[str, torch.Tensor] = OrderedDict()
         framework = trainresult.framework
         model = trainresult.model
         dataset = trainresult.testset
@@ -79,7 +80,8 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             return None
 
         def hook(layername: str, _: nn.Module, x: torch.Tensor, output: torch.Tensor) -> None:
-            out_sum = output.detach().sum(0) # Sum over batch dimension
+            out_sum = output.detach().sum(0)  # Sum over batch dimension
+            counts[layername] = counts.setdefault(layername, 0) + output.shape[0]  # And accumulate batch size
 
             # Accumulate for each new batch
             if layername not in feature_maps:
@@ -103,10 +105,14 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         for handle in handles:
             handle.remove()
 
+        # Average over all inputs
+        feature_maps = OrderedDict((layername, feature_map / counts[layername])
+                                         for layername, feature_map in feature_maps.items())
+
         # Make sure everything is on CPU first
         feature_maps_numpy = OrderedDict((layername, feature_map.cpu().numpy()) for layername, feature_map in feature_maps.items())
 
-        # Add input image, transposed to channels_last to be the same as PyTorch feature_maps
+        # Add input image, transposed to channels_first to be the same as PyTorch feature_maps
         input_data = dataset_cut.x.mean(0).astype(dataset_cut.x.dtype)
         if len(input_data.shape) == 3:
             feature_maps_numpy['__INPUT__'] = input_data.transpose(2, 0, 1)
@@ -155,7 +161,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             ax.set_axis_off()
 
         # Use same colorbar reference as the layer plot
-        cb = fig.colorbar(im, ax=axs, use_gridspec=True, orientation='vertical', label='Total activity')
+        cb = fig.colorbar(im, ax=axs, use_gridspec=True, orientation='vertical', label='Activity for one input, per-channel')
         cb.mappable.set_clim(vmin, vmax)
         pdf.savefig()
         plt.close()
@@ -219,7 +225,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             _ = plt.xlabel('Width')
             _ = plt.ylabel('Height')
             im = plt.imshow(feature_map.sum(0), interpolation='nearest', vmin=vmin, vmax=vmax, cmap=colormap)
-            cb = fig.colorbar(im, orientation='vertical', label='Total activity')
+            cb = fig.colorbar(im, orientation='vertical', label='Activity for one input, sum over all channels')
             cb.mappable.set_clim(vmin, vmax)
             pdf.savefig()
             plt.close()
