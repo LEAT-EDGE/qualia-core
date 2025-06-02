@@ -221,21 +221,31 @@ class ResNetStride(nn.Module):
             blocks += [self._make_layer(basicblockbuilder, num_block, planes, kernel_size, pool_size, stride, padding)]
         self.layers = nn.ModuleList(blocks)
 
-        # GlobalMaxPool kernel_size computation
-        self._fm_dims = np.array(input_shape[:-1]) // np.array(prepool)
-        for _, kernel, pool_size, stride, padding in zip(filters, kernel_sizes, pool_sizes, strides, paddings):
-            self._fm_dims += np.array(padding) * 2
-            self._fm_dims -= (kernel - 1)
-            self._fm_dims = np.floor(self._fm_dims / pool_size).astype(int)
-            self._fm_dims = np.ceil(self._fm_dims / stride).astype(int)
+        if postpool == 'sum':
+            self.conv2 = layers_t.Conv(in_channels=filters[-1],
+                                         out_channels=output_shape[0],
+                                         kernel_size=1,
+                                         padding=0,
+                                         stride=1,
+                                         bias=True)
+            self.relu2 = nn.ReLU()
+            self.gsp = layers_t.GlobalSumPool()
+        else:
+            # GlobalMaxPool kernel_size computation
+            self._fm_dims = np.array(input_shape[:-1]) // np.array(prepool)
+            for _, kernel, pool_size, stride, padding in zip(filters, kernel_sizes, pool_sizes, strides, paddings):
+                self._fm_dims += np.array(padding) * 2
+                self._fm_dims -= (kernel - 1)
+                self._fm_dims = np.floor(self._fm_dims / pool_size).astype(int)
+                self._fm_dims = np.ceil(self._fm_dims / stride).astype(int)
 
-        if postpool == 'avg':
-            self.postpool = layers_t.AdaptiveAvgPool(1)
-        elif postpool == 'max':
-            self.postpool = layers_t.MaxPool(tuple(self._fm_dims))
+            if postpool == 'avg':
+                self.postpool = layers_t.AdaptiveAvgPool(1)
+            elif postpool == 'max':
+                self.postpool = layers_t.MaxPool(tuple(self._fm_dims))
 
-        self.flatten = nn.Flatten()
-        self.linear = nn.Linear(self.in_planes*BasicBlock.expansion, output_shape[0])
+            self.flatten = nn.Flatten()
+            self.linear = nn.Linear(self.in_planes * BasicBlock.expansion, output_shape[0])
 
 
     def _make_layer(self,  # noqa: PLR0913
@@ -275,8 +285,15 @@ class ResNetStride(nn.Module):
         for i in range(len(self.layers)):
             out = self.layers[i](out)
 
-        if hasattr(self, 'postpool'):
-            out = self.postpool(out)
+        if hasattr(self, 'gsp'):
+            out = self.conv2(out)
+            out = self.relu2(out)
+            out = self.gsp(out)
+        else:
+            if hasattr(self, 'postpool'):
+                out = self.postpool(out)
 
-        out = self.flatten(out)
-        return self.linear(out)
+            out = self.flatten(out)
+            out = self.linear(out)
+
+        return out
