@@ -123,7 +123,12 @@ class QuantizedCNN(nn.Sequential):
                                                         padding=0,
                                                         stride=1,
                                                         bias=True,
-                                                        quant_params=quant_params)
+                                                        quant_params=quant_params,
+                                                        activation=nn.ReLU() if fused_relu and not batch_norm else None)
+
+            if not fused_relu:
+                layers[f'relu{i}'] = QuantizedReLU(quant_params=quant_params)
+
             layers['gsp'] = layers_t.QuantizedGlobalSumPool(quant_params=quant_params)
         else:
             layers['flatten'] = nn.Flatten()

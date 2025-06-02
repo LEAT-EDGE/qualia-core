@@ -124,6 +124,7 @@ class CNN(nn.Sequential):
                                                padding=0,
                                                stride=1,
                                                bias=True)
+            layers[f'relu{i}'] = nn.ReLU()
             layers['gsp'] = layers_t.GlobalSumPool()
         else:
             layers['flatten'] = nn.Flatten()
