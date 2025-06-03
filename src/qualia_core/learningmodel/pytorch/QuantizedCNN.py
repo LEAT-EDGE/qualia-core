@@ -68,6 +68,7 @@ class QuantizedCNN(nn.Sequential):
                                                  kernel_size=kernel_sizes[0],
                                                  padding=paddings[0],
                                                  stride=strides[0],
+                                                 bias=not batch_norm,
                                                  quant_params=quant_params,
                                                  activation=nn.ReLU() if fused_relu and not batch_norm else None)
 
@@ -93,6 +94,7 @@ class QuantizedCNN(nn.Sequential):
                                                         kernel_size=kernel,
                                                         padding=padding,
                                                         stride=stride,
+                                                        bias=not batch_norm,
                                                         quant_params=quant_params,
                                                         activation=nn.ReLU() if fused_relu and not batch_norm else None)
 
