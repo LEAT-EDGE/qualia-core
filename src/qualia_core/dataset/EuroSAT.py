@@ -36,6 +36,7 @@ import numpy as np  # numpy: For efficient array operations on our data
 import numpy.typing as npt  # npt: For type hints on numpy arrays, making our code clearer
 import tifffile as tiff
 
+from qualia_core import random  # Generator: For generating random numbers, useful for splitting data into training and test sets
 from qualia_core.datamodel.RawDataModel import (  # RawData, RawDataSets, RawDataModel: The containers that Qualia expects
     RawData,
     RawDataModel,
@@ -44,8 +45,14 @@ from qualia_core.datamodel.RawDataModel import (  # RawData, RawDataSets, RawDat
 from qualia_core.dataset.RawDataset import (
     RawDataset,  # RawDataset: The base class that tells Qualia how to interact with our dataset
 )
+from qualia_core.typing import TYPE_CHECKING
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from typing import Any, dict_items
+
+    from numpy._typing._array_like import NDArray
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 class EuroSAT(RawDataset):
     """EuroSAT Land Use and Land Cover Classification with Sentinel-2,.
@@ -73,12 +80,12 @@ class EuroSAT(RawDataset):
     def __init__(self, path: str = '', variant: str = 'MS', dtype: str = 'float32') -> None:
         """Variant available Multi Spectral (MS) or RGB, Only MS inmplemented so far."""
         if variant not in ['MS']:
-            msg = f"Invalid variant '{variant}'. Choose 'MS'."
+            msg: str = f"Invalid variant '{variant}'. Choose 'MS'."
             raise ValueError(msg)
         super().__init__()  # Set up the basic RawDataset structure
         self.__path = Path(path)  # Convert string path to a proper Path object
-        self.__dtype = dtype
-        self.__variant = variant    # Store which variant we want to use
+        self.__dtype: str = dtype
+        self.__variant: str = variant    # Store which variant we want to use
         self.sets.remove('valid')   # Tell Qualia we won't use a validation set
 
     def _dataset_info(self) -> dict[str, int]:
@@ -91,44 +98,43 @@ class EuroSAT(RawDataset):
 
         This helps us understand what we have before we start using it.
         """
-        start = time.time()
+        start: float = time.time()
 
-        images_path = self.__path / self.__variant
+        images_path: Path = self.__path / self.__variant
         # get the number of folders, which is the number of classes and the name the names of the classes
-        class_names = sorted([d.name for d in images_path.iterdir() if d.is_dir()])
-        self.class_idx = {name: idx for idx, name in enumerate(class_names)}
+        class_names: list[str] = sorted([d.name for d in images_path.iterdir() if d.is_dir()])
+        self.class_idx: dict[str, int] = {name: idx for idx, name in enumerate(class_names)}
         len(class_names)
 
         # for each class, get the number of elements
-        class_counts = dict.fromkeys(class_names, 0)
+        class_counts: dict[str, int] = dict.fromkeys(class_names, 0)
         for class_name in class_names:
-            class_path = images_path / class_name
+            class_path: Path = images_path / class_name
             if not class_path.is_dir():
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
-            count = len(list(class_path.glob('*.tif')))
+            count: int = len(list(class_path.glob('*.tif')))
             class_counts[class_name] = count
         logger.info('_dataset_info() Elapsed: %s s', time.time() - start)
 
         return class_counts
 
     def _generate_test_train_split(self) -> None:
-        start = time.time()
-        class_counts = self._dataset_info()  # Get info about the dataset
+        start: float = time.time()
+        class_counts: dict[str, int] = self._dataset_info()  # Get info about the dataset
         if exists(self.__path/'test_idx.npy') and exists(self.__path/'train_idx.npy'):
             logger.info('Test/train split already exists, loading from files.')
-            self.test_idx = np.load(self.__path/'test_idx.npy', allow_pickle=True).item()
-            self.train_idx = np.load(self.__path/'train_idx.npy', allow_pickle=True).item()
+            self.test_idx: dict[str, np.ndarray] = np.load(self.__path/'test_idx.npy', allow_pickle=True).item()
+            self.train_idx: dict[str, np.ndarray] = np.load(self.__path/'train_idx.npy', allow_pickle=True).item()
             logger.info('_generate_test_train_split() Elapsed: %s s', time.time() - start)
             return
 
         train_test_ratio = 0.8
-        test_idx = {name: [] for name in class_counts}
-        train_idx = {name: [] for name in class_counts}
+        test_idx: dict[str, NDArray[Any,Any]] = {name: np.array([], dtype=int) for name in class_counts}
+        train_idx: dict[str, NDArray[Any]] = {name: np.array([], dtype=int) for name in class_counts}
 
         for class_name, count in class_counts.items():
-            rng = np.random.default_rng()
-            test_idx[class_name] = rng.choice(
+            test_idx[class_name] = random.shared.generator.choice(
                 np.arange(count) + 1,
                 size=int(count * (1 - train_test_ratio)),
                 replace=False,
@@ -162,32 +168,33 @@ class EuroSAT(RawDataset):
         - Reshaping is like cutting them to the right size
         - Normalizing is like measuring out the right amounts
         """
-        start = time.time()
+        start: float = time.time()
         self._generate_test_train_split()
 
         train_x_list: list[npt.NDArray[np.uint16]] = []
         train_y_list: list[int] = []
-        images_path = self.__path / self.__variant
-        items = self.train_idx.items() if train else self.test_idx.items()
+        images_path: Path = self.__path / self.__variant
+        items: dict_items[str, NDArray] = self.train_idx.items() if train else self.test_idx.items()
+
         for class_name, indices in items:
-            class_path = images_path / class_name
+            class_path: Path = images_path / class_name
             if not class_path.is_dir():
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
             for idx in indices:
-                filepath = class_path / f'{class_name}_{idx:d}.tif'
+                filepath: Path = class_path / f'{class_name}_{idx:d}.tif'
                 if not filepath.is_file():
                     logger.warning('Skipping %s, not a file', filepath)
                     continue
-                data = tiff.imread(filepath) # data is shape 64, 64, 13
+                data: NDArray[logging.Any, np.dtype[logging.Any]] = tiff.imread(filepath) # data is shape 64, 64, 13
                 train_x_list.append(data)
                 train_y_list.append(self.class_idx[class_name])  # Use the class index for labels
         # Convert lists to numpy arrays
         train_x_uint16 = np.array(train_x_list, dtype=np.uint16)
         train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 13))  # N, C, H, W
 
-        train_x = train_x_uint16.astype(self.__dtype) # N, H, W, C
-        train_y = np.array(train_y_list, dtype=np.int64)  # Convert labels to numpy array
+        train_x: NDArray[Any] = train_x_uint16.astype(self.__dtype) # N, H, W, C
+        train_y: NDArray[Any] = np.array(train_y_list, dtype=np.int64)  # Convert labels to numpy array
         logger.info('__load_train() Elapsed: %s s', time.time() - start)
         return RawData(train_x, train_y)
 
