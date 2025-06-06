@@ -10,5 +10,6 @@ from .UCI_HAR import UCI_HAR
 from .WSMNIST import WSMNIST
 from .MNIST import FashionMNIST
 from .MNIST import MNIST
+from .EuroSAT import EuroSAT
 
-__all__ = ['BrainMIX', 'CIFAR10', 'CORe50', 'EllcieHAR', 'EZBirds', 'GSC', 'GTSRB', 'HD', 'UCI_HAR', 'WSMNIST', 'MNIST', 'FashionMNIST']
+__all__ = ['BrainMIX', 'CIFAR10', 'CORe50', 'EllcieHAR', 'EZBirds', 'GSC', 'GTSRB', 'HD', 'UCI_HAR', 'WSMNIST', 'MNIST', 'FashionMNIST', 'EuroSAT']
