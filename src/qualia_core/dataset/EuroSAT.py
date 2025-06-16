@@ -35,6 +35,7 @@ from pathlib import Path  # Path: Makes file handling consistent across operatin
 import numpy as np  # numpy: For efficient array operations on our data
 import numpy.typing as npt  # npt: For type hints on numpy arrays, making our code clearer
 import tifffile as tiff
+from PIL import Image  # Image: For handling image files, especially for RGB images
 
 from qualia_core import random  # Generator: For generating random numbers, useful for splitting data into training and test sets
 from qualia_core.datamodel.RawDataModel import (  # RawData, RawDataSets, RawDataModel: The containers that Qualia expects
@@ -79,8 +80,8 @@ class EuroSAT(RawDataset):
 
     def __init__(self, path: str = '', variant: str = 'MS', dtype: str = 'float32') -> None:
         """Variant available Multi Spectral (MS) or RGB, Only MS inmplemented so far."""
-        if variant not in ['MS']:
-            msg: str = f"Invalid variant '{variant}'. Choose 'MS'."
+        if variant not in ['MS', 'RGB']:
+            msg: str = f"Invalid variant '{variant}'. Choose 'MS' or 'RGB'."
             raise ValueError(msg)
         super().__init__()  # Set up the basic RawDataset structure
         self.__path = Path(path)  # Convert string path to a proper Path object
@@ -113,7 +114,12 @@ class EuroSAT(RawDataset):
             if not class_path.is_dir():
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
-            count: int = len(list(class_path.glob('*.tif')))
+            if self.__variant == 'MS':
+                count: int = len(list(class_path.glob('*.tif')))
+            elif self.__variant == 'RGB':
+                count = len(list(class_path.glob('*.jpg')))
+            else:
+                raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
             class_counts[class_name] = count
         logger.info('_dataset_info() Elapsed: %s s', time.time() - start)
 
@@ -182,16 +188,33 @@ class EuroSAT(RawDataset):
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
             for idx in indices:
-                filepath: Path = class_path / f'{class_name}_{idx:d}.tif'
+                if self.__variant == 'MS':
+                    filepath: Path = class_path / f'{class_name}_{idx:d}.tif'
+                elif self.__variant == 'RGB':
+                    filepath: Path = class_path / f'{class_name}_{idx:d}.jpg'
+                else:
+                    raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
                 if not filepath.is_file():
                     logger.warning('Skipping %s, not a file', filepath)
                     continue
-                data: NDArray[logging.Any, np.dtype[logging.Any]] = tiff.imread(filepath) # data is shape 64, 64, 13
+
+                if self.__variant == 'MS':
+                    data: NDArray[logging.Any, np.dtype[logging.Any]] = tiff.imread(filepath) # data is shape 64, 64, 13
+                elif self.__variant == 'RGB':
+                    data: NDArray[logging.Any, np.dtype[logging.Any]] = np.array(Image.open(filepath))
+                else:
+                    raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
                 train_x_list.append(data)
                 train_y_list.append(self.class_idx[class_name])  # Use the class index for labels
         # Convert lists to numpy arrays
         train_x_uint16 = np.array(train_x_list, dtype=np.uint16)
-        train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 13))  # N, C, H, W
+
+        if self.__variant == 'MS':
+            train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 13))  # N, C, H, W
+        elif self.__variant == 'RGB':
+            train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 3))
+        else:
+            raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
 
         train_x: NDArray[Any] = train_x_uint16.astype(self.__dtype) # N, H, W, C
         train_y: NDArray[Any] = np.array(train_y_list, dtype=np.int64)  # Convert labels to numpy array
