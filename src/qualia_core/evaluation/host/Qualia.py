@@ -39,10 +39,11 @@ class Result:
 class Qualia(Evaluator):
     """Custom evaluation loop for Qualia host implementations like Qualia-CodeGen Linux example."""
 
-    def __init__(self, chunks: int | None = None) -> None:
+    def __init__(self, chunks: int | None = None, max_workers: int | None = None) -> None:
         super().__init__()
         self.__deploydir = Path('out')/'deploy'/'Linux'
         self.__chunks = chunks
+        self.__max_workers = max_workers
 
     def _float_to_hex(self, arr: numpy.typing.NDArray[Any]) -> numpy.typing.NDArray[np.str_]:
         def float_to_hex(x: Number) -> str:
@@ -119,7 +120,9 @@ class Qualia(Evaluator):
         test_x = np.array_split(test_x, chunks)
         test_y = np.array_split(test_y, chunks)
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=chunks) as executor:
+        max_workers = self.__max_workers if self.__max_workers is not None else chunks
+
+        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(self._run_on_split, csvdir, tag, i, x, y) for i, (x, y) in enumerate(zip(test_x, test_y))]
             results = [f.result() for f in futures]
 
