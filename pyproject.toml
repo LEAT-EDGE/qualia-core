@@ -71,6 +71,7 @@ source = "scm"
 
 [tool.ruff]
 extend-exclude = ["third_party"]
+format.quote-style = "single"
 lint.select = ["ALL"]
 #select = ["E", "F", "B"]
 lint.ignore = [
