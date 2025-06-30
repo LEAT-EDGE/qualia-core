@@ -27,31 +27,23 @@
 
 from __future__ import annotations  # annotations: Enables using class names in type hints before they're defined
 
+import json
 import logging  # logging: For keeping track of what our dataset is doing
+import sys
 import time
-from genericpath import exists
 from pathlib import Path  # Path: Makes file handling consistent across operating systems
+from typing import Any
 
 import numpy as np  # numpy: For efficient array operations on our data
-import numpy.typing as npt  # npt: For type hints on numpy arrays, making our code clearer
-import tifffile as tiff
-from PIL import Image  # Image: For handling image files, especially for RGB images
 
 from qualia_core import random  # Generator: For generating random numbers, useful for splitting data into training and test sets
-from qualia_core.datamodel.RawDataModel import (  # RawData, RawDataSets, RawDataModel: The containers that Qualia expects
-    RawData,
-    RawDataModel,
-    RawDataSets,
-)
-from qualia_core.dataset.RawDataset import (
-    RawDataset,  # RawDataset: The base class that tells Qualia how to interact with our dataset
-)
-from qualia_core.typing import TYPE_CHECKING
+from qualia_core.datamodel.RawDataModel import RawData, RawDataModel, RawDataSets
+from qualia_core.dataset.RawDataset import RawDataset
 
-if TYPE_CHECKING:
-    from typing import Any, dict_items
-
-    from numpy._typing._array_like import NDArray
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -78,18 +70,36 @@ class EuroSAT(RawDataset):
     10. Sea and Lake            - 3000 images
     """
 
-    def __init__(self, path: str = '', variant: str = 'MS', dtype: str = 'float32') -> None:
-        """Variant available Multi Spectral (MS) or RGB, Only MS inmplemented so far."""
-        if variant not in ['MS', 'RGB']:
-            msg: str = f"Invalid variant '{variant}'. Choose 'MS' or 'RGB'."
-            raise ValueError(msg)
+    def __init__(self,
+                 path: str = '',
+                 variant: str = 'MS',
+                 dtype: str = 'float32',
+                 train_test_ratio: float = 0.8) -> None:
+        """Instantiate the EuroSAT dataset loader.
+
+        :param path: Dataset source path
+        :param variant: ``'MS'`` (Multi Spectral) or ``'RGB'``, Only MS inmplemented so far.
+        :param dtype: Data type for the input vectors
+        """
         super().__init__()  # Set up the basic RawDataset structure
         self.__path = Path(path)  # Convert string path to a proper Path object
-        self.__dtype: str = dtype
-        self.__variant: str = variant    # Store which variant we want to use
+
+        if variant == 'MS':
+            self.__suffix = 'tif'
+            self.__channels = 13
+        elif variant == 'RGB':
+            self.__suffix = 'jpg'
+            self.__channels = 3
+        else:
+            logger.error("Unsupported variant '%s'. Use 'MS' or 'RGB'.", variant)
+            raise ValueError
+
+        self.__variant = variant    # Store which variant we want to use
+        self.__dtype = dtype
+        self.__train_test_ratio = train_test_ratio
         self.sets.remove('valid')   # Tell Qualia we won't use a validation set
 
-    def _dataset_info(self) -> dict[str, int]:
+    def _dataset_info(self) -> tuple[dict[str, int], dict[str, int]]:
         """Provide information about the dataset.
 
         This is like giving a brief overview of what our dataset contains:
@@ -99,69 +109,54 @@ class EuroSAT(RawDataset):
 
         This helps us understand what we have before we start using it.
         """
-        start: float = time.time()
+        start = time.time()
 
-        images_path: Path = self.__path / self.__variant
+        images_path = self.__path / self.__variant
         # get the number of folders, which is the number of classes and the name the names of the classes
         class_names: list[str] = sorted([d.name for d in images_path.iterdir() if d.is_dir()])
-        self.class_idx: dict[str, int] = {name: idx for idx, name in enumerate(class_names)}
-        len(class_names)
+        class_idx = {name: idx for idx, name in enumerate(class_names)}
 
         # for each class, get the number of elements
-        class_counts: dict[str, int] = dict.fromkeys(class_names, 0)
+        class_counts = dict.fromkeys(class_names, 0)
         for class_name in class_names:
-            class_path: Path = images_path / class_name
+            class_path = images_path / class_name
             if not class_path.is_dir():
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
-            if self.__variant == 'MS':
-                count: int = len(list(class_path.glob('*.tif')))
-            elif self.__variant == 'RGB':
-                count = len(list(class_path.glob('*.jpg')))
-            else:
-                raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
-            class_counts[class_name] = count
+            class_counts[class_name] = len(list(class_path.glob(f'*.{self.__suffix}')))
         logger.info('_dataset_info() Elapsed: %s s', time.time() - start)
 
-        return class_counts
+        return class_counts, class_idx
 
-    def _generate_test_train_split(self) -> None:
-        start: float = time.time()
-        class_counts: dict[str, int] = self._dataset_info()  # Get info about the dataset
-        if exists(self.__path/'test_idx.npy') and exists(self.__path/'train_idx.npy'):
-            logger.info('Test/train split already exists, loading from files.')
-            self.test_idx: dict[str, np.ndarray] = np.load(self.__path/'test_idx.npy', allow_pickle=True).item()
-            self.train_idx: dict[str, np.ndarray] = np.load(self.__path/'train_idx.npy', allow_pickle=True).item()
-            logger.info('_generate_test_train_split() Elapsed: %s s', time.time() - start)
-            return
+    def _generate_test_train_split(self, class_counts: dict[str, int]) -> tuple[dict[str, np.ndarray[Any, np.dtype[np.int64]]],
+                                                                                dict[str, np.ndarray[Any, np.dtype[np.int64]]]]:
+        start = time.time()
 
-        train_test_ratio = 0.8
-        test_idx: dict[str, NDArray[Any,Any]] = {name: np.array([], dtype=int) for name in class_counts}
-        train_idx: dict[str, NDArray[Any]] = {name: np.array([], dtype=int) for name in class_counts}
+        train_idx = {name: np.array([], dtype=np.int64) for name in class_counts}
+        test_idx = {name: np.array([], dtype=np.int64) for name in class_counts}
 
         for class_name, count in class_counts.items():
             test_idx[class_name] = random.shared.generator.choice(
                 np.arange(count) + 1,
-                size=int(count * (1 - train_test_ratio)),
+                size=int(count * (1 - self.__train_test_ratio)),
                 replace=False,
-            )
+            ).tolist()
             train_idx[class_name] = np.setdiff1d(
                 np.arange(count)+1,
                 test_idx[class_name],
-            )
+            ).tolist()
         logger.info('Generated test/train split: %s', class_counts)
 
         # Save the indices for later use
-        with Path.open(self.__path / 'test_idx.npy', 'wb') as f:
-            np.save(f, test_idx)
-        with Path.open(self.__path / 'train_idx.npy', 'wb') as f:
-            np.save(f, train_idx)
-        self.test_idx   = test_idx
-        self.train_idx  = train_idx
-        logger.info('_generate_test_train_split() Elapsed: %s s', time.time() - start)
-        return
+        with Path.open(self.__path / 'test_idx.json', 'w') as f:
+            json.dump(test_idx, f, indent='  ')
+        with Path.open(self.__path / 'train_idx.json', 'w') as f:
+            json.dump(train_idx, f, indent='  ')
 
-    def __load_data(self, *, train:bool=True) -> RawData:
+        logger.info('_generate_test_train_split() Elapsed: %s s', time.time() - start)
+        return train_idx, test_idx
+
+    def __load_data(self, *, class_idx: dict[str, int], set_idx: dict[str, np.ndarray[Any, np.dtype[np.int64]]]) -> RawData:
         """Load and preprocess data files.
 
         This is where we:
@@ -174,53 +169,40 @@ class EuroSAT(RawDataset):
         - Reshaping is like cutting them to the right size
         - Normalizing is like measuring out the right amounts
         """
-        start: float = time.time()
-        self._generate_test_train_split()
+        import imageio
 
-        train_x_list: list[npt.NDArray[np.uint16]] = []
+        start = time.time()
+
+        train_x_list: list[np.ndarray[Any, np.dtype[np.uint16]]] = []
         train_y_list: list[int] = []
-        images_path: Path = self.__path / self.__variant
-        items: dict_items[str, NDArray] = self.train_idx.items() if train else self.test_idx.items()
 
-        for class_name, indices in items:
-            class_path: Path = images_path / class_name
+        for class_name, indices in set_idx.items():
+            class_path = self.__path / self.__variant / class_name
             if not class_path.is_dir():
                 logger.warning('Skipping %s, not a directory', class_path)
                 continue
             for idx in indices:
-                if self.__variant == 'MS':
-                    filepath: Path = class_path / f'{class_name}_{idx:d}.tif'
-                elif self.__variant == 'RGB':
-                    filepath: Path = class_path / f'{class_name}_{idx:d}.jpg'
-                else:
-                    raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
+                filepath = class_path / f'{class_name}_{idx:d}.{self.__suffix}'
                 if not filepath.is_file():
                     logger.warning('Skipping %s, not a file', filepath)
                     continue
 
-                if self.__variant == 'MS':
-                    data: NDArray[logging.Any, np.dtype[logging.Any]] = tiff.imread(filepath) # data is shape 64, 64, 13
-                elif self.__variant == 'RGB':
-                    data: NDArray[logging.Any, np.dtype[logging.Any]] = np.array(Image.open(filepath))
-                else:
-                    raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
+                data = imageio.v3.imread(filepath)
+
                 train_x_list.append(data)
-                train_y_list.append(self.class_idx[class_name])  # Use the class index for labels
+                train_y_list.append(class_idx[class_name])  # Use the class index for labels
+
         # Convert lists to numpy arrays
         train_x_uint16 = np.array(train_x_list, dtype=np.uint16)
 
-        if self.__variant == 'MS':
-            train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 13))  # N, C, H, W
-        elif self.__variant == 'RGB':
-            train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, 3))
-        else:
-            raise ValueError(f"Unsupported variant '{self.__variant}'. Use 'MS' or 'RGB'.")
+        train_x_uint16 = train_x_uint16.reshape((train_x_uint16.shape[0], 64, 64, self.__channels))
 
-        train_x: NDArray[Any] = train_x_uint16.astype(self.__dtype) # N, H, W, C
-        train_y: NDArray[Any] = np.array(train_y_list, dtype=np.int64)  # Convert labels to numpy array
+        train_x = train_x_uint16.astype(self.__dtype) # N, H, W, C
+        train_y = np.array(train_y_list, dtype=np.int64)  # Convert labels to numpy array
         logger.info('__load_train() Elapsed: %s s', time.time() - start)
         return RawData(train_x, train_y)
 
+    @override
     def __call__(self) -> RawDataModel:
         """Load and prepare the complete dataset.
 
@@ -232,11 +214,22 @@ class EuroSAT(RawDataset):
         """
         logger.info('Loading EuroSAT dataset from %s', self.__path)
 
+        class_counts, class_idx = self._dataset_info()
+
+        if (self.__path/'test_idx.json').exists() and (self.__path/'train_idx.json').exists():
+            logger.info('Test/train split already exists, loading from files.')
+            with (self.__path/'train_idx.json').open() as f:
+                train_idx = json.load(f)
+            with (self.__path/'test_idx.json').open() as f:
+                test_idx = json.load(f)
+        else:
+            train_idx, test_idx = self._generate_test_train_split(class_counts=class_counts)
+
         # Package everything in Qualia's containers
         return RawDataModel(
             sets=RawDataSets(
-                train=self.__load_data(train=True),
-                test=self.__load_data(train=False),
+                train=self.__load_data(class_idx=class_idx, set_idx=train_idx),
+                test=self.__load_data(class_idx=class_idx, set_idx=test_idx),
             ),
             name=self.name,
         )
