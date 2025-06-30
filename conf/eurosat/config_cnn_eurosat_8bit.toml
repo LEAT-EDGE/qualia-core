@@ -3,15 +3,14 @@ name        = "EuroSat_QCNN"
 seed        = 6
 first_run   = 1
 last_run    = 3
-plugins     = ["qualia_plugin_snn"]         # Enable SNN support
 
 [learningframework]
 kind = "PyTorch"              # Multi-step processing for efficiency
-params.devices  = [1]         # Number of devices to use
+params.devices  = 1           # Number of devices to use
 
 [dataset]
 kind            = "EuroSAT"
-params.path     = "../../../shared/EuroSAT"    # Path to extracted dataset
+params.path     = "data/EuroSAT"    # Path to extracted dataset
 params.variant  = "MS"
 
 [[preprocessing]]
@@ -56,22 +55,9 @@ kind            = "FuseBatchNorm"   # All Batchnorm must be Fused before the est
 export          = true
 params.evaluate = false
 
-[[postprocessing]]
-kind = "OperationCounter"           # Information about Operations and Memory access
-
-[[postprocessing]]
-kind = "EnergyEstimationMetric"     
-params.mem_width = 8
-params.fifo_size = 64
-params.total_spikerate_exclude_nonbinary    = true
-params.op_estimation_type.add               = "ICONIP"
-params.op_estimation_type.mul               = "saturation"
-params.sram_estimation_type                 = "new"
-
-
 # Model configuration
 [model_template]
-kind = "CNN"  # Spiking CNN
+kind = "CNN"  # CNN
 params.dims         = 2
 epochs              = 0
 batch_size          = 512
