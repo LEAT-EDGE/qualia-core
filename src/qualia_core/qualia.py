@@ -70,13 +70,14 @@ def instantiate_model(dataset: RawData,  # noqa: PLR0913
     # Instantiate model
     new_model = model(**model_params)
 
-    if load:
-        new_model = framework.load(f'{model_name}_r{iteration}', new_model)
-
     print(f'{new_model.input_shape=} {new_model.output_shape=}')
 
     # Show model architecture
     framework.summary(new_model)
+
+    if load:
+        new_model = framework.load(f'{model_name}_r{iteration}', new_model)
+
 
     return new_model
 
