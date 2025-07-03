@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import sys
 
-from qualia_core.learningmodel.pytorch.Quantizer import Quantizer, update_params
 from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 from .GlobalSumPool1d import GlobalSumPool1d
 from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol
+from .Quantizer import Quantizer, update_params
 
 if TYPE_CHECKING:
-    import torch  # noqa: TCH002
-    from torch import nn  # noqa: TCH002
+    import torch
+    from torch import nn
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -21,6 +21,7 @@ if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
+
 
 class QuantizedGlobalSumPool1d(GlobalSumPool1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfigDict | None = None, activation: nn.Module | None = None) -> None:

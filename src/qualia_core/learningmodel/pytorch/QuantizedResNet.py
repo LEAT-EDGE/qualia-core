@@ -16,7 +16,7 @@ from qualia_core.typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from types import ModuleType  # noqa: TCH003
 
-    from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig  # noqa: TCH001
+    from qualia_core.learningmodel.pytorch.layers.Quantizer import QuantizationConfig  # noqa: TCH001
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -162,9 +162,9 @@ class QuantizedResNet(ResNet):
                  fused_relu: bool = True) -> None:  # noqa: FBT001, FBT002
 
         if dims == 1:
-            import qualia_core.learningmodel.pytorch.layers1d as layers_t
+            import qualia_core.learningmodel.pytorch.layers.layers1d as layers_t
         elif dims == 2:  # noqa: PLR2004
-            import qualia_core.learningmodel.pytorch.layers2d as layers_t
+            import qualia_core.learningmodel.pytorch.layers.layers2d as layers_t
         else:
             logger.error('Only dims=1 or dims=2 supported, got: %s', dims)
             raise ValueError

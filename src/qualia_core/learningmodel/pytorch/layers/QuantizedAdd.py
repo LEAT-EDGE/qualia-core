@@ -3,15 +3,15 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 
-from qualia_core.learningmodel.pytorch.Quantizer import Quantizer, update_params
 from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 from .Add import Add
 from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol
+from .Quantizer import Quantizer, update_params
 
 if TYPE_CHECKING:
-    import torch  # noqa: TCH002
-    from torch import nn  # noqa: TCH002
+    import torch
+    from torch import nn
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -23,9 +23,11 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
+
 @dataclass
 class DummyInputQuantizer:
     global_max: None = None
+
 
 class QuantizedAdd(Add, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,

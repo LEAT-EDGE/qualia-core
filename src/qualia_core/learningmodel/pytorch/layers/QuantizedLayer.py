@@ -13,7 +13,7 @@ from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 if TYPE_CHECKING:
     from torch import nn  # noqa: TCH002
 
-    from qualia_core.learningmodel.pytorch.Quantizer import Quantizer  # noqa: TCH001
+    from qualia_core.learningmodel.pytorch.layers.Quantizer import Quantizer  # noqa: TCH001
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -56,7 +56,7 @@ class QuantizedLayer:
     def input_q(self) -> int | None:
         """Number of bits used to encode the fractional part of the input in case of fixed-point quantization.
 
-        See :meth:`qualia_core.learningmodel.pytorch.Quantizer.Quantizer.fractional_bits`.
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
 
         :return: Fractional part bits for the input or ``None`` if not applicable.
         """
@@ -68,7 +68,7 @@ class QuantizedLayer:
     def activation_q(self) -> int | None:
         """Number of bits used to encode the fractional part of the output in case of fixed-point quantization.
 
-        See :meth:`qualia_core.learningmodel.pytorch.Quantizer.Quantizer.fractional_bits`.
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
 
         :return: Fractional part bits for the output or ``None`` if not applicable.
         """
@@ -80,7 +80,7 @@ class QuantizedLayer:
     def weights_q(self) -> int | None:
         """Number of fractional part bits for the weights in case of fixed-point quantization.
 
-        See :meth:`qualia_core.learningmodel.pytorch.Quantizer.Quantizer.fractional_bits`.
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
 
         :return: Fractional part bits for the weights or ``None`` if not applicable.
         """
@@ -92,7 +92,7 @@ class QuantizedLayer:
     def bias_q(self) -> int | None:
         """Number of fractional part bits for the biases in case of fixed-point quantization.
 
-        See :meth:`qualia_core.learningmodel.pytorch.Quantizer.Quantizer.fractional_bits`.
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
 
         :return: Fractional part bits for the biases or ``None`` if not applicable.
         """

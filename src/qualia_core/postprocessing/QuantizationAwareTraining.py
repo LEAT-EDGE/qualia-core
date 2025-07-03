@@ -202,7 +202,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
 
         from qualia_core.learningmodel.pytorch.layers.quantized_layers import quantized_layers
         from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import QuantizedLayer
-        from qualia_core.learningmodel.pytorch.Quantizer import Quantizer
+        from qualia_core.learningmodel.pytorch.layers.Quantizer import Quantizer
 
         namespace = _Namespace()
 

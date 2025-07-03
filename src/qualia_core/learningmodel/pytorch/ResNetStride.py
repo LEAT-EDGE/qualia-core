@@ -163,9 +163,9 @@ class ResNetStride(nn.Module):
         self.output_shape = output_shape
 
         if dims == 1:
-            import qualia_core.learningmodel.pytorch.layers1d as layers_t
+            import qualia_core.learningmodel.pytorch.layers.layers1d as layers_t
         elif dims == 2:  # noqa: PLR2004
-            import qualia_core.learningmodel.pytorch.layers2d as layers_t
+            import qualia_core.learningmodel.pytorch.layers.layers2d as layers_t
         else:
 
             logger.error('Only dims=1 or dims=2 supported, got: %s', dims)

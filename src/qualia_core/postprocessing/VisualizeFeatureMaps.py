@@ -9,7 +9,6 @@ import pickle
 import sys
 import time
 from collections import OrderedDict
-from collections.abc import Generator
 from concurrent.futures import Future, ProcessPoolExecutor
 from multiprocessing.managers import SharedMemoryManager
 from pathlib import Path
@@ -18,23 +17,23 @@ from typing import Any, cast
 import blosc2  # type: ignore[import-untyped]
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing
 import torch
 from matplotlib.backends.backend_pdf import PdfPages
 from torch import nn
 
 from qualia_core.datamodel.RawDataModel import RawData
 from qualia_core.learningframework.PyTorch import PyTorch
-from qualia_core.learningmodel.pytorch.Quantizer import Quantizer
+from qualia_core.learningmodel.pytorch.layers.Quantizer import Quantizer
 from qualia_core.postprocessing.PostProcessing import PostProcessing
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
 
 if TYPE_CHECKING:
-    from multiprocessing.shared_memory import SharedMemory  # noqa: TCH003
+    from collections.abc import Generator
+    from multiprocessing.shared_memory import SharedMemory
 
-    from matplotlib.image import AxesImage  # noqa: TCH002
+    from matplotlib.image import AxesImage
 
-    from qualia_core.qualia import TrainResult  # noqa: TCH001
+    from qualia_core.qualia import TrainResult
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -43,8 +42,9 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 class VisualizeFeatureMaps(PostProcessing[nn.Module]):
-    figsize: tuple[float, float] = (11.7, 8.3) # A4 landscape in inches
+    figsize: tuple[float, float] = (11.7, 8.3)  # A4 landscape in inches
     outdir: Path = Path('out')/'feature_maps'
 
     def __init__(self,
@@ -63,7 +63,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
 
     def __gen_featuremaps(self,
                           trainresult: TrainResult,
-                          data_range: tuple[int | None, int | None]) -> OrderedDict[str, numpy.typing.NDArray[Any]] | None:
+                          data_range: tuple[int | None, int | None]) -> OrderedDict[str, np.ndarray[Any, Any]] | None:
         feature_maps: OrderedDict[str, torch.Tensor] = OrderedDict()
         counts: OrderedDict[str, torch.Tensor] = OrderedDict()
         framework = trainresult.framework
@@ -73,7 +73,6 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         # Extract range from dataset
         dataset_cut = RawData(x=dataset.x[data_range[0]:data_range[1]],
                               y=dataset.y[data_range[0]:data_range[1]])
-
 
         if not isinstance(framework, PyTorch):
             logger.error('Only compatible with PyTorch-based frameworks')
@@ -89,11 +88,10 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             else:
                 feature_maps[layername] += out_sum
 
-
         handles = [layer.register_forward_hook(functools.partial(hook,
                                                                  layername))
-                   for layername, layer in cast(Generator[tuple[str, nn.Module], None, None], model.named_modules())
-                   if not isinstance(layer, Quantizer)] # No hook to register for Quantizer module
+                   for layername, layer in cast('Generator[tuple[str, nn.Module], None, None]', model.named_modules())
+                   if not isinstance(layer, Quantizer)]  # No hook to register for Quantizer module
 
         _ = framework.predict(model=model,
                               dataset=dataset_cut,
@@ -121,7 +119,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         else:
             feature_maps_numpy['__INPUT__'] = input_data
 
-        feature_maps_numpy.move_to_end('__INPUT__', last=False) # Move __INPUT__ to beginning of OrderedDict
+        feature_maps_numpy.move_to_end('__INPUT__', last=False)  # Move __INPUT__ to beginning of OrderedDict
 
         return feature_maps_numpy
 
@@ -133,7 +131,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         setup_root_logger(colored=True)
 
     @staticmethod
-    def _gen_pdf_channel_page(feature_map_chunk: numpy.typing.NDArray[Any],  # noqa: PLR0913
+    def _gen_pdf_channel_page(feature_map_chunk: np.ndarray[Any, Any],  # noqa: PLR0913
                               feature_map_chunk_start_index: int,
                               pdf: PdfPages,
                               layername: str,
@@ -142,19 +140,19 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                               vmax: float,
                               colormap: str,
                               figsize: tuple[float, float]) -> None:
-        ncols = math.ceil(math.sqrt(len(feature_map_chunk)) * 1.2) # Rectangle grid with ratio ~= 6/5
+        ncols = math.ceil(math.sqrt(len(feature_map_chunk)) * 1.2)  # Rectangle grid with ratio ~= 6/5
         nrows = math.ceil(len(feature_map_chunk) / ncols)
         fig, axs = plt.subplots(nrows,
                                 ncols,
-                                sharex='all', # Can cause noticeable slowdowns with large number of plots
-                                sharey='all', # Can cause noticeable slowdowns with large number of plots
+                                sharex='all',  # Can cause noticeable slowdowns with large number of plots
+                                sharey='all',  # Can cause noticeable slowdowns with large number of plots
                                 squeeze=False,
                                 figsize=figsize,
                                 layout='compressed')
         _ = fig.suptitle(layername, fontsize=8)
         for i, (ax, channel) in enumerate(zip(axs.flatten(), feature_map_chunk)):
             ax.set_title(str(feature_map_chunk_start_index + i))
-            ax.imshow(channel,  interpolation='nearest', vmin=vmin, vmax=vmax, cmap=colormap)
+            ax.imshow(channel, interpolation='nearest', vmin=vmin, vmax=vmax, cmap=colormap)
 
         # Turn off unused subplots
         for ax in axs.flatten()[len(feature_map_chunk):]:
@@ -167,20 +165,19 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         plt.close()
 
     @staticmethod
-    def _gen_pdf_input_layer_rgb(data: numpy.typing.NDArray[Any],
+    def _gen_pdf_input_layer_rgb(data: np.ndarray[Any, Any],
                                  figsize: tuple[float, float],
                                  pdf: PdfPages) -> None:
         _ = plt.figure(figsize=figsize)
         _ = plt.title('Input image')
         _ = plt.xlabel('Width')
         _ = plt.ylabel('Height')
-        _ = plt.imshow(data.transpose(1, 2, 0), interpolation='nearest') # channels_first in PyTorch, channels_last for matplotlib
+        _ = plt.imshow(data.transpose(1, 2, 0), interpolation='nearest')  # channels_first in PyTorch, channels_last for matplotlib
         pdf.savefig()
         plt.close()
 
-
     @staticmethod
-    def _compute_scale(data: numpy.typing.NDArray[Any]) -> tuple[float, float]:
+    def _compute_scale(data: np.ndarray[Any, Any]) -> tuple[float, float]:
         # Symmetric scale
         vmax = np.abs(data).max().item()
         # Prevent collapsing of scale
@@ -206,13 +203,13 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
         plt.rcParams.update({'font.size': 8})
 
         with PdfPages(outfile_pdf) as pdf:
-            if len(feature_map.shape) < 2: # Flattened data is expanded to 1D + channels  # noqa: PLR2004
+            if len(feature_map.shape) < 2:  # Flattened data is expanded to 1D + channels  # noqa: PLR2004
                 feature_map = np.expand_dims(feature_map, 0)
-            if len(feature_map.shape) < 3: # 1D + channels data is expanded to 2D + channels  # noqa: PLR2004
+            if len(feature_map.shape) < 3:  # 1D + channels data is expanded to 2D + channels  # noqa: PLR2004
                 feature_map = np.expand_dims(feature_map, 1)
 
             # If input tensor and 3 channels, display image as RGB
-            if layername == '__INPUT__' and len(feature_map) == 3: # Assume RGB input  # noqa: PLR2004
+            if layername == '__INPUT__' and len(feature_map) == 3:  # Assume RGB input  # noqa: PLR2004
                 VisualizeFeatureMaps._gen_pdf_input_layer_rgb(data=feature_map, figsize=figsize, pdf=pdf)
 
             # Scale for sum of channels
@@ -231,13 +228,13 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             plt.close()
 
             # Page(s) for per-channel plots
-            subplot_pages = math.ceil(len(feature_map) / 70) # Max. 70 channel per page
+            subplot_pages = math.ceil(len(feature_map) / 70)  # Max. 70 channel per page
             feature_map_chunks = np.array_split(feature_map, subplot_pages)
 
             # Scale for channels
             vmin, vmax = VisualizeFeatureMaps._compute_scale(feature_map)
 
-            i = 0 # Feature map index for title
+            i = 0  # Feature map index for title
             for feature_map_chunk in feature_map_chunks:
                 VisualizeFeatureMaps._gen_pdf_channel_page(feature_map_chunk=feature_map_chunk,
                                                            feature_map_chunk_start_index=i,
@@ -249,11 +246,11 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
                                                            colormap=colormap,
                                                            figsize=figsize)
                 i += len(feature_map_chunk)
-                del feature_map_chunk # Cleanup references before closing shared memory buffer
+                del feature_map_chunk  # Cleanup references before closing shared memory buffer
 
-            del feature_map_chunks # Cleanup references before closing shared memory buffer
+            del feature_map_chunks  # Cleanup references before closing shared memory buffer
 
-        del feature_map # Cleanup references before closing shared memory buffer
+        del feature_map  # Cleanup references before closing shared memory buffer
         shared_buf.close()
 
         logger.info("%s for layer '%s' finished in %s s.", multiprocessing.current_process().name, layername, time.time() - start)
@@ -262,7 +259,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
 
     @classmethod
     def _gen_pdf(cls,
-                  feature_maps: OrderedDict[str, numpy.typing.NDArray[np.float32]],
+                  feature_maps: OrderedDict[str, np.ndarray[Any, np.dtype[np.float32]]],
                   figsize: tuple[float, float],
                   outdir: Path,
                   basename: str) -> None:
@@ -316,7 +313,7 @@ class VisualizeFeatureMaps(PostProcessing[nn.Module]):
             logger.error("Found object of type '%s'", type(feature_maps))
             logger.error("'%s' must contain a 'dict' of 'str' keys and 'numpy.ndarray' values", filename)
             raise TypeError
-        feature_maps = cast(dict[Any, Any], feature_maps)
+        feature_maps = cast('dict[Any, Any]', feature_maps)
 
         for layername, feature_map in feature_maps.items():
             if not isinstance(layername, str):

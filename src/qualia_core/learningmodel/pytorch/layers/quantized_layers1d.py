@@ -14,7 +14,7 @@ from qualia_core.learningmodel.pytorch.layers.QuantizedLayer import (
 )
 from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
-from .layers.quantized_layers import QuantizedBatchNorm
+from .quantized_layers import QuantizedBatchNorm
 from .Quantizer import QuantizationConfig, Quantizer, update_params
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
-class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizerWProtocol, QuantizedLayer):
+class QuantizedConv1d(nn.Conv1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizerWProtocol, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  in_channels: int,
                  out_channels: int,
@@ -90,13 +90,13 @@ class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, Q
         if self.bias is None :
             # If no bias, quantize weights only
             q_w = self.quantizer_w(self.weight)
-            y = torch.nn.functional.conv2d(q_input,
+            y = torch.nn.functional.conv1d(q_input,
                                            q_w,
                                            stride=self.stride,
                                            padding=self.padding,
-                                           dilation = self.dilation,
+                                           dilation=self.dilation,
                                            groups=self.groups)
-        else:
+        else :
             # Quantize bias and weights
             if self.quantizer_bias is not None:
                 #...with the different quantization schemes
@@ -105,7 +105,7 @@ class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, Q
             else :
                 #...with the same quantization schemes
                 q_w, q_b = self.quantizer_w(self.weight, bias_tensor=self.bias)
-            y = torch.nn.functional.conv2d(q_input,
+            y = torch.nn.functional.conv1d(q_input,
                                            q_w,
                                            bias=q_b,
                                            stride=self.stride,
@@ -119,17 +119,17 @@ class QuantizedConv2d(nn.Conv2d, QuantizerInputProtocol, QuantizerActProtocol, Q
         return self.quantizer_act(y)
 
 
-class QuantizedMaxPool2d(nn.MaxPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
+class QuantizedMaxPool1d(nn.MaxPool1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,  # noqa: PLR0913
                  kernel_size: int,
                  quant_params: QuantizationConfig,
                  stride: int | None = None,
-                 padding: int =0,
+                 padding: int = 0,
                  activation: nn.Module | None = None) -> None:
         self.call_super_init = True # Support multiple inheritance from nn.Module
         super().__init__(kernel_size, stride=stride, padding=padding)
         self.activation = activation
-        quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
+        quant_params_input = update_params(tensor_type= 'input', quant_params=quant_params)
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
@@ -155,7 +155,7 @@ class QuantizedMaxPool2d(nn.MaxPool2d, QuantizerInputProtocol, QuantizerActProto
         return self.quantizer_act(y)
 
 
-class QuantizedAdaptiveAvgPool2d(torch.nn.AdaptiveAvgPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
+class QuantizedAdaptiveAvgPool1d(torch.nn.AdaptiveAvgPool1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,
                  output_size: int,
                  quant_params: QuantizationConfig,
@@ -186,22 +186,11 @@ class QuantizedAdaptiveAvgPool2d(torch.nn.AdaptiveAvgPool2d, QuantizerInputProto
         return self.quantizer_act(y)
 
 
-class QuantizedBatchNorm2d(QuantizedBatchNorm):
-    @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
-        """Reshape to 1D-like input in order to use QuantizedBatchNorm forward as-is.
-
-        BatchNorm works on channels with are second dim after batch so flatten the last dimensions to single dim.
-        """
-        input_shape = input.shape
-        x = input.flatten(start_dim=2)
-
-        y = super().forward(x)
-
-        return y.reshape(input_shape)
+class QuantizedBatchNorm1d(QuantizedBatchNorm):
+    ...
 
 
-class QuantizedAvgPool2d(torch.nn.AvgPool2d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
+class QuantizedAvgPool1d(torch.nn.AvgPool1d, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self,
                  kernel_size: int | tuple[int],
                  quant_params: QuantizationConfig,

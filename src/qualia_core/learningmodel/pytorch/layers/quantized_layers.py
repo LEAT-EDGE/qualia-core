@@ -6,11 +6,11 @@ import torch
 import torch.nn
 from torch import nn
 
-from qualia_core.learningmodel.pytorch.Quantizer import QuantizationConfig, Quantizer, update_params
 from qualia_core.typing import TYPE_CHECKING, QuantizationConfigDict
 
 from .CustomBatchNorm import CustomBatchNorm
 from .QuantizedLayer import QuantizedLayer, QuantizerActProtocol, QuantizerInputProtocol, QuantizerWProtocol
+from .Quantizer import QuantizationConfig, Quantizer, update_params
 
 if TYPE_CHECKING:
     if sys.version_info >= (3, 11):
@@ -33,15 +33,15 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
                  quant_params: QuantizationConfig,
                  bias: bool = True,  # noqa: FBT001, FBT002
                  activation: nn.Module | None = None) -> None:
-        self.call_super_init = True # Support multiple inheritance from nn.Module
+        self.call_super_init = True  # Support multiple inheritance from nn.Module
         super().__init__(in_features, out_features, bias=bias)
         self.in_features = in_features
         self.out_features = out_features
         self.activation = activation
         # Create the quantizer instance
-        quant_params_input = update_params(tensor_type = 'input', quant_params = quant_params)
-        quant_params_act = update_params(tensor_type = 'act', quant_params = quant_params)
-        quant_params_w = update_params(tensor_type = 'w', quant_params = quant_params)
+        quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
+        quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
+        quant_params_w = update_params(tensor_type='w', quant_params=quant_params)
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
         self.quantizer_w = Quantizer(**quant_params_w)
@@ -62,22 +62,20 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
         return quantized_module
 
     @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
-        #if self.quan_train and self.quand_test:
-
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         q_input = self.quantizer_input(input)
         if self.bias is None:
             # If no bias, quantize weights only
             q_w = self.quantizer_w(self.weight)
             y = torch.nn.functional.linear(q_input, q_w)
-        else :
+        else:
             # Quantize bias and weights
             if self.quantizer_bias is not None:
-                #...with the different quantization schemes
+                # with the different quantization schemes
                 q_w = self.quantizer_w(self.weight)
                 q_b = self.quantizer_bias(self.bias)
-            else :
-                #...with the same quantization schemes
+            else:
+                # with the same quantization schemes
                 q_w, q_b = self.quantizer_w(self.weight, bias_tensor=self.bias)
             y = torch.nn.functional.linear(q_input, q_w, bias=q_b)
 
@@ -89,7 +87,7 @@ class QuantizedLinear(nn.Linear, QuantizerInputProtocol, QuantizerActProtocol, Q
 
 class QuantizedReLU(torch.nn.ReLU, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
-        self.call_super_init = True # Support multiple inheritance from nn.Module
+        self.call_super_init = True  # Support multiple inheritance from nn.Module
         super().__init__()
         quant_params_input = update_params(tensor_type='input', quant_params=quant_params)
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
@@ -102,7 +100,7 @@ class QuantizedReLU(torch.nn.ReLU, QuantizerInputProtocol, QuantizerActProtocol,
         return cls(quant_params=quant_params)
 
     @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         q_input = self.quantizer_input(input)
 
         y = super().forward(q_input)
@@ -112,7 +110,7 @@ class QuantizedReLU(torch.nn.ReLU, QuantizerInputProtocol, QuantizerActProtocol,
 
 class QuantizedIdentity(torch.nn.Identity, QuantizerInputProtocol, QuantizerActProtocol, QuantizedLayer):
     def __init__(self, quant_params: QuantizationConfig) -> None:
-        self.call_super_init = True # Support multiple inheritance from nn.Module
+        self.call_super_init = True  # Support multiple inheritance from nn.Module
         super().__init__()
         quant_params_act = update_params(tensor_type='act', quant_params=quant_params)
         self.quantizer_act = Quantizer(**quant_params_act)
@@ -122,7 +120,7 @@ class QuantizedIdentity(torch.nn.Identity, QuantizerInputProtocol, QuantizerActP
         self.quantizer_input = self.quantizer_act
 
     @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
 
         y = super().forward(input)
 
@@ -158,7 +156,7 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
         self.quantizer_input = Quantizer(**quant_params_input)
         self.quantizer_act = Quantizer(**quant_params_act)
         self.quantizer_w = Quantizer(**quant_params_w)
-        if 'bias' in quant_params :
+        if 'bias' in quant_params:
             quant_params_bias = update_params(tensor_type='bias', quant_params=quant_params)
             self.quantizer_bias = Quantizer(**quant_params_bias)
 
@@ -184,7 +182,7 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
         return quantized_module
 
     @override
-    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
 
         input_shape = input.shape
         x = input.flatten(start_dim=2)
@@ -210,11 +208,11 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
 
         # Quantize bias and weights
         if self.quantizer_bias is not None:
-            #...with the different quantization schemes
+            # with the different quantization schemes
             q_alpha = self.quantizer_w(alpha)
             q_beta = self.quantizer_bias(beta)
-        else :
-            #...with the same quantization schemes
+        else:
+            # with the same quantization schemes
             q_alpha, q_beta = self.quantizer_w(alpha, bias_tensor=beta)
 
         y = self.compute_batchnorm_with_fused_params(x=q_input, alpha=q_alpha, beta=q_beta)
@@ -227,21 +225,20 @@ class QuantizedBatchNorm(CustomBatchNorm, QuantizerInputProtocol, QuantizerActPr
 
 # Keep imports there to avoid circular imports
 
-from qualia_core.learningmodel.pytorch.quantized_layers1d import (  # noqa: E402
+from .quantized_layers1d import (  # noqa: E402
     QuantizedAdaptiveAvgPool1d,
     QuantizedAvgPool1d,
     QuantizedBatchNorm1d,
     QuantizedConv1d,
     QuantizedMaxPool1d,
 )
-from qualia_core.learningmodel.pytorch.quantized_layers2d import (  # noqa: E402
+from .quantized_layers2d import (  # noqa: E402
     QuantizedAdaptiveAvgPool2d,
     QuantizedAvgPool2d,
     QuantizedBatchNorm2d,
     QuantizedConv2d,
     QuantizedMaxPool2d,
 )
-
 from .QuantizedAdd import QuantizedAdd  # noqa: E402
 from .QuantizedGlobalSumPool1d import QuantizedGlobalSumPool1d  # noqa: E402
 from .QuantizedGlobalSumPool2d import QuantizedGlobalSumPool2d  # noqa: E402
