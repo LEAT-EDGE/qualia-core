@@ -139,52 +139,52 @@ class TestModelsCNN2D(TestCase):
 
 
         # prepool
-        self.assertIsInstance(trainresult.model[0], AvgPool2d)
-        self.assertEqual(trainresult.model[0].kernel_size, 2)
-        self.assertEqual(trainresult.model[0].stride, 2)
+        self.assertIsInstance(trainresult.model.layers.prepool, AvgPool2d)
+        self.assertEqual(trainresult.model.layers.prepool.kernel_size, 2)
+        self.assertEqual(trainresult.model.layers.prepool.stride, 2)
 
         # 1st conv block
-        self.assertIsInstance(trainresult.model[1], Conv2d)
-        self.assertEqual(tuple(trainresult.model[1].weight.shape), (4, 1, 5, 5)) # 4*1*5 = 20
-        self.assertIsNone(trainresult.model[1].bias) # 4
-        self.assertIsInstance(trainresult.model[2], BatchNorm2d)
-        self.assertEqual(tuple(trainresult.model[2].weight.shape), (4, )) # 4
-        self.assertEqual(tuple(trainresult.model[2].bias.shape), (4, )) # 4
-        self.assertIsInstance(trainresult.model[3], ReLU)
-        self.assertIsInstance(trainresult.model[4], Dropout)
-        self.assertEqual(trainresult.model[4].p, 0.5)
-        self.assertIsInstance(trainresult.model[5], MaxPool2d)
-        self.assertEqual(trainresult.model[5].kernel_size, 4)
-        self.assertEqual(trainresult.model[5].stride, 4)
+        self.assertIsInstance(trainresult.model.layers.conv1, Conv2d)
+        self.assertEqual(tuple(trainresult.model.layers.conv1.weight.shape), (4, 1, 5, 5)) # 4*1*5 = 20
+        self.assertIsNone(trainresult.model.layers.conv1.bias) # 4
+        self.assertIsInstance(trainresult.model.layers.bn1, BatchNorm2d)
+        self.assertEqual(tuple(trainresult.model.layers.bn1.weight.shape), (4, )) # 4
+        self.assertEqual(tuple(trainresult.model.layers.bn1.bias.shape), (4, )) # 4
+        self.assertIsInstance(trainresult.model.layers.relu1, ReLU)
+        self.assertIsInstance(trainresult.model.layers.dropout1, Dropout)
+        self.assertEqual(trainresult.model.layers.dropout1.p, 0.5)
+        self.assertIsInstance(trainresult.model.layers.maxpool1, MaxPool2d)
+        self.assertEqual(trainresult.model.layers.maxpool1.kernel_size, 4)
+        self.assertEqual(trainresult.model.layers.maxpool1.stride, 4)
 
         # 2nd conv block
-        self.assertIsInstance(trainresult.model[6], Conv2d)
-        self.assertEqual(tuple(trainresult.model[6].weight.shape), (6, 4, 3, 3)) # 6*4*3 = 72
-        self.assertIsNone(trainresult.model[6].bias) # 6
-        self.assertIsInstance(trainresult.model[7], BatchNorm2d)
-        self.assertEqual(tuple(trainresult.model[7].weight.shape), (6, )) # 6
-        self.assertEqual(tuple(trainresult.model[7].bias.shape), (6, )) # 6
-        self.assertIsInstance(trainresult.model[8], ReLU)
-        self.assertIsInstance(trainresult.model[9], Dropout)
-        self.assertEqual(trainresult.model[9].p, 0.5)
-        self.assertIsInstance(trainresult.model[10], MaxPool2d)
-        self.assertEqual(trainresult.model[10].kernel_size, 2)
-        self.assertEqual(trainresult.model[10].stride, 2)
+        self.assertIsInstance(trainresult.model.layers.conv2, Conv2d)
+        self.assertEqual(tuple(trainresult.model.layers.conv2.weight.shape), (6, 4, 3, 3)) # 6*4*3 = 72
+        self.assertIsNone(trainresult.model.layers.conv2.bias) # 6
+        self.assertIsInstance(trainresult.model.layers.bn2, BatchNorm2d)
+        self.assertEqual(tuple(trainresult.model.layers.bn2.weight.shape), (6, )) # 6
+        self.assertEqual(tuple(trainresult.model.layers.bn2.bias.shape), (6, )) # 6
+        self.assertIsInstance(trainresult.model.layers.relu2, ReLU)
+        self.assertIsInstance(trainresult.model.layers.dropout2, Dropout)
+        self.assertEqual(trainresult.model.layers.dropout2.p, 0.5)
+        self.assertIsInstance(trainresult.model.layers.maxpool2, MaxPool2d)
+        self.assertEqual(trainresult.model.layers.maxpool2.kernel_size, 2)
+        self.assertEqual(trainresult.model.layers.maxpool2.stride, 2)
 
-        self.assertIsInstance(trainresult.model[11], Flatten)
+        self.assertIsInstance(trainresult.model.layers.flatten, Flatten)
 
         # fc
-        self.assertIsInstance(trainresult.model[12], Linear)
-        self.assertEqual(trainresult.model[12].weight.shape, (10, 24)) # 120
-        self.assertEqual(trainresult.model[12].bias.shape, (10, )) # 10
-        self.assertIsInstance(trainresult.model[13], ReLU)
-        self.assertIsInstance(trainresult.model[14], Linear)
-        self.assertEqual(trainresult.model[14].weight.shape, (10, 10)) # 100
-        self.assertEqual(trainresult.model[14].bias.shape, (10, )) # 10
-        self.assertIsInstance(trainresult.model[15], ReLU)
-        self.assertIsInstance(trainresult.model[16], Linear)
-        self.assertEqual(trainresult.model[16].weight.shape, (2, 10)) # 20
-        self.assertEqual(trainresult.model[16].bias.shape, (2, )) # 2
+        self.assertIsInstance(trainresult.model.layers.fc1, Linear)
+        self.assertEqual(trainresult.model.layers.fc1.weight.shape, (10, 24)) # 120
+        self.assertEqual(trainresult.model.layers.fc1.bias.shape, (10, )) # 10
+        self.assertIsInstance(trainresult.model.layers.relu3, ReLU)
+        self.assertIsInstance(trainresult.model.layers.fc2, Linear)
+        self.assertEqual(trainresult.model.layers.fc2.weight.shape, (10, 10)) # 100
+        self.assertEqual(trainresult.model.layers.fc2.bias.shape, (10, )) # 10
+        self.assertIsInstance(trainresult.model.layers.relu4, ReLU)
+        self.assertIsInstance(trainresult.model.layers.fc3, Linear)
+        self.assertEqual(trainresult.model.layers.fc3.weight.shape, (2, 10)) # 20
+        self.assertEqual(trainresult.model.layers.fc3.bias.shape, (2, )) # 2
 
 
         self.assertEqual(trainresult.mem_params, (4*1*5*5 + 4*2 + 6*4*3*3 + 6*2 + 10*24 +10 + 10*10 + 10 + 2*10 + 2) * 4)
