@@ -24,9 +24,6 @@ class MLP(LearningModelPyTorch):
                  units: list[int]) -> None:
         super().__init__(input_shape=input_shape, output_shape=output_shape)
 
-        self.input_shape = input_shape
-        self.output_shape = output_shape
-
         layers: OrderedDict[str, nn.Module] = OrderedDict()
 
         layers['flatten1'] = nn.Flatten()

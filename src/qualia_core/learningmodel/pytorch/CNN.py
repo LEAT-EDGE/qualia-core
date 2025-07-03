@@ -2,15 +2,31 @@ from __future__ import annotations
 
 import logging
 import math
+import sys
 from collections import OrderedDict
 
 import numpy as np
 from torch import nn
 
+from qualia_core.typing import TYPE_CHECKING
+
+from .layers import layers1d, layers2d
+from .LearningModelPyTorch import LearningModelPyTorch
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    import torch
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
 logger = logging.getLogger(__name__)
 
 
-class CNN(nn.Sequential):
+class CNN(LearningModelPyTorch):
     def __init__(self, # noqa: PLR0913, PLR0915, PLR0912, C901
                  input_shape: tuple[int, ...],
                  output_shape: tuple[int, ...],
@@ -29,14 +45,14 @@ class CNN(nn.Sequential):
 
                  gsp: bool = False,  # noqa: FBT001, FBT002
                  dims: int = 1) -> None:
+        super().__init__(input_shape=input_shape, output_shape=output_shape)
 
-        self.input_shape = input_shape
-        self.output_shape = output_shape
+        layers_t: ModuleType
 
         if dims == 1:
-            import qualia_core.learningmodel.pytorch.layers1d as layers_t
+            layers_t = layers1d
         elif dims == 2:  # noqa: PLR2004
-            import qualia_core.learningmodel.pytorch.layers2d as layers_t
+            layers_t = layers2d
         else:
             logger.error('Only dims=1 or dims=2 supported, got: %s', dims)
             raise ValueError
@@ -114,8 +130,8 @@ class CNN(nn.Sequential):
 
             i += 1
 
-        if not isinstance(postpool, int) and math.prod(postpool) > 1 or postpool > 1:
-            layers['postpool'] = layers_t.AvgPool(postpool)
+        if (math.prod(postpool) if isinstance(postpool, list) else postpool) > 1:
+            layers['postpool'] = layers_t.AvgPool(tuple(postpool) if isinstance(postpool, list) else postpool)
 
         if gsp:
             layers[f'conv{i}'] = layers_t.Conv(in_channels=filters[-1],
@@ -151,4 +167,17 @@ class CNN(nn.Sequential):
 
             layers[f'fc{j}'] = nn.Linear(fc_units[-1] if len(fc_units) > 0 else in_features, output_shape[0])
 
-        super().__init__(layers)
+        self.layers = nn.ModuleDict(layers)
+
+    @override
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """Forward calls each of the SCNN :attr:`layers` sequentially.
+
+        :param input: Input tensor
+        :return: Output tensor
+        """
+        x = input
+        for layer in self.layers:
+            x = self.layers[layer](x)
+
+        return x
