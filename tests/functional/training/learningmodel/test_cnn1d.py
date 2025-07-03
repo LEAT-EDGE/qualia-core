@@ -116,7 +116,7 @@ class TestModelsCNN1D(TestCase):
     def test_cnn_1d_pytorch(self):
         from qualia_core import qualia
         from qualia_core.learningframework import PyTorch
-        from qualia_core.learningmodel.pytorch import CNN
+        from qualia_core.learningmodel.pytorch.CNN import CNN
         from torch.nn import Flatten, Linear, ReLU, AvgPool1d, MaxPool1d, Conv1d, BatchNorm1d, Dropout
 
         model = CNN

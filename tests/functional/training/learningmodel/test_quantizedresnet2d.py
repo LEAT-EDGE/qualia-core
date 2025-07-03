@@ -35,7 +35,7 @@ class TestModelsQuantizedResnet2D(TestCase):
         from qualia_core.learningframework import PyTorch
         from qualia_core.learningmodel.pytorch import QuantizedResNet
         from qualia_core.learningmodel.pytorch.layers import QuantizedAdd
-        from qualia_core.learningmodel.pytorch.quantized_layers2d import QuantizedConv2d, QuantizedMaxPool2d
+        from qualia_core.learningmodel.pytorch.layers.quantized_layers2d import QuantizedConv2d, QuantizedMaxPool2d
         from qualia_core.learningmodel.pytorch.layers.quantized_layers import QuantizedIdentity, QuantizedLinear
         from torch.nn import Flatten, Linear, ReLU
 
