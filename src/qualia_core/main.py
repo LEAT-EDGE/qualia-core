@@ -146,8 +146,13 @@ def main() -> int:
 
     # Default include file search path
     # First path takes precedence
-    # Search conf subdir inside the current directory and conf directory of qualia-core, if installed as editable
-    include_search_paths = [Path('conf'), resources_to_path(files('qualia_core')).parent.parent/'conf']
+    # - Search conf subdir inside the current directory
+    # - Search conf directory of qualia-core, if installed as editable
+    # - Search conf directory of all plugins, if installed as editable
+    include_search_paths = [Path('conf'),
+                            resources_to_path(files('qualia_core')).parent.parent/'conf',
+                            *[resources_to_path(files(p)).parent.parent/'conf'
+                                for p in config['bench'].get('plugins', [])]]
 
     # Prepend paths specified in config file or command line args to search path
     additional_include_search_paths = [Path(path) for path in config_overwritten.get('include_search_paths', [])]
