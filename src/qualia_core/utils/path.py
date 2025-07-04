@@ -42,3 +42,11 @@ def resources_to_path(resources: Path | MultiplexedPath | Traversable) -> Path:
                  resources,
                  type(resources))
     raise ValueError
+
+
+def lookup_file(search_paths: list[Path], filename: Path) -> Path | None:
+    for search_path in search_paths:
+        file_path = search_path/Path(filename)
+        if file_path.exists():
+            return file_path
+    return None
