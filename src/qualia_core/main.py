@@ -165,7 +165,7 @@ def main() -> int:
             logger.info('Including "%s"', file_path)
             config_include, _ = qualia_core.utils.config.parse_config(file_path)
             # Main config file and command line args take precedence over included file
-            config_overwritten = merge_dict(config_include, config_overwritten, merge_lists=True)
+            config_overwritten = merge_dict(config_overwritten, config_include, merge_lists=True)
         else:
             logger.warning('Include file "%s" not found', filename)
             logger.warning('Search paths: %s', include_search_paths)
