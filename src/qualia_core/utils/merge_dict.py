@@ -34,17 +34,22 @@ def merge_dict(dict_a: U,
                     raise TypeError
                 merger(table_v, template_v)
             elif isinstance(template_v, list) and merge_lists:
-                if not isinstance(table_v, dict):
+                if isinstance(table_v, dict):  # Dict allows overwriting specific positions in the list
+                    # Convert possible string keys to int
+                    temp_table = {int(tblk): tblv for tblk, tblv in table_v.items()}
+                    # Convert template list to dict
+                    v_dict: TRecursiveDict[int] = dict(enumerate(template_v))
+                    # Merge converted template dict into table
+                    merger(temp_table, v_dict)
+                    # Convert back dest table to list, iterate up to highest index
+                    table[k] = [temp_table[tbli] for tbli in range(sorted(temp_table.keys())[-1] + 1)]
+                elif isinstance(table_v, list):  # Lists elements are appended if they don't exist
+                    for e in template_v:
+                        if e not in table_v:
+                            table_v.append(e)
+                else:
                     logger.error("Incompatible target value type %s for key '%s', expected dict", type(table_v), k)
                     raise TypeError
-                # Convert possible string keys to int
-                temp_table = {int(tblk): tblv for tblk, tblv in table_v.items()}
-                # Convert template list to dict
-                v_dict: TRecursiveDict[int] = dict(enumerate(template_v))
-                # Merge converted template dict into table
-                merger(temp_table, v_dict)
-                # Convert back dest table to list, iterate up to highest index
-                table[k] = [temp_table[tbli] for tbli in range(sorted(temp_table.keys())[-1] + 1)]
 
     # Mapping becomes Dict after copy as it is mutable and modified by merger()
     dict_r = cast(TRecursiveDict[str], copy.deepcopy(dict_a))
