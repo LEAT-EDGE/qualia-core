@@ -152,7 +152,7 @@ def main() -> int:
     include_search_paths = [Path('conf'),
                             resources_to_path(files('qualia_core')).parent.parent/'conf',
                             *[resources_to_path(files(p)).parent.parent/'conf'
-                                for p in config['bench'].get('plugins', [])]]
+                                for p in config_overwritten['bench'].get('plugins', [])]]
 
     # Prepend paths specified in config file or command line args to search path
     additional_include_search_paths = [Path(path) for path in config_overwritten.get('include_search_paths', [])]
