@@ -70,11 +70,11 @@ class DataModel(Generic[T]):
                     name: str,
                     set_names: list[str],
                     importer: Callable[[Path], T | None]) -> dict[str, T] | None:
-        sets_dict: dict[str, T | None] =  {sname: importer(Path('out')/'data'/name/sname)
+        sets_dict: dict[str, T | None] = {sname: importer(Path('out')/'data'/name/sname)
                                                    for sname in set_names}
 
         def no_none_in_sets(sets_dict: dict[str, T | None]) -> TypeGuard[dict[str, T]]:
-          return all(s is not None for s in sets_dict.values())
+            return all(s is not None for s in sets_dict.values())
 
         if not no_none_in_sets(sets_dict):
             logger.error('Could not import data.')
