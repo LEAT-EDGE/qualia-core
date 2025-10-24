@@ -4,6 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
+from qualia_core.datamodel.RawDataModel import RawDataShape
+
 from .CIFAR10 import CIFAR, CIFARFile
 
 logger = logging.getLogger(__name__)
@@ -25,4 +27,6 @@ class CIFAR100(CIFAR):
                          labels_field=labels_field,
                          train_files=['train'],
                          test_files=['test'],
+                         train_shapes=RawDataShape(x=(50000, 32, 32, 3), y=(50000,)),
+                         test_shapes=RawDataShape(x=(10000, 32, 32, 3), y=(10000,)),
                          file_cls=CIFAR100File)
