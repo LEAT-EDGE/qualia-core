@@ -42,13 +42,14 @@ class Class2BinMatrix(Preprocessing[RawDataModel, RawDataModel]):
     @override
     def __call__(self, datamodel: RawDataModel) -> RawDataModel:
         for sname, s in datamodel:
-            # Update the shape of RawDataChunks instance to get correct pre-allocation of output file
+            # Update the shape and dtype of RawDataChunks instance to get correct pre-allocation of output file
             if isinstance(s, RawDataChunks):
                 if not self.__classes:
                     logger.error('classes param is required when using a dataset processed in chunks')
                     raise ValueError
                 # Adjust the shape of labels with the one-hot dimension
                 s.shapes.labels = (*s.shapes.labels, self.__classes)
+                s.dtypes.labels = np.dtype(np.float32)
 
             setattr(datamodel.sets, sname, self.__process_set(s))
 
