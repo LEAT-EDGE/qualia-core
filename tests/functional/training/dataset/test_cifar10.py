@@ -15,11 +15,25 @@ class TestCIFAR10:
             raw = pickle.load(fo, encoding='bytes')
             test_y = np.array(raw[b'labels'])
 
-        assert dataset.sets.train.x.shape == (50000, 32, 32, 3)
-        assert dataset.sets.train.x.dtype == np.float32
-        assert dataset.sets.test.x.shape == (10000, 32, 32, 3)
-        assert dataset.sets.test.x.dtype == np.float32
-        assert dataset.sets.train.y.shape == (50000, )
-        assert dataset.sets.test.y.shape == (10000, )
+        train_batches = [chunk for chunk in dataset.sets.train.chunks]
+        train_x = np.concatenate([b.data for b in train_batches])
+        train_y = np.concatenate([b.labels for b in train_batches])
+        del train_batches
+        assert train_x.shape == (50000, 32, 32, 3)
+        assert train_x.dtype == np.float32
+        del train_x
+        assert train_y.shape == (50000, )
+        del train_y
 
-        assert np.array_equal(dataset.sets.test.y, test_y)
+        test_batches = [chunk for chunk in dataset.sets.test.chunks]
+        test_x = np.concatenate([b.data for b in test_batches])
+        test_y = np.concatenate([b.labels for b in test_batches])
+        del test_batches
+        assert test_x.shape == (10000, 32, 32, 3)
+        assert test_x.dtype == np.float32
+        del test_x
+        assert test_y.shape == (10000, )
+
+        assert np.array_equal(test_y, test_y)
+
+        del test_y
