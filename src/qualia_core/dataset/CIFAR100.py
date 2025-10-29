@@ -27,6 +27,6 @@ class CIFAR100(CIFAR):
                          labels_field=labels_field,
                          train_files=['train'],
                          test_files=['test'],
-                         train_shapes=RawDataShape(x=(50000, 32, 32, 3), y=(50000,)),
-                         test_shapes=RawDataShape(x=(10000, 32, 32, 3), y=(10000,)),
+                         train_shapes=RawDataShape(x=(None, 32, 32, 3), y=(None,)),
+                         test_shapes=RawDataShape(x=(None, 32, 32, 3), y=(None,)),
                          file_cls=CIFAR100File)

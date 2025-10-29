@@ -24,6 +24,6 @@ class CIFAR10(CIFAR):
                          labels_field='labels',
                          train_files=[f'data_batch_{i}' for i in range(1, 6)],
                          test_files=['test_batch'],
-                         train_shapes=RawDataShape(x=(50000, 32, 32, 3), y=(50000,)),
-                         test_shapes=RawDataShape(x=(10000, 32, 32, 3), y=(10000,)),
+                         train_shapes=RawDataShape(x=(None, 32, 32, 3), y=(None,)),
+                         test_shapes=RawDataShape(x=(None, 32, 32, 3), y=(None,)),
                          file_cls=CIFAR10File)

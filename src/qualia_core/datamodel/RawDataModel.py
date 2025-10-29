@@ -5,7 +5,7 @@ import os
 import sys
 import time
 from dataclasses import astuple, dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Final
 
 import blosc2
 import numpy as np
@@ -33,12 +33,12 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RawDataShape:
-    x: tuple[int, ...]
-    y: tuple[int, ...]
-    info: tuple[int, ...] | None = None
+    x: tuple[int | None, ...]
+    y: tuple[int | None, ...]
+    info: tuple[int | None, ...] | None = None
 
     @property
-    def data(self) -> tuple[int, ...]:
+    def data(self) -> tuple[int | None, ...]:
         return self.x
 
     @data.setter
@@ -46,7 +46,7 @@ class RawDataShape:
         self.x = data
 
     @property
-    def labels(self) -> tuple[int, ...]:
+    def labels(self) -> tuple[int | None, ...]:
         return self.y
 
     @labels.setter
@@ -80,42 +80,95 @@ class RawDataDType:
 @dataclass
 class RawDataChunks:
     chunks: Generator[RawData]
-    shapes: RawDataShape  # We need to keep track of the global shape to pre-allocate mmapped-output file
-    dtypes: RawDataDType  # We need to keep track of the global dtype to pre-allocate mmapped-output file
+    # Pre-define the global shape to check consistency and proper allocation of output mmapped-file.
+    # First dimension (total numberof samples) is left undefined and set to ``None``
+    shapes: RawDataShape
+    # Pre-define the global dtype to check consistency and proper allocation of output mmapped-file
+    dtypes: RawDataDType
+
+    @staticmethod
+    def __check_shape(shape1: tuple[int | None, ...], shape2: tuple[int | None, ...]) -> bool:
+        """Check shape for defined dimensions.
+
+        Dimensions set to ``None`` are undefined and not checked
+        :return: ``True`` if defined dimensions match, ``False`` otherwise
+        """
+        return all(s1 == s2 for s1, s2 in zip(shape1, shape2) if s1 is not None and s2 is not None)
+
+    def __write_array(self,
+                      path: Path,
+                      array: np.ndarray[Any, Any],
+                      shape: tuple[int, ...],
+                      dtype: np.dtype,
+                      offset: int) -> int:
+        if not self.__check_shape(array.shape, shape):
+            logger.error('Chunk array shape %s does not match dataset shape %s for file %s', array.shape, shape, path)
+            raise ValueError
+
+        if array.dtype != dtype:
+            logger.error('Chunk array dtype %s does not match dataset dtype %s for file %s', array.dtype, dtype, path)
+            raise ValueError
+
+        data_file = np.memmap(path,
+                                dtype=array.dtype,
+                                mode='r+',  # Write without truncate
+                                offset=offset,
+                                shape=array.shape)
+        data_file[:] = array
+        offset += array.nbytes
+        data_file._mmap.close()
+
+        return offset
+
+    @staticmethod
+    def __write_numpy_header(path: Path, header_size: int, shape: tuple[int, ...], dtype: np.dtype) -> None:
+        with (path).open('r+b') as f:
+            np.lib.format.write_array_header_1_0(f, {'shape': shape,
+                                                     'fortran_order': False,
+                                                     'descr': np.dtype(dtype).str})
+            if f.tell() != header_size:
+                logger.error('NumPy header of size %d different from pre-allocated size of %d for file %s',
+                             f.tell(),
+                             header_size,
+                             path)
+                raise RuntimeError
 
     def export(self, path: Path) -> None:
+        NUMPY_HEADER_SIZE: Final[int] = 128
+
         start = time.time()
 
-        data_file: np.ndarray[Any, Any] = np.lib.format.open_memmap(path / 'data.npy',
-                                                                    mode='w+',
-                                                                    dtype=self.dtypes.data,
-                                                                    shape=self.shapes.data)
-        labels_file: np.ndarray[Any, Any] = np.lib.format.open_memmap(path / 'labels.npy',
-                                                                    mode='w+',
-                                                                    dtype=self.dtypes.labels,
-                                                                    shape=self.shapes.labels)
-        if self.dtypes.info is not None and self.shapes.info is not None:
-            info_file: np.ndarray[Any, Any] | None = np.lib.format.open_memmap(path / 'info.npy',
-                                                                               mode='w+',
-                                                                               dtype=self.dtypes.info,
-                                                                               shape=self.shapes.info)
-        else:
-            info_file = None
+        files = ['data', 'labels']
+        if self.shapes.info:
+            files.append('info')
 
-        data_offset = 0
-        labels_offset = 0
-        info_offset = 0
+        # Position in the output file
+        offsets = dict.fromkeys(files, NUMPY_HEADER_SIZE)
+        # Total number of samples
+        counts = dict.fromkeys(files, 0)
 
+        # Create empty files or truncate existing files
+        for file in files:
+            with (path / f'{file}.npy').open('wb'):
+                pass
+
+        # Iterate over dataset generator, actually calling preprocessing pipeline for each chunk, and write results to files
         for chunk in self.chunks:
-            data_file[data_offset:data_offset + chunk.data.shape[0]] = chunk.data
-            data_offset += chunk.data.shape[0]
+            for file in files:
+                offsets[file] = self.__write_array(path / f'{file}.npy',
+                                                    getattr(chunk, file),
+                                                    shape=getattr(self.shapes, file),
+                                                    dtype=getattr(self.dtypes, file),
+                                                    offset=offsets[file])
+                counts[file] += len(chunk.data)
 
-            labels_file[labels_offset:labels_offset + chunk.labels.shape[0]] = chunk.labels
-            labels_offset += chunk.labels.shape[0]
-
-            if chunk.info and info_file:
-                info_file[info_offset:info_offset + chunk.info.shape[0]] = chunk.info
-                info_offset += chunk.info.shape[0]
+        # Write NumPy headers after obtaining total number of samples
+        for file in files:
+            shape = (counts[file], *getattr(self.shapes, file)[1:])
+            self.__write_numpy_header(path / f'{file}.npy',
+                                      header_size=NUMPY_HEADER_SIZE,
+                                      shape=shape,
+                                      dtype=getattr(self.dtypes, file))
 
         logger.info('export() Elapsed: %s s', time.time() - start)
 
