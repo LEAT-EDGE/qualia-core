@@ -86,6 +86,7 @@ params.after = true
 
 [[preprocessing]]
 kind = "Class2BinMatrix"
+params.classes = 10
 
 [model_template]
 kind                = "CNN"

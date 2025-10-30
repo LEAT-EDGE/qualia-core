@@ -29,6 +29,7 @@ params.dtype = "uint8" # Keep uint8 dtype instead of converting to float32 for A
 
 [[preprocessing]]
 kind = "Class2BinMatrix"
+params.classes = 10
 
 #[[preprocessing]]
 #kind = "Normalize"
