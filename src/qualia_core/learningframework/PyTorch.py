@@ -25,9 +25,9 @@ from .LearningFramework import LearningFramework
 from .pytorch.SlopeMetric import SlopeMetric
 
 if TYPE_CHECKING:
-    from pytorch_lightning import Callback  # noqa: TC002
-    from pytorch_lightning.loggers import Logger  # noqa: TC002
-    from pytorch_lightning.trainer.connectors.accelerator_connector import _PRECISION_INPUT  # noqa: TC002
+    from lightning.pytorch import Callback  # noqa: TC002
+    from lightning.pytorch.loggers import Logger  # noqa: TC002
+    from lightning.pytorch.trainer.connectors.accelerator_connector import _PRECISION_INPUT  # noqa: TC002
 
     from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TC001
     from qualia_core.dataaugmentation.pytorch.DataAugmentationPyTorch import DataAugmentationPyTorch  # noqa: TC001
@@ -73,7 +73,7 @@ class CrossEntropyLossOneHot(LossOneHot, nn.CrossEntropyLoss):
 
 class PyTorch(LearningFramework[nn.Module]):
     # Reference framework-specific external modules
-    from pytorch_lightning import LightningModule
+    from lightning.pytorch import LightningModule
 
     import qualia_core.dataaugmentation.pytorch
     import qualia_core.experimenttracking.pytorch
@@ -202,7 +202,7 @@ class PyTorch(LearningFramework[nn.Module]):
         @override
         def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> None:
             x, y = batch
-            logits = self(x) # lightning 1.2 requires preds in [0, 1]
+            logits = self(x) # pytorch_lightning 1.2 requires preds in [0, 1]
 
             self.val_metrics(logits, y)
             self.log_dict(self.val_metrics, prog_bar=True)
@@ -210,7 +210,7 @@ class PyTorch(LearningFramework[nn.Module]):
         @override
         def test_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_nb: int) -> None:
             x, y = batch
-            logits = self(x) # lightning 1.2 requires preds in [0, 1]
+            logits = self(x) # pytorch_lightning 1.2 requires preds in [0, 1]
 
             self.test_metrics(logits, y)
             self.log_dict(self.test_metrics, prog_bar=True)
@@ -343,8 +343,8 @@ class PyTorch(LearningFramework[nn.Module]):
         # settings learningframework.devices to 1 or exposing only one device with CUDA_VISIBLE_DEVICES.
         # We modify the registry so that we can still use strategy='auto' in the trained to use the SingleDevice strategy in case
         # only one device is being used since this is much faster than initializing DDP.
-        from pytorch_lightning.strategies import StrategyRegistry
-        from pytorch_lightning.strategies.ddp import DDPStrategy
+        from lightning.pytorch.strategies import StrategyRegistry
+        from lightning.pytorch.strategies.ddp import DDPStrategy
         start_method = 'spawn'
         StrategyRegistry.register('ddp',
                                    DDPStrategy,
@@ -389,7 +389,7 @@ class PyTorch(LearningFramework[nn.Module]):
     def logger(self,
                experimenttracking: ExperimentTracking | None,
                name: str) -> list[Logger]:
-        from pytorch_lightning.loggers import CSVLogger, TensorBoardLogger
+        from lightning.pytorch.loggers import CSVLogger, TensorBoardLogger
         loggers: list[Logger] = [CSVLogger(save_dir='logs/PyTorchLightning', name=name)]
         if importlib.util.find_spec('tensorboard') is None and importlib.util.find_spec('tensorboardX') is None:
             logger.warning('tensorboard or tensorboardX not found, disabling TensorBoardLogger')
@@ -413,8 +413,8 @@ class PyTorch(LearningFramework[nn.Module]):
               precision: _PRECISION_INPUT | None = None) -> nn.Module:
         import os
 
-        from pytorch_lightning import Trainer, seed_everything
-        from pytorch_lightning.callbacks import ModelCheckpoint, TQDMProgressBar
+        from lightning.pytorch import Trainer, seed_everything
+        from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
         from torch.utils.data import DataLoader
 
         # PyTorch-Lightning >= 1.3.0 resets seed before training
@@ -493,8 +493,8 @@ class PyTorch(LearningFramework[nn.Module]):
                  dataset_type: str = '',
                  name: str = '') -> dict[str, int | float | numpy.typing.NDArray[Any]]:
         import torch
-        from pytorch_lightning import Trainer
-        from pytorch_lightning.callbacks import TQDMProgressBar
+        from lightning.pytorch import Trainer
+        from lightning.pytorch.callbacks import TQDMProgressBar
         from torch.utils.data import DataLoader
 
         self.log(f'{name=}')
@@ -559,8 +559,8 @@ class PyTorch(LearningFramework[nn.Module]):
                  dataaugmentations: list[DataAugmentation],
                  experimenttracking: ExperimentTracking | None = None,
                  name: str = '') -> torch.Tensor:
-        from pytorch_lightning import Trainer
-        from pytorch_lightning.callbacks import Callback, TQDMProgressBar
+        from lightning.pytorch import Trainer
+        from lightning.pytorch.callbacks import Callback, TQDMProgressBar
         from torch.utils.data import DataLoader
 
         # Force testing on single device to avoid issues caused by DDP generating different batches

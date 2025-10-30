@@ -13,7 +13,7 @@ else:
 
 if importlib.util.find_spec("torch") is None:
     print('Warning: cannot find PyTorch, PyTorch models will be unavailable', file=sys.stderr)
-elif importlib.util.find_spec("pytorch_lightning") is None:
+elif importlib.util.find_spec("lightning.pytorch") is None:
     print('Warning: cannot find PyTorch Lightning, PyTorch models will be unavailable', file=sys.stderr)
 else:
     from . import pytorch

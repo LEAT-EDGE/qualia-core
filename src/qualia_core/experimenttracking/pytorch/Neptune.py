@@ -14,7 +14,7 @@ else:
     from typing_extensions import override
 
 if TYPE_CHECKING and importlib.util.find_spec('neptune'):
-    from neptune.new.integrations.pytorch_lightning import NeptuneLogger  # noqa: TCH002
+    from neptune.new.integrations.lightning.pytorch import NeptuneLogger  # noqa: TCH002
 
 
 class Neptune(NeptuneBase, ExperimentTrackingPyTorch):
@@ -23,7 +23,7 @@ class Neptune(NeptuneBase, ExperimentTrackingPyTorch):
 
     @override
     def start(self, name: str | None = None) -> None:
-        from neptune.new.integrations.pytorch_lightning import NeptuneLogger
+        from neptune.new.integrations.lightning.pytorch import NeptuneLogger
 
         project_name = f'{self.project_name}_{name}' if name is not None else self.project_name
 

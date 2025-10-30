@@ -15,7 +15,7 @@ else:
 
 if importlib.util.find_spec('torch') is None:
     logger.warning('Warning: cannot find PyTorch, PyTorch framework will be unavailable')
-elif importlib.util.find_spec('pytorch_lightning') is None:
+elif importlib.util.find_spec('lightning.pytorch') is None:
     logger.warning('Warning: cannot find PyTorch Lightning, PyTorch framework will be unavailable')
 else:
     from .PyTorch import PyTorch

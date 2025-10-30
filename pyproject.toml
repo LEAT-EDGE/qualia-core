@@ -34,7 +34,7 @@ documentation = "https://leat-edge.github.io/qualia-core"
 [project.optional-dependencies]
 codegen = ['qualia_codegen_core']
 tensorflow = ['tensorflow<2.18.0rc0', 'keras>=2.13.1', 'pydot']
-pytorch = ['torch', 'pytorch-lightning>=1.4.0', 'tabulate']
+pytorch = ['torch', 'lightning', 'tabulate']
 image = ['imageio', 'scikit-image']
 gsc = ['torchaudio']
 pytorch3drotation = ['pytorch3d']
@@ -106,7 +106,7 @@ report_progress = true
 [tool.pyright]
 include = ["src"]
 exclude = ["**/third_party", "**/examples"]
-pythonVersion = "3.9"
+pythonVersion = "3.13"
 typeCheckingMode = "strict"
 reportCallInDefaultInitializer = "warning"
 reportImplicitOverride = "warning"

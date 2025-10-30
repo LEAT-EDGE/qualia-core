@@ -52,8 +52,8 @@ class TensorFlowInitializer:
             import torch
             _ = torch.manual_seed(seed)  # type: ignore[untyped-def]
 
-            import pytorch_lightning
-            _ = pytorch_lightning.seed_everything(seed)
+            import lightning.pytorch
+            _ = lightning.pytorch.seed_everything(seed)
         except ImportError:
             logger.warning('PyTorch not loaded and not seeded')
 
