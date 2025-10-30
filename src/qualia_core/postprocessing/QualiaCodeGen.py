@@ -41,12 +41,14 @@ class QualiaCodeGen(Converter[Any]):
                  long_width: int | None = None,
                  outdir: str | None = None,
                  metrics: list[str] | None = None,
+                 model_name: str = 'cnn',
                  dump_featuremaps: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__()
 
         self.__quantize = quantize
         self.__outdir = Path(outdir) if outdir is not None else Path('out')/'qualia_codegen'
         self.__metrics = metrics if metrics is not None else ['acc']
+        self._model_name = model_name
         self._dump_featuremaps = dump_featuremaps
 
         if quantize == 'float32':
@@ -155,7 +157,7 @@ class QualiaCodeGen(Converter[Any]):
 
     def convert_modelgraph_to_c(self, modelgraph: ModelGraph, output_path: Path) -> str | bool:
         from qualia_codegen_core import Converter
-        converter = Converter(output_path=output_path, dump_featuremaps=self._dump_featuremaps)
+        converter = Converter(output_path=output_path, model_name=self._model_name, dump_featuremaps=self._dump_featuremaps)
         return converter.convert_model(modelgraph)
 
     def convert_metrics_to_cpp(self, metrics: list[str], output_path: Path) -> str | None:
