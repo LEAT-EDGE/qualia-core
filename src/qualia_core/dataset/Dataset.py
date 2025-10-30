@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import Generic
 
 from qualia_core.datamodel.DataModel import DataModel
 
-T = TypeVar('T')
+if sys.version_info >= (3, 13):
+    from typing import TypeVar
+else:
+    from typing_extensions import TypeVar
 
-class Dataset(ABC, Generic[T]):
+T = TypeVar('T')
+# Dataset.import_data() may return a different DataModel than Dataset.__call__(), e.g., non-chunked
+U = TypeVar('U', default=T)
+
+
+class Dataset(ABC, Generic[T, U]):
     sets: list[str]
 
     def __init__(self, sets: list[str] | None = None) -> None:
@@ -15,11 +24,11 @@ class Dataset(ABC, Generic[T]):
         self.sets = sets if sets is not None else list(DataModel.Sets.fieldnames())
 
     @abstractmethod
-    def __call__(self) -> DataModel[T]:
+    def __call__(self) -> DataModel[T, U]:
         ...
 
     @abstractmethod
-    def import_data(self) -> DataModel[T] | None:
+    def import_data(self) -> DataModel[U] | None:
         ...
 
     @property

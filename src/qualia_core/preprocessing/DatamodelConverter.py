@@ -59,7 +59,6 @@ class DatamodelConverter(Preprocessing[HARDataModel, RawDataModel]):
     def import_data(self, dataset: Dataset[Any]) -> Dataset[Any]:
         def func() -> RawDataModel:
             rdm = RawDataModel(name=dataset.name)
-            rdm.import_sets(set_names=dataset.sets)
-            return rdm
+            return rdm.import_sets(set_names=dataset.sets)
         dataset.import_data = func
         return dataset

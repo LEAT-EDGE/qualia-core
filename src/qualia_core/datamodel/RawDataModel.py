@@ -42,7 +42,7 @@ class RawDataShape:
         return self.x
 
     @data.setter
-    def data(self, data: tuple[int, ...]) -> None:
+    def data(self, data: tuple[int | None, ...]) -> None:
         self.x = data
 
     @property
@@ -50,7 +50,7 @@ class RawDataShape:
         return self.y
 
     @labels.setter
-    def labels(self, labels: tuple[int, ...]) -> None:
+    def labels(self, labels: tuple[int | None, ...]) -> None:
         self.y = labels
 
 
@@ -278,30 +278,32 @@ class RawDataModel(DataModel[RawData]):
     def import_sets(self,
                     set_names: list[str] | None = None,
                     sets_cls: type[DataModel.Sets[RawData]] = RawDataSets,
-                    importer: Callable[[Path], RawData | None] = RawData.import_data) -> None:
+                    importer: Callable[[Path], RawData | None] = RawData.import_data) -> RawDataModel:
         set_names = set_names if set_names is not None else list(RawDataSets.fieldnames())
 
         sets_dict = self._import_data_sets(name=self.name, set_names=set_names, importer=importer)
 
         if sets_dict is not None:
             self.sets = sets_cls(**sets_dict)
+
+        return self
 
 
 class RawDataChunksSets(DataModel.Sets[RawDataChunks]):
     ...
 
 
-class RawDataChunksModel(DataModel[RawDataChunks]):
+class RawDataChunksModel(DataModel[RawDataChunks, RawData]):
     sets: DataModel.Sets[RawDataChunks]
 
     @override
     def import_sets(self,
                     set_names: list[str] | None = None,
-                    sets_cls: type[DataModel.Sets[RawDataChunks]] = RawDataChunksSets,
-                    importer: Callable[[Path], RawData | None] = RawDataChunks.import_data) -> None:
+                    sets_cls: type[DataModel.Sets[RawData]] = RawDataSets,
+                    importer: Callable[[Path], RawData | None] = RawDataChunks.import_data) -> RawDataModel:
         set_names = set_names if set_names is not None else list(RawDataSets.fieldnames())
 
         sets_dict = self._import_data_sets(name=self.name, set_names=set_names, importer=importer)
 
-        if sets_dict is not None:
-            self.sets = sets_cls(**sets_dict)
+        return RawDataModel(name=self.name,
+                            sets=sets_cls(**sets_dict) if sets_dict is not None else None)

@@ -19,16 +19,14 @@ class RawDataset(Dataset[RawData]):
     @override
     def import_data(self) -> RawDataModel:
         rdm = RawDataModel(name=self.name)
-        rdm.import_sets(set_names=self.sets)
-        return rdm
+        return rdm.import_sets(set_names=self.sets)
 
 
-class RawDatasetChunks(Dataset[RawDataChunks]):
+class RawDatasetChunks(Dataset[RawDataChunks, RawData]):
     def __init__(self) -> None:
         super().__init__(sets=list(RawDataChunksModel.Sets.fieldnames()))
 
     @override
     def import_data(self) -> RawDataModel:
         rdm = RawDataModel(name=self.name)
-        rdm.import_sets(set_names=self.sets, importer=RawDataChunks.import_data)
-        return rdm
+        return rdm.import_sets(set_names=self.sets, importer=RawDataChunks.import_data)

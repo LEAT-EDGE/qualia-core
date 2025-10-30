@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Generic, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, Union
 
 from qualia_core.datamodel.RawDataModel import RawData, RawDataChunks, RawDataModel
 
 if TYPE_CHECKING:
     from qualia_core.dataset.Dataset import Dataset
 
+if sys.version_info >= (3, 10):
+    from typing import Concatenate, ParamSpec
+else:
+    from typing_extensions import ParamSpec, Concatenate
+
 P = ParamSpec('P')
 T = TypeVar('T')
 U = TypeVar('U')
 
 IterateGeneratorCallable = Callable[Concatenate[Any, RawData, P], RawData]
-IterateGeneratorCallableDecorated = Callable[Concatenate[Any, RawData | RawDataChunks, P], RawData | RawDataChunks]
+IterateGeneratorCallableDecorated = Callable[Concatenate[Any, Union[RawData, RawDataChunks], P], Union[RawData, RawDataChunks]]
 
 
 def iterate_generator(f: IterateGeneratorCallable[P]) -> IterateGeneratorCallableDecorated[P]:

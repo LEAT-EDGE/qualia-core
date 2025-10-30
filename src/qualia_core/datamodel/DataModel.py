@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Iterator
 
     if sys.version_info >= (3, 10):
@@ -14,17 +14,20 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import TypeGuard
 
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
+if sys.version_info >= (3, 13):
+    from typing import TypeVar
+else:
+    from typing_extensions import TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 U = TypeVar('U')
+# DataModel.import_sets() may return a different DataModel than itself, e.g., non-chunked
+V = TypeVar('V', default=T)
 
-class DataModel(Generic[T]):
+
+class DataModel(Generic[T, V]):
     sets: DataModel.Sets[T]
     name: str
 
@@ -44,7 +47,7 @@ class DataModel(Generic[T]):
 
         def __iter__(self) -> Iterator[tuple[str, U]]:
             # Skip non-existent sets
-            return {k: v for k,v in self.asdict().items() if v is not None}.items().__iter__()
+            return {k: v for k, v in self.asdict().items() if v is not None}.items().__iter__()
 
         def export(self, path: Path) -> None:
             for sname, sdata in self.asdict().items():
@@ -69,11 +72,11 @@ class DataModel(Generic[T]):
     def _import_data_sets(cls,
                     name: str,
                     set_names: list[str],
-                    importer: Callable[[Path], T | None]) -> dict[str, T] | None:
-        sets_dict: dict[str, T | None] = {sname: importer(Path('out')/'data'/name/sname)
+                    importer: Callable[[Path], V | None]) -> dict[str, V] | None:
+        sets_dict: dict[str, V | None] = {sname: importer(Path('out')/'data'/name/sname)
                                                    for sname in set_names}
 
-        def no_none_in_sets(sets_dict: dict[str, T | None]) -> TypeGuard[dict[str, T]]:
+        def no_none_in_sets(sets_dict: dict[str, V | None]) -> TypeGuard[dict[str, V]]:
             return all(s is not None for s in sets_dict.values())
 
         if not no_none_in_sets(sets_dict):
@@ -85,9 +88,11 @@ class DataModel(Generic[T]):
 
     def import_sets(self,
                     set_names: list[str],
-                    sets_cls: type[DataModel.Sets[T]],
-                    importer: Callable[[Path], T | None]) -> None:
+                    sets_cls: type[DataModel.Sets[V]],
+                    importer: Callable[[Path], V | None]) -> DataModel[V, Any]:
         sets_dict = self._import_data_sets(name=self.name, set_names=set_names, importer=importer)
 
         if sets_dict is not None:
             self.sets = sets_cls(**sets_dict)
+
+        return self
