@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -122,7 +123,8 @@ class Qualia(Evaluator):
 
         max_workers = self.__max_workers if self.__max_workers is not None else chunks
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with concurrent.futures.ProcessPoolExecutor(mp_context=multiprocessing.get_context('fork'),
+                                                    max_workers=max_workers) as executor:
             futures = [executor.submit(self._run_on_split, csvdir, tag, i, x, y) for i, (x, y) in enumerate(zip(test_x, test_y))]
             results = [f.result() for f in futures]
 
