@@ -1,78 +1,122 @@
-from pathlib import Path
+from __future__ import annotations
+
+import logging
 import re
 import sys
-from qualia_core.utils.process import subprocesstee                                                                                     
-from qualia_core.evaluation.Stats import Stats
+from pathlib import Path
+from typing import Any
 
-class STM32CubeAI:
+import numpy as np
+
+from qualia_core.evaluation.Stats import Stats
+from qualia_core.typing import TYPE_CHECKING
+from qualia_core.utils.process import subprocesstee
+
+from .Evaluator import Evaluator
+
+if TYPE_CHECKING:
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation
+    from qualia_core.datamodel.RawDataModel import RawDataModel
+    from qualia_core.learningframework.LearningFramework import LearningFramework
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
+
+logger = logging.getLogger(__name__)
+
+
+class STM32CubeAI(Evaluator):
     def __init__(self,
-        stm32cubeai_args=tuple(),
-        mode=''):
+                 stm32cubeai_args: tuple[str, ...] | None = None,
+                 mode: str = '') -> None:
+        super().__init__()
+
         self.__mode = mode
-        self.__stm32cubeai_args = stm32cubeai_args
+        self.__stm32cubeai_args = stm32cubeai_args if stm32cubeai_args is not None else ()
 
         # Built-in project for 8.1.0
-        self.__stm32cubeai_bin = Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI'/'8.1.0'/'Utilities'/'linux'/'stm32ai'
-        #self.__stm32cubeai_bin = next((Path.home()/'STM32Cube'/'Repository'/'Packs'/'STMicroelectronics'/'X-CUBE-AI').glob('*'))/'Utilities'/'linux'/'stm32ai'
+        self.__stm32cubeai_bin = (Path.home() / 'STM32Cube' / 'Repository' / 'Packs' / 'STMicroelectronics'
+            / 'X-CUBE-AI' / '8.1.0' / 'Utilities' / 'linux' / 'stm32ai')
 
-    def __dataset_to_csv(self, dataset, outdir, limit):
-        import numpy as np
-        testX = dataset.sets.test.x
-        testY = dataset.sets.test.y
+    @staticmethod
+    def __dataset_to_csv(dataset: RawDataModel, outdir: Path, limit: int | None) -> None:
+        test_x = dataset.sets.test.x
+        test_y = dataset.sets.test.y
         if limit:
-            testX = testX[:limit]
-            testY = testY[:limit]
-        testX = testX.reshape((testX.shape[0], -1))
-        testY = testY.reshape((testY.shape[0], -1))
-        np.savetxt(outdir/'testX.csv', testX, delimiter=",", fmt='%f')
-        np.savetxt(outdir/'testY.csv', testY, delimiter=",", fmt='%f')
+            test_x = test_x[:limit]
+            test_y = test_y[:limit]
+        test_x = test_x.reshape((test_x.shape[0], -1))
+        test_y = test_y.reshape((test_y.shape[0], -1))
+        np.savetxt(outdir / 'testX.csv', test_x, delimiter=',', fmt='%f')
+        np.savetxt(outdir / 'testY.csv', test_y, delimiter=',', fmt='%f')
 
-    def __validate(self, testX: Path, testY: Path, modelpath: Path, compression: int, outdir: Path, logdir: Path, tag: str):
+    def __validate(self,  # noqa: PLR0913
+                   test_x: Path,
+                   test_y: Path,
+                   modelpath: Path,
+                   compression: int | None,
+                   outdir: Path,
+                   logdir: Path,
+                   tag: str) -> tuple[int, dict[int, bytearray]]:
 
         cmd = str(self.__stm32cubeai_bin)
-        args =  ('validate',
-                    '--name', 'network',
-                    '--model', str(modelpath),
-                    '--mode', self.__mode,
-                    #'--type', 'keras', # automatically detected, using tflite for now
-                    #'--compression', str(compression),
-                    '--valinput', str(testX),
-                    '--valoutput', str(testY),
-                    '--verbosity', '1',
-                    '--workspace', str(outdir/'workspace'),
-                    '--output', str(outdir/tag),
-                    '--classifier'
-                ) + self.__stm32cubeai_args
-        print(cmd, *args)
-        with (logdir/f'{tag}.txt').open('wb') as logfile:
-            logfile.write(' '.join([str(cmd), *args, '\n']).encode('utf-8'))
+        args = (
+            'validate',
+            '--name', 'network',
+            '--model', str(modelpath),
+            '--mode', self.__mode,
+            '--compression', str(compression) if compression else 'none',
+            '--valinput', str(test_x),
+            '--valoutput', str(test_y),
+            '--verbosity', '3',
+            '--workspace', str(outdir / 'workspace'),
+            '--output', str(outdir / tag),
+            '--classifier',
+            '--allocate-inputs',
+            '--allocate-outputs',
+            *self.__stm32cubeai_args,
+        )
+        logger.info('Running: %s %s', cmd, ' '.join(args))
+        with (logdir / f'{tag}.txt').open('wb') as logfile:
+            _ = logfile.write(' '.join([str(cmd), *args, '\n']).encode('utf-8'))
             returncode, outputs = subprocesstee.run(cmd, *args, files={sys.stdout: logfile, sys.stderr: logfile})
         return returncode, outputs
 
-    def __parse_validate_stdout(self, s: str):
-        duration = re.search("^\s*duration\s*:\s*([.\d]+)\s+ms\s+\(average\)$", s, re.MULTILINE)
+    def __parse_validate_stdout(self, s: str) -> tuple[float | None, float | None]:
+        duration = re.search(r'[\r,\n]\s*duration\s*:\s*([.\d]+)\s*ms.*$', s, re.MULTILINE)
         if duration is not None:
-            duration = float(duration.group(1))/1000
+            duration = float(duration.group(1)) / 1000
 
-        accuracy = re.search(f'^{self.__mode}\ C-model\ #1\s+([.\d]+)%.*$', s, re.MULTILINE)
+        accuracy = re.search(rf'[\r,\n]\s*{self.__mode}\ c-model\ #1\s+([.\d]+)%.*$', s, re.MULTILINE)
         if accuracy is not None:
-            accuracy = float(accuracy.group(1))/100
+            accuracy = float(accuracy.group(1)) / 100
 
         return duration, accuracy
 
-    def evaluate(self, framework, model_kind, dataset, target: str, tag: str, limit: int=None, dataaugmentations=[]):
+    @override
+    def evaluate(self,
+                 framework: LearningFramework[Any],
+                 model_kind: str,
+                 dataset: RawDataModel,
+                 target: str,
+                 tag: str,
+                 limit: int | None = None,
+                 dataaugmentations: list[DataAugmentation] | None = None) -> Stats | None:
         if dataaugmentations:
-            raise ValueError(f'dataaugmentations not supported for {self.__class__.__name__}')
+            logger.error('dataaugmentations not supported for %s', self.__class__.__name__)
+            raise ValueError
 
-        outdir = Path('out')/'deploy'/target
-        logdir = Path('out')/'evaluate'/target
+        outdir = Path('out') / 'deploy' / target
+        logdir = Path('out') / 'evaluate' / target
         logdir.mkdir(parents=True, exist_ok=True)
 
         self.__dataset_to_csv(dataset, logdir, limit)
 
-        return_code, outputs = self.__validate(testX=logdir/'testX.csv',
-                                                testY=logdir/'testY.csv',
-                                                modelpath=Path('out')/'deploy'/'stm32cubeai'/f'{tag}.tflite',
+        return_code, outputs = self.__validate(test_x=logdir / 'testX.csv',
+                                                test_y=logdir / 'testY.csv',
+                                                modelpath=Path('out') / 'deploy' / 'stm32cubeai' / f'{tag}.tflite',
                                                 compression=None,
                                                 outdir=outdir,
                                                 logdir=logdir,
