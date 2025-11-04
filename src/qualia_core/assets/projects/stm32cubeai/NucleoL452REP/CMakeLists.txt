@@ -26,6 +26,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
+## WARNING: do not change optimization level! -O1 and higher do not work with X-CUBE-AI
 set(NucleoL452REP_CFLAGS
   "-mcpu=cortex-m4"
   "-mfpu=fpv4-sp-d16"
@@ -42,7 +43,7 @@ set(NucleoL452REP_CFLAGS
    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
    $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
 
-  "-Ofast"
+  "-O0"
 )
 
 add_compile_options(
