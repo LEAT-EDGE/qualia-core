@@ -109,6 +109,7 @@ class Qualia(Evaluator):
 
             r = s.readline().decode('cp437')
             time.sleep(0.1)
+        logger.info('Device ready, sending data...')
 
         # create log directory
         (Path('logs')/'evaluate'/target).mkdir(parents=True, exist_ok=True)
@@ -136,7 +137,7 @@ class Qualia(Evaluator):
             r = Result(i=int(r[0]),
                        y=int(r[1]),
                        score=float(r[2]),
-                       time=int(r[3]))
+                       time=int(r[3]) / 1_000_000)  # Received time is in microseconds, returned time is in seconds
             logger.info('%d: %s', i, str(r))
             results.append(r)
 
