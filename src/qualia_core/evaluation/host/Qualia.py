@@ -40,27 +40,42 @@ class Result:
 class Qualia(Evaluator):
     """Custom evaluation loop for Qualia host implementations like Qualia-CodeGen Linux example."""
 
-    def __init__(self, chunks: int | None = None, max_workers: int | None = None) -> None:
+    def __init__(self,
+                 chunks: int | None = None,
+                 max_workers: int | None = None,
+                 save_preds: bool = False) -> None:
+        """
+
+        :param save_preds: Save predictions to CSV file in ``logs/evaluate/<target>``
+        """
         super().__init__()
         self.__deploydir = Path('out')/'deploy'/'Linux'
         self.__chunks = chunks
         self.__max_workers = max_workers
+        self.__save_preds = save_preds
 
     def _float_to_hex(self, arr: numpy.typing.NDArray[Any]) -> numpy.typing.NDArray[np.str_]:
         def float_to_hex(x: Number) -> str:
-            return float(x).hex()
+            return float(x)#.hex()
         return np.vectorize(float_to_hex)(arr)
 
     def _run_on_split(self,  # noqa: PLR0913
-                       csvdir: Path,
-                       tag: str,
-                       i: int,
-                       test_x: numpy.typing.NDArray[Any],
-                       test_y: numpy.typing.NDArray[Any]) -> Result:
+                      csvdir: Path,
+                      logdir: Path | None,
+                      tag: str,
+                      i: int,
+                      test_x: numpy.typing.NDArray[Any],
+                      test_y: numpy.typing.NDArray[Any]) -> Result:
         np.savetxt(csvdir/f'testX_{i}.csv', self._float_to_hex(test_x), delimiter=',', fmt='%s')
         np.savetxt(csvdir/f'testY_{i}.csv', self._float_to_hex(test_y), delimiter=',', fmt='%s')
 
-        cmd = [str(self.__deploydir/tag/'Linux'), str(csvdir/f'testX_{i}.csv'), str(csvdir/f'testY_{i}.csv')]
+        cmd = [str(self.__deploydir/tag/'Linux'),
+               str(csvdir/f'testX_{i}.csv'),
+               str(csvdir/f'testY_{i}.csv')]
+
+        if logdir is not None:
+            cmd.append(str(logdir/f'{tag}_{i}.csv'))
+
         logger.info('%d Running: %s', i, ' '.join(cmd))
 
         tstart = time.time() # Start timer
@@ -100,7 +115,10 @@ class Qualia(Evaluator):
                     test_x, test_y = framework.apply_dataaugmentation(da, test_x, test_y)
 
         # create log directory
-        (Path('logs')/'evaluate'/target).mkdir(parents=True, exist_ok=True)
+        logdir: Path | None = None
+        if self.__save_preds:
+            logdir = Path('logs')/'evaluate'/target
+            logdir.mkdir(parents=True, exist_ok=True)
 
         # create data CSV dir
         csvdir = Path('out')/'data'/dataset.name/'csv'
@@ -125,7 +143,7 @@ class Qualia(Evaluator):
 
         with concurrent.futures.ProcessPoolExecutor(mp_context=multiprocessing.get_context('fork'),
                                                     max_workers=max_workers) as executor:
-            futures = [executor.submit(self._run_on_split, csvdir, tag, i, x, y) for i, (x, y) in enumerate(zip(test_x, test_y))]
+            futures = [executor.submit(self._run_on_split, csvdir, logdir, tag, i, x, y) for i, (x, y) in enumerate(zip(test_x, test_y))]
             results = [f.result() for f in futures]
 
         avg_time = sum(r.time for r in results) / test_vector_count
