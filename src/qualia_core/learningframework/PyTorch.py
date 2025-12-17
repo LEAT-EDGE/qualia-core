@@ -114,7 +114,8 @@ class PyTorch(LearningFramework[nn.Module]):
                      num_outputs: int = 0,
                      experimenttracking_init: Callable[[], NoReturn] | None = None,
                      loss: str | None = None,
-                     metrics: list[str] | None = None) -> None:
+                     metrics: list[str] | None = None,
+                     test_metrics_prefix: str | None = 'test') -> None:
             super().__init__()
             self.model = model
             self.max_epochs = max_epochs
@@ -124,7 +125,8 @@ class PyTorch(LearningFramework[nn.Module]):
 
             self.configure_loss(loss=loss)
             self.configure_metrics(metrics=metrics,
-                                   num_outputs=num_outputs)
+                                   num_outputs=num_outputs,
+                                   test_metrics_prefix=test_metrics_prefix)
 
         @override
         def setup(self, stage: str) -> None:
@@ -150,7 +152,10 @@ class PyTorch(LearningFramework[nn.Module]):
             elif loss is not None:
                 self.loss = self.AVAILABLE_LOSSES[loss]
 
-        def configure_metrics(self, metrics: list[str] | None, num_outputs: int) -> None:
+        def configure_metrics(self,
+                              metrics: list[str] | None,
+                              num_outputs: int,
+                              test_metrics_prefix: str) -> None:
             if metrics is None:
                 return
 
@@ -159,7 +164,7 @@ class PyTorch(LearningFramework[nn.Module]):
 
             self.train_metrics = metrics_collection.clone(prefix='train')
             self.val_metrics = metrics_collection.clone(prefix='val')
-            self.test_metrics = metrics_collection.clone(prefix='test')
+            self.test_metrics = metrics_collection.clone(prefix=test_metrics_prefix)
 
         def apply_dataaugmentation(self,
                                    batch: tuple[torch.Tensor, torch.Tensor],
@@ -515,10 +520,14 @@ class PyTorch(LearningFramework[nn.Module]):
                           logger=self.logger(experimenttracking, name=name),
                           enable_progress_bar=self._enable_progress_bar,
                           callbacks=callbacks)
+
+        # Test step is also used to evalute train set, so set test metrics prefix explicitely to set type
         trainer_module = self.TrainerModule(model,
                                             dataaugmentations=dataaugmentations,
                                             num_outputs=testset.y.shape[-1],
-                                            metrics=self._metrics)
+                                            metrics=self._metrics,
+                                            test_metrics_prefix=dataset_type,
+                                            )
         metrics = trainer.test(trainer_module, DataLoader(self.DatasetFromArray(testset), batch_size=batch_size))
         self.log(f'{metrics=}')
 
