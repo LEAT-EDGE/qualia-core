@@ -162,9 +162,9 @@ class PyTorch(LearningFramework[nn.Module]):
             metrics_collection = torchmetrics.MetricCollection({metric: self.AVAILABLE_METRICS[metric](num_outputs)
                                                                 for metric in metrics})
 
-            self.train_metrics = metrics_collection.clone(prefix='train')
-            self.val_metrics = metrics_collection.clone(prefix='val')
-            self.test_metrics = metrics_collection.clone(prefix=test_metrics_prefix)
+            self.train_metrics = metrics_collection.clone(prefix='train_')
+            self.val_metrics = metrics_collection.clone(prefix='val_')
+            self.test_metrics = metrics_collection.clone(prefix=f'{test_metrics_prefix}_')
 
         def apply_dataaugmentation(self,
                                    batch: tuple[torch.Tensor, torch.Tensor],
