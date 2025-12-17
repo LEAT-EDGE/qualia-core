@@ -6,6 +6,7 @@ from typing import Any, NamedTuple
 
 import colorful as cf  # type: ignore[import-untyped]
 
+from qualia_core.experimenttracking.QualiaDatabase import QualiaDatabase
 from qualia_core.qualia import train
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import CSVLogger, Logger
@@ -87,17 +88,21 @@ class Train:
                         experimenttracking=et,
                         use_test_as_valid=config['bench'].get('use_test_as_valid', False))
 
-                if et is not None:
-                    et.stop()
-
                 log(LearningModelLoggerFields(name=trainresult.name,
                                               i=i,
                                               params=trainresult.params,
                                               mem_params=trainresult.mem_params,
                                               accuracy=trainresult.acc))
 
+                if et and isinstance(et, QualiaDatabase):
+                    et.log_trainresult(trainresult=trainresult)
+
                 for postprocessing in config.get('postprocessing', []):
                     ppp = {k: v for k,v in postprocessing.get('params', {}).items()} # Workaround tomlkit bug where some nested dict would lose their items
+
+                    # Set parent model hash of postprocessed model to the hash of the model just trained
+                    trainresult.parent_model_hash = trainresult.model_hash
+
                     trainresult, m = getattr(qualia.postprocessing, postprocessing['kind'])(**ppp)(
                         trainresult=trainresult,
                         model_conf=m)
@@ -108,6 +113,16 @@ class Train:
                                                       mem_params=trainresult.mem_params,
                                                       accuracy=trainresult.acc))
                     if postprocessing.get('export', False):
-                        trainresult.framework.export(trainresult.model, f'{trainresult.name}_r{i}')
+                        model_path = trainresult.framework.export(trainresult.model, f'{trainresult.name}_r{i}')
+
+                        # Update hash of newly postprocessed model
+                        trainresult.model_hash = trainresult.framework.hash_model(model_path)
+
+                        # Only log if postprocessed model is being exported as we need the file to compute the new hash
+                        if et and isinstance(et, QualiaDatabase):
+                            et.log_trainresult(trainresult=trainresult)
+
+                if et is not None:
+                    et.stop()
 
         return loggers
