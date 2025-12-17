@@ -32,7 +32,7 @@ homepage = "https://github.com/LEAT-EDGE/qualia-core"
 documentation = "https://leat-edge.github.io/qualia-core"
 
 [project.optional-dependencies]
-codegen = ['qualia_codegen_core']
+codegen = ['qualia_codegen_core>2.5.0']
 tensorflow = ['tensorflow<2.18.0rc0', 'keras>=2.13.1', 'pydot']
 pytorch = ['torch', 'lightning', 'tabulate']
 image = ['imageio', 'scikit-image']
