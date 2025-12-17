@@ -33,7 +33,7 @@ class LearningFramework(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def load(self, name: str, model: T) -> T:
+    def load(self, name: str, model: T) -> tuple[T, Path]:
         pass
 
     @abstractmethod
@@ -58,7 +58,7 @@ class LearningFramework(ABC, Generic[T]):
         ...
 
     @abstractmethod
-    def export(self, model: T, name: str) -> None:
+    def export(self, model: T, name: str) -> Path:
         pass
 
     @abstractmethod

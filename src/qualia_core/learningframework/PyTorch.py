@@ -615,7 +615,7 @@ class PyTorch(LearningFramework[nn.Module]):
         return confmat(predictions.to(device=device).argmax(axis=1), testy).int().numpy()
 
     @override
-    def load(self, name: str, model: nn.Module) -> nn.Module:
+    def load(self, name: str, model: nn.Module) -> tuple[nn.Module, Path]:
         import torch
         path = Path('out')/'learningmodel'/f'{name}.pth'
         if path.is_file():
@@ -624,14 +624,16 @@ class PyTorch(LearningFramework[nn.Module]):
             logger.info('Loaded %s.', path)
         else:
             logger.warning('%s not found, not loading weights.', path)
-        return model
+        return model, path
 
     @override
-    def export(self, model: nn.Module, name: str) -> None:
+    def export(self, model: nn.Module, name: str) -> Path:
         import torch
         outdir = Path('out')/'learningmodel'
         outdir.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), outdir/f'{name}.pth')
+
+        return outdir/f'{name}.pth'
 
     @override
     def summary(self, model: nn.Module) -> None:

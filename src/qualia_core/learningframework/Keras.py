@@ -100,7 +100,7 @@ class Keras(LearningFramework[keras.Model]):
     def load(self, name, model=None, path: Path=Path('out')/'learningmodel'):
         from tensorflow.keras.models import load_model
         model = load_model(path/f'{name}.h5', custom_objects=getattr(model, 'get_custom_objects', lambda: {})())
-        return model
+        return model, path/f'{name}.h5'
 
     def evaluate(self, model, testset, batch_size, gpus: int=None, dataaugmentations=None, experimenttracking=None, dataset_type: str='', name: str=''):
         import tensorflow as tf
@@ -152,8 +152,9 @@ class Keras(LearningFramework[keras.Model]):
                  name: str) -> tf.Tensor:
         raise NotImplementedError
 
-    def export(self, model, name, path: Path=Path('out')/'learningmodel'):
+    def export(self, model, name, path: Path=Path('out')/'learningmodel') -> Path:
         model.save(path/f'{name}.h5')
+        return path/f'{name}.h5'
 
     def summary(self, model):
         model.summary()
