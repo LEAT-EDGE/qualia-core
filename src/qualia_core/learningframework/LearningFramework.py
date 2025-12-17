@@ -1,20 +1,27 @@
 from __future__ import annotations
 
+import logging
+import hashlib
+import sys
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
 from qualia_core.typing import TYPE_CHECKING, OptimizerConfigDict
 
 if TYPE_CHECKING:
-    from types import ModuleType  # noqa: TCH003
+    from pathlib import Path
+    from types import ModuleType
 
-    import numpy.typing  # noqa: TCH002
+    import numpy.typing
 
-    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
-    from qualia_core.datamodel.RawDataModel import RawData  # noqa: TCH001
-    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking  # noqa: TCH001
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation
+    from qualia_core.datamodel.RawDataModel import RawData
+    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking
 
 T = TypeVar('T')
+
+logger = logging.getLogger(__name__)
+
 
 class LearningFramework(ABC, Generic[T]):
     learningmodels: ModuleType
@@ -60,6 +67,16 @@ class LearningFramework(ABC, Generic[T]):
     @abstractmethod
     def export(self, model: T, name: str) -> Path:
         pass
+
+    def hash_model(self, path: Path) -> str:
+        # hashlib.file_digest() requires Python 3.11
+        if sys.version_info < (3, 12):
+            logger.error('Python 3.11 or newer required')
+            raise NotImplementedError
+
+        with path.open('rb') as f:
+            filehash = hashlib.file_digest(f, 'sha256')
+        return filehash.hexdigest()
 
     @abstractmethod
     def summary(self, model: T) -> None:
