@@ -644,7 +644,7 @@ class PyTorch(LearningFramework[nn.Module]):
     @override
     def n_params(self, model: nn.Module) -> int:
         import numpy as np
-        return np.sum([params.numel() for params in model.parameters()])
+        return np.sum([params.numel() for params in model.parameters()]).item()
 
     @override
     def save_graph_plot(self, model: nn.Module, model_save: str) -> None:
