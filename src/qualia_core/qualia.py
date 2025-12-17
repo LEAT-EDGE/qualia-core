@@ -11,16 +11,18 @@ from qualia_core.learningmodel.LearningModel import LearningModel
 from qualia_core.typing import TYPE_CHECKING, DeployerConfigDict, ModelParamsConfigDict, OptimizerConfigDict
 
 if TYPE_CHECKING:
+    from pathlib import Path
     from types import ModuleType
 
-    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
-    from qualia_core.datamodel.DataModel import DataModel  # noqa: TCH001
-    from qualia_core.datamodel.RawDataModel import RawData, RawDataModel  # noqa: TCH001
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation
+    from qualia_core.datamodel.DataModel import DataModel
+    from qualia_core.datamodel.RawDataModel import RawData, RawDataModel
     from qualia_core.deployment.Deploy import Deploy
     from qualia_core.deployment.Deployer import Deployer
-    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking  # noqa: TCH001
-    from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
+    from qualia_core.experimenttracking.ExperimentTracking import ExperimentTracking
+    from qualia_core.learningframework.LearningFramework import LearningFramework
     from qualia_core.typing import RecursiveConfigDict
+
 
 @dataclass
 class TrainResult:
@@ -40,11 +42,16 @@ class TrainResult:
     log: bool
     dataaugmentations: list[DataAugmentation]
     experimenttracking: ExperimentTracking | None
+    parent_model_hash: str | None
+    model_hash: str | None
+
 
 T = TypeVar('T', bound=LearningModel)
 
+
 def gen_tag(mname: str, q: str, o: int, i: int, c: int) -> str:
     return f'{mname}_q{q}_o{o}_c{c}_r{i}'
+
 
 def instantiate_model(dataset: RawData,  # noqa: PLR0913
                       framework: LearningFramework[T],
@@ -52,7 +59,7 @@ def instantiate_model(dataset: RawData,  # noqa: PLR0913
                       model_params: ModelParamsConfigDict | None,
                       model_name: str,
                       iteration: int,
-                      load: bool = True) -> T:  # noqa: FBT001, FBT002
+                      load: bool = True) -> tuple[T, Path | None]:  # noqa: FBT001, FBT002
     model_params = model_params if model_params is not None else ModelParamsConfigDict()
 
     if 'input_shape' not in model_params:
@@ -75,11 +82,11 @@ def instantiate_model(dataset: RawData,  # noqa: PLR0913
     # Show model architecture
     framework.summary(new_model)
 
+    loaded_path: Path | None = None
     if load:
-        new_model = framework.load(f'{model_name}_r{iteration}', new_model)
+        new_model, loaded_path = framework.load(f'{model_name}_r{iteration}', new_model)
 
-
-    return new_model
+    return new_model, loaded_path
 
 def train(datamodel: RawDataModel,  # noqa: PLR0913
           train_epochs: int,
@@ -96,17 +103,21 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
           dataaugmentations: list[DataAugmentation] | None = None,
           experimenttracking: ExperimentTracking | None = None,
           use_test_as_valid: bool = False) -> TrainResult:  # noqa: FBT001, FBT002
+    model_path: Path | None = None
 
     if batch_size is None:
         batch_size = 32
 
-    new_model = instantiate_model(dataset=datamodel.sets.train,
-                       framework=framework,
-                       model=model,
-                       model_params=model_params,
-                       model_name=model_name,
-                       iteration=iteration,
-                       load=load)
+    new_model, model_path = instantiate_model(dataset=datamodel.sets.train,
+                                  framework=framework,
+                                  model=model,
+                                  model_params=model_params,
+                                  model_name=model_name,
+                                  iteration=iteration,
+                                  load=load)
+
+    # We loaded a model as parent model, record its hash
+    parent_model_hash = framework.hash_model(model_path) if model_path is not None else None
 
     # Export model visualization to dot file
     framework.save_graph_plot(new_model, f'{model_name}_r{iteration}')
@@ -114,39 +125,43 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
     # You can plot the quantize training graph on tensorboard
     if train:
         new_model = framework.train(new_model,
-                        trainset=datamodel.sets.train,
-                        validationset=datamodel.sets.valid if not use_test_as_valid else datamodel.sets.test,
-                        epochs=train_epochs,
-                        batch_size=batch_size,
-                        optimizer=optimizer,
-                        dataaugmentations=dataaugmentations,
-                        experimenttracking=experimenttracking,
-                        name=f'{model_name}_r{iteration}_train')
+                                                trainset=datamodel.sets.train,
+                                                validationset=datamodel.sets.valid if not use_test_as_valid else datamodel.sets.test,
+                                                epochs=train_epochs,
+                                                batch_size=batch_size,
+                                                optimizer=optimizer,
+                                                dataaugmentations=dataaugmentations,
+                                                experimenttracking=experimenttracking,
+                                                name=f'{model_name}_r{iteration}_train')
 
     metrics = {}
     if evaluate:
         print(f'{cf.bold}Evaluation on train dataset{cf.reset}')
         metrics = framework.evaluate(new_model,
-                                 datamodel.sets.train,
-                                 batch_size=batch_size,
-                                 dataaugmentations=dataaugmentations,
-                                 experimenttracking=experimenttracking,
-                                 dataset_type='train',
-                                 name=f'{model_name}_r{iteration}_eval_train')
-
-        if len(datamodel.sets.test.x) > 0: # Don't evaluate if testset is empty
-            print(f'{cf.bold}Evaluation on test dataset{cf.reset}')
-            metrics = framework.evaluate(new_model,
-                                     datamodel.sets.test,
+                                     datamodel.sets.train,
                                      batch_size=batch_size,
                                      dataaugmentations=dataaugmentations,
                                      experimenttracking=experimenttracking,
-                                     dataset_type='test',
-                                     name=f'{model_name}_r{iteration}_eval_test')
+                                     dataset_type='train',
+                                     name=f'{model_name}_r{iteration}_eval_train')
+
+        if len(datamodel.sets.test.x) > 0: # Don't evaluate if testset is empty
+            print(f'{cf.bold}Evaluation on test dataset{cf.reset}')
+            test_metrics = framework.evaluate(new_model,
+                                         datamodel.sets.test,
+                                         batch_size=batch_size,
+                                         dataaugmentations=dataaugmentations,
+                                         experimenttracking=experimenttracking,
+                                         dataset_type='test',
+                                         name=f'{model_name}_r{iteration}_eval_test')
+            metrics.update(test_metrics)  # Add or update test metrics to train metrics
 
     # Do not save loaded model that hasn't been retrained
     if train or not load:
-        framework.export(new_model, f'{model_name}_r{iteration}')
+        model_path = framework.export(new_model, f'{model_name}_r{iteration}')
+
+    # Hash new model
+    model_hash = framework.hash_model(model_path) if model_path is not None else None
 
     return TrainResult(name=model_name,
                        i=iteration,
@@ -163,7 +178,10 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
                        optimizer=optimizer,
                        log=True,
                        dataaugmentations=dataaugmentations,
-                       experimenttracking=experimenttracking)
+                       experimenttracking=experimenttracking,
+                       model_hash=model_hash,
+                       parent_model_hash=parent_model_hash,
+                       )
 
 def prepare_deploy(
     datamodel,
