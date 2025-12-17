@@ -57,14 +57,14 @@ class PrepareDeploy:
                     learningframework = pp.process_framework(learningframework)
 
                 # Instantiate model
-                model = instantiate_model(dataset=data.sets.test,
-                                          framework=learningframework,
-                                          model=getattr(learningframework.learningmodels, m['kind']),
-                                          model_params=m.get('params', {}),
-                                          model_name=model_name,
-                                          iteration=i,
-                                          load=False, # Model params will be loaded after postprocessings
-                                          )
+                model, model_path = instantiate_model(dataset=data.sets.test,
+                                                      framework=learningframework,
+                                                      model=getattr(learningframework.learningmodels, m['kind']),
+                                                      model_params=m.get('params', {}),
+                                                      model_name=model_name,
+                                                      iteration=i,
+                                                      load=False, # Model params will be loaded after postprocessings
+                                                      )
 
                 # Postprocessings can change model topology with PyTorch, needs to be done after instantiating model with new name
                 for postprocessing in config.get('postprocessing', []):
@@ -75,7 +75,7 @@ class PrepareDeploy:
                 learningframework.summary(model)
 
                 # Load weights after topology optionally changed
-                model = learningframework.load(f'{model_name}_r{i}', model)
+                model, model_path = learningframework.load(f'{model_name}_r{i}', model)
 
                 print(f'{cf.bold}Preparing {cf.blue}{model_name}{cf.close_fg_color}, run {cf.red}{i}{cf.reset}')
                 r = prepare_deploy(

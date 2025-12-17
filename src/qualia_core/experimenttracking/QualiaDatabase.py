@@ -12,6 +12,7 @@ from qualia_core.typing import TYPE_CHECKING
 from .ExperimentTracking import ExperimentTracking
 
 if TYPE_CHECKING:
+    from qualia_core.evaluation.Stats import Stats
     from qualia_core.qualia import TrainResult
     from qualia_core.typing import RecursiveConfigDict
 
@@ -40,10 +41,11 @@ class QualiaDatabase(ExperimentTracking):
     CREATE TABLE IF NOT EXISTS metrics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         model_id INTEGER,
+        source TEXT,
         name TEXT,
         value REAL,
 
-        UNIQUE(model_id, name, value),
+        UNIQUE(model_id, source, name, value),
         FOREIGN KEY(model_id) REFERENCES models(id)
     );
     """
@@ -73,15 +75,20 @@ class QualiaDatabase(ExperimentTracking):
         );
         """,
         """
-        CREATE UNIQUE INDEX _ ON metrics(model_id, name, value);
+        CREATE UNIQUE INDEX _ ON metrics(model_id, source, name, value);
+        """,
+        """
+        ALTER TABLE metrics ADD COLUMN source TEXT;
         """,
     ]
 
     __queries: Final[dict[str, str]] = {
         'insert_model': """INSERT INTO models(parent_id, timestamp, name, parameters, hash)
                            VALUES (:parent_id, :timestamp, :name, :parameters, :hash)""",
-        'insert_metric': 'INSERT OR IGNORE INTO metrics(model_id, name, value) VALUES (:model_id, :name, :value)',
+        'insert_metric': 'INSERT OR IGNORE INTO metrics(model_id, source, name, value) VALUES (:model_id, :source, :name, :value)',
         'lookup_model_hash': 'SELECT id FROM models WHERE hash = :model_hash ORDER BY timestamp DESC',
+        'lookup_model_name_and_hash': """SELECT id FROM models
+                                         WHERE name = :model_name AND hash = :model_hash ORDER BY timestamp DESC""",
         'lookup_model': """SELECT id FROM models
                            WHERE parent_id IS :parent_id AND name = :name AND parameters = :parameters AND hash = :hash
                            ORDER BY timestamp DESC""",
@@ -136,6 +143,10 @@ class QualiaDatabase(ExperimentTracking):
         res = cur.execute(self.__queries['lookup_model_hash'], (model_hash, )).fetchone()
         return res[0] if res is not None else None
 
+    def __lookup_model_name_and_hash(self, cur: sqlite3.Cursor, model_name: str, model_hash: str) -> int | None:
+        res = cur.execute(self.__queries['lookup_model_name_and_hash'], {'model_name': model_name, 'model_hash': model_hash}).fetchone()
+        return res[0] if res is not None else None
+
     @override
     def start(self, name: str | None = None) -> None:
         if not self.__db_path.exists():
@@ -154,11 +165,11 @@ class QualiaDatabase(ExperimentTracking):
 
         if not isinstance(trainresult.framework, PyTorch):
             logger.error('Only PyTorch LearningFramework is supported')
-            raise TypeError
+            return
 
         if not self.__con or not self.__cur:
             logger.error('Database not initialized')
-            raise RuntimeError
+            return
 
         parent_id = (self.__lookup_model_hash(self.__cur, trainresult.parent_model_hash)
                      if trainresult.parent_model_hash is not None else None)
@@ -184,6 +195,7 @@ class QualiaDatabase(ExperimentTracking):
         # Insert each metric record
         metrics = [
             {'model_id': model_id,
+             'source': 'host',
              'name': name,
              'value': value,
              }
@@ -193,9 +205,40 @@ class QualiaDatabase(ExperimentTracking):
         _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
         self.__con.commit()
 
+    def log_stats(self, model_name: str, model_hash: str, stats: Stats) -> None:
+        if not self.__con or not self.__cur:
+            logger.error('Database not initialized')
+            return
+
+        model_id = self.__lookup_model_name_and_hash(self.__cur, model_name, model_hash)
+
+        if model_id is None:
+            logger.warning('Could not find model in database, target evaluation results will not be recorded (name=%s, hash=%s)',
+                           model_name, model_hash)
+
+        # Insert each metric record
+        metrics = [
+            {'model_id': model_id,
+             'source': 'target',
+             'name': name,
+             'value': value,
+             }
+            for name, value in stats.metrics.items()
+        ]
+
+        # Also add the Stats fields avg_time, rom_size, ram_size
+        metrics.extend({'model_id': model_id,
+                            'source': 'target',
+                            'name': name,
+                            'value': getattr(stats, name),
+                            } for name in ('avg_time', 'ram_size', 'rom_size'))
+
+        _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
+        self.__con.commit()
+
     @override
     def _hyperparameters(self, params: RecursiveConfigDict) -> None:
-        print(f'{params=}')
+        pass
 
     @override
     def stop(self) -> None:

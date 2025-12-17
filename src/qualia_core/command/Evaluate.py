@@ -6,19 +6,20 @@ from typing import Any
 import colorful as cf  # type: ignore[import-untyped]
 
 from qualia_core.evaluation.Stats import StatsFields
-from qualia_core.qualia import get_deployer, evaluate, gen_tag, instantiate_model
+from qualia_core.experimenttracking.QualiaDatabase import QualiaDatabase
+from qualia_core.qualia import evaluate, gen_tag, get_deployer, instantiate_model
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import CSVLogger, Logger
 
 if TYPE_CHECKING:
-    from types import ModuleType  # noqa: TCH003
+    from types import ModuleType
 
-    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
-    from qualia_core.datamodel.RawDataModel import RawDataModel  # noqa: TCH001
-    from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation
+    from qualia_core.datamodel.RawDataModel import RawDataModel
+    from qualia_core.learningframework.LearningFramework import LearningFramework
+    from qualia_core.postprocessing.Converter import Converter
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
+    from qualia_core.utils.plugin import QualiaComponent
 
 
 class Evaluate:
@@ -35,6 +36,8 @@ class Evaluate:
         loggers['evaluate'] = log
         # Write column names
         log.fields = StatsFields
+
+        experimenttracking = config.get('experimenttracking', None)
 
         for i in range(config['bench']['first_run'], config['bench']['last_run']+1):
             for m, q, o, c in itertools.product(config['model'],
@@ -58,14 +61,14 @@ class Evaluate:
 
 
                 # Instantiate model
-                model = instantiate_model(dataset=data.sets.test,
-                                          framework=learningframework,
-                                          model=getattr(learningframework.learningmodels, m['kind']),
-                                          model_params=m.get('params', {}),
-                                          model_name=model_name,
-                                          iteration=i,
-                                          load=False # Model params will be loaded after postprocessings
-                                          )
+                model, model_path = instantiate_model(dataset=data.sets.test,
+                                                      framework=learningframework,
+                                                      model=getattr(learningframework.learningmodels, m['kind']),
+                                                      model_params=m.get('params', {}),
+                                                      model_name=model_name,
+                                                      iteration=i,
+                                                      load=False # Model params will be loaded after postprocessings
+                                                      )
 
                 # Postprocessings can change model topology with PyTorch, needs to be done after instantiating model with new name
                 for postprocessing in config.get('postprocessing', []):
@@ -76,7 +79,7 @@ class Evaluate:
                 learningframework.summary(model)
 
                 # Load weights after topology optionally changed
-                model = learningframework.load(f'{model_name}_r{i}', model)
+                model, model_path = learningframework.load(f'{model_name}_r{i}', model)
 
                 # Converter can affect mem_params if there is quantization
                 if not converter:
@@ -112,4 +115,14 @@ class Evaluate:
                 print(result)
                 if result is not None:
                     log(result.asnamedtuple())
+
+                if experimenttracking is not None:
+                    et = getattr(learningframework.experimenttrackings, experimenttracking['kind'])(**experimenttracking.get('params', {}))
+                    if isinstance(et, QualiaDatabase):
+                        et.start()
+                        et.log_stats(model_name=model_name,
+                                     model_hash=learningframework.hash_model(model_path),
+                                     stats=result)
+                        et.stop()
+
         return loggers
