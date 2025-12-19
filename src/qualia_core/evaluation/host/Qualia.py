@@ -158,7 +158,10 @@ class Qualia(Evaluator):
                     metrics[name] += value * len(y)
         metrics = {name: value / test_vector_count for name, value in metrics.items()}
 
-        return Stats(avg_time=avg_time, metrics=metrics, accuracy=metrics.get('acc', -1))
+        # Prefix metric name with 'test_' as they as computed on test dataset to match metric name of LearningFramework
+        metrics = {f'test_{name}': value for name, value in metrics.items()}
+
+        return Stats(avg_time=avg_time, metrics=metrics, accuracy=metrics.get('test_acc', -1))
 
         # avg it/secs
         # ram usage
