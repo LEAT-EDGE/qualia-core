@@ -168,7 +168,7 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
                        model=new_model,
                        params=framework.n_params(new_model),
                        mem_params=framework.n_params(new_model) * 4, # Non-quantized model is assumed to be 32 bits
-                       acc=metrics.get('testacc', None),
+                       acc=metrics.get('test_acc', None),
                        metrics=metrics,
                        datamodel=datamodel,
                        trainset=datamodel.sets.train,

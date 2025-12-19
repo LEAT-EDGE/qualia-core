@@ -334,7 +334,7 @@ class PyTorch(LearningFramework[nn.Module]):
         self._loss = loss
         self._metrics = metrics if metrics is not None else ['prec', 'rec', 'f1', 'acc', 'avgclsacc']
         self._enable_confusion_matrix = enable_confusion_matrix
-        self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'valavgclsacc',
+        self._checkpoint_metric = checkpoint_metric if checkpoint_metric is not None else {'name': 'val_avgclsacc',
                                                                                            'mode': 'max'}
 
         self.log = TextLogger(name=__name__)

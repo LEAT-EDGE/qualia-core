@@ -12,7 +12,7 @@ params.devices = [0]
 params.loss = 'mse'
 params.metrics = ['mse', 'mae', 'corr', 'slope']
 params.enable_confusion_matrix = false
-params.checkpoint_metric.name = 'trainmse'
+params.checkpoint_metric.name = 'train_mse'
 params.checkpoint_metric.mode = 'min'
 #params.use_best_epoch = true
 
