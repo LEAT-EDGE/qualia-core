@@ -108,7 +108,7 @@ class Keras(LearningFramework[keras.Model]):
         if dataaugmentations:
             raise ValueError(f'Data augmentation not supported with {self.__class__.__name__}')
 
-        accuracy_metric = tf.keras.metrics.CategoricalAccuracy(name='testacc')
+        accuracy_metric = tf.keras.metrics.CategoricalAccuracy(name='test_acc')
         model.compile(loss='categorical_crossentropy', metrics=[accuracy_metric])
 
         metrics = model.evaluate(testset.x, testset.y, batch_size=batch_size)
