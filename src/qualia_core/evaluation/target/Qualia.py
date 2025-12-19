@@ -145,8 +145,11 @@ class Qualia(Evaluator):
             log(r)
 
         avg_time = statistics.mean([r.time for r in results])
+        accuracy = self.compute_accuracy(preds=[r.y for r in results], truth=test_y)
 
-        return Stats(avg_time=avg_time, accuracy=self.compute_accuracy(preds=[r.y for r in results], truth=test_y))
+        return Stats(avg_time=avg_time,
+                     accuracy=accuracy,
+                     metrics={'test_acc': accuracy})
 
         # avg it/secs
         # ram usage
