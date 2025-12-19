@@ -53,6 +53,7 @@ docs = ['pdm', 'sphinx', 'sphinx-rtd-theme', 'myst-parser']
 qualia = "qualia_core.main:main"
 clearml-import-offline = "qualia_core.experimenttracking.pytorch.ClearML:ClearML.import_and_clear_all_offline_sessions"
 qualia-gen-featuremap-pdf = "qualia_core.postprocessing.VisualizeFeatureMaps:VisualizeFeatureMaps.gen_featuremap_pdf"
+qualia-database = "qualia_core.experimenttracking.QualiaDatabase:QualiaDatabase.cli"
 
 [tool.pytest.ini_options]
 markers = [

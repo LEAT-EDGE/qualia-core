@@ -4,6 +4,7 @@ import logging
 import sqlite3
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
@@ -92,6 +93,8 @@ class QualiaDatabase(ExperimentTracking):
         'lookup_model': """SELECT id FROM models
                            WHERE parent_id IS :parent_id AND name = :name AND parameters = :parameters AND hash = :hash
                            ORDER BY timestamp DESC""",
+        'get_model': 'SELECT * from models WHERE id = :model_id',
+        'get_metrics': 'SELECT * from metrics WHERE model_id = :model_id',
     }
 
     __con: sqlite3.Connection | None = None
@@ -144,8 +147,16 @@ class QualiaDatabase(ExperimentTracking):
         return res[0] if res is not None else None
 
     def __lookup_model_name_and_hash(self, cur: sqlite3.Cursor, model_name: str, model_hash: str) -> int | None:
-        res = cur.execute(self.__queries['lookup_model_name_and_hash'], {'model_name': model_name, 'model_hash': model_hash}).fetchone()
+        res = cur.execute(self.__queries['lookup_model_name_and_hash'],
+                          {'model_name': model_name, 'model_hash': model_hash}).fetchone()
         return res[0] if res is not None else None
+
+    def __get_model(self, cur: sqlite3.Cursor, model_id: int) -> dict[str, Any] | None:
+        res = cur.execute(self.__queries['get_model'], (model_id, )).fetchone()
+        return res if res is not None else None
+
+    def __get_metrics(self, cur: sqlite3.Cursor, model_id: int) -> list[dict[str, Any]]:
+        return cur.execute(self.__queries['get_metrics'], (model_id, )).fetchall()
 
     @override
     def start(self, name: str | None = None) -> None:
@@ -153,6 +164,7 @@ class QualiaDatabase(ExperimentTracking):
             self.__create_database(self.__db_path)
 
         self.__con = sqlite3.connect(self.__db_path, isolation_level=None)
+        self.__con.row_factory = sqlite3.Row
         self.__cur = self.__con.cursor()
         _ = self.__cur.execute('PRAGMA foreign_keys = 1')
 
@@ -244,6 +256,105 @@ class QualiaDatabase(ExperimentTracking):
     def stop(self) -> None:
         if self.__con:
             self.__con.close()
+
+    def __print_model(self, model: dict[str, Any]) -> None:
+        print(f'Model id:         {model["id"]}')
+        print(f'Model name:       {model["name"]}')
+        print(f'Model hash:       {model["hash"]}')
+        print(f'Model date:       {datetime.fromtimestamp(model["timestamp"], tz=timezone.utc)}')
+        print(f'Model parameters: {model["parameters"]}')
+        print(f'Parent model id:  {model["parent_id"]}')
+
+    def __print_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        max_name_length = 0
+        metrics_by_source: dict[str, list[dict[str, Any]]] = {}
+        for metric in metrics:
+            metrics_by_source.setdefault(metric['source'], []).append(metric)
+            max_name_length = max(max_name_length, len(metric['name']))
+
+        print('Metrics:')
+        for source_name, source in metrics_by_source.items():
+            print(f'    Source: {source_name}')
+
+            for metric in source:
+                print(f'        {metric["name"]}: {" " * (max_name_length - len(metric["name"]))}{metric["value"]}')
+
+    def __handle_show_model_command(self, *args: str) -> None:
+        if len(args) < 1:
+            logger.error('Model hash required')
+            return
+
+        if self.__cur is None:
+            logger.error('Database not initialized')
+            return
+
+        model_id = self.__lookup_model_hash(self.__cur, args[0])
+        if model_id is None:
+            logger.error('Model hash %s not found', args[0])
+            return
+
+        while model_id is not None:
+            model = self.__get_model(self.__cur, model_id)
+            if model is None:
+                logger.error('Model %d not found', model_id)
+                return
+
+            self.__print_model(model)
+
+            metrics = self.__get_metrics(self.__cur, model_id)
+
+            self.__print_metrics(metrics)
+
+            print()
+
+            model_id = model['parent_id']
+            if model_id is not None:
+                print('Parent model')
+
+    def __handle_show_command(self, subcommand: str, *args: str) -> None:
+        if subcommand == 'model':
+            self.__handle_show_model_command(*args)
+        else:
+            logger.error('Invalid subcommand %s', subcommand)
+
+    def handle_command(self, command: str, *args: str) -> None:
+        if command == 'show':
+            if len(args) < 1:
+                logger.error('Subcommand required')
+                return
+
+            self.__handle_show_command(*args)
+        elif command == 'help':
+            self.print_cli_help()
+        else:
+            logger.error('Invalid command %s', command)
+            self.print_cli_help()
+
+    @classmethod
+    def print_cli_help(cls) -> None:
+        print('Usage: {sys.argv[0]} <command> <args>', file=sys.stderr)
+        print('    command:')
+        print('        - help')
+        print('        - show')
+
+    @classmethod
+    def cli(cls) -> None:
+        from qualia_core.utils.logger.setup_root_logger import setup_root_logger
+
+        # We main not be called from qualia_core.main:main so always setup logging to show logger.info()
+        setup_root_logger(colored=True)
+
+        if len(sys.argv) < 2:
+            cls.print_cli_help()
+            return
+
+        qualia_database = cls()
+
+        qualia_database.start()
+
+        qualia_database.handle_command(*sys.argv[1:])
+
+        qualia_database.stop()
 
     @property
     def __sql_schema_version(self) -> int:
