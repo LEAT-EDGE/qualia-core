@@ -115,7 +115,7 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
                                                      experimenttracking=trainresult.experimenttracking,
                                                      dataset_type='test',
                                                      name=model_name)
-            acc = metrics.get('testacc', None)
+            acc = metrics.get('test_acc', None)
 
         new_model_conf = copy.deepcopy(model_conf)
         new_model_conf.get('params', {})['batch_norm'] = False

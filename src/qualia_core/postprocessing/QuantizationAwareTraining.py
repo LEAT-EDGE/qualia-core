@@ -289,7 +289,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                                     name=model_name,
                                     params=framework.n_params(quantized_model),
                                     mem_params=(framework.n_params(quantized_model) * self.width) // 8,
-                                    acc=metrics.get('testacc', None),
+                                    acc=metrics.get('test_acc', None),
                                     metrics=metrics), new_model_conf
 
     @override
