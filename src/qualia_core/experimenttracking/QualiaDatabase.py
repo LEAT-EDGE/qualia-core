@@ -93,6 +93,7 @@ class QualiaDatabase(ExperimentTracking):
         'lookup_model': """SELECT id FROM models
                            WHERE parent_id IS :parent_id AND name = :name AND parameters = :parameters AND hash = :hash
                            ORDER BY timestamp DESC""",
+        'get_models': 'SELECT * from models',
         'get_model': 'SELECT * from models WHERE id = :model_id',
         'get_metrics': 'SELECT * from metrics WHERE model_id = :model_id',
     }
@@ -143,7 +144,7 @@ class QualiaDatabase(ExperimentTracking):
         return res[0] if res is not None else None
 
     def __lookup_model_hash(self, cur: sqlite3.Cursor, model_hash: str) -> int | None:
-        res = cur.execute(self.__queries['lookup_model_hash'], (model_hash, )).fetchone()
+        res = cur.execute(self.__queries['lookup_model_hash'], {'model_hash': model_hash}).fetchone()
         return res[0] if res is not None else None
 
     def __lookup_model_name_and_hash(self, cur: sqlite3.Cursor, model_name: str, model_hash: str) -> int | None:
@@ -151,12 +152,15 @@ class QualiaDatabase(ExperimentTracking):
                           {'model_name': model_name, 'model_hash': model_hash}).fetchone()
         return res[0] if res is not None else None
 
+    def __get_models(self, cur: sqlite3.Cursor) -> list[dict[str, Any]]:
+        return cur.execute(self.__queries['get_models']).fetchall()
+
     def __get_model(self, cur: sqlite3.Cursor, model_id: int) -> dict[str, Any] | None:
-        res = cur.execute(self.__queries['get_model'], (model_id, )).fetchone()
+        res = cur.execute(self.__queries['get_model'], {'model_id': model_id}).fetchone()
         return res if res is not None else None
 
     def __get_metrics(self, cur: sqlite3.Cursor, model_id: int) -> list[dict[str, Any]]:
-        return cur.execute(self.__queries['get_metrics'], (model_id, )).fetchall()
+        return cur.execute(self.__queries['get_metrics'], {'model_id': model_id}).fetchall()
 
     @override
     def start(self, name: str | None = None) -> None:
@@ -256,6 +260,34 @@ class QualiaDatabase(ExperimentTracking):
     def stop(self) -> None:
         if self.__con:
             self.__con.close()
+            logger.info('Database closed')
+
+    def __print_models(self, models: list[dict[str, Any]]) -> None:
+        pad_id = max(len(str(max(m['id'] for m in models))), len('ID'))
+        pad_name = max(*(len(m['name']) for m in models), len('Name'))
+        pad_hash = max(*(len(m['hash']) for m in models), len('Hash'))
+        pad_date = max(len(str(datetime.fromtimestamp(0, tz=timezone.utc))), len('Date'))
+        pad_parameters = max(len(str(max(m['parameters'] for m in models))), len('Parameters'))
+        pad_parent_id = max(len(str(max(m['parent_id'] if m['parent_id'] is not None else 0 for m in models))), len('Parent'))
+
+        header = f'{"ID": <{pad_id}} | '
+        header += f'{"Name": <{pad_name}} | '
+        header += f'{"Hash": <{pad_hash}} | '
+        header += f'{"Date": <{pad_date}} | '
+        header += f'{"Parameters": <{pad_parameters}} | '
+        header += f'{"Parent": <{pad_parent_id}}'
+        print(header)
+        print('—' * len(header))
+
+        for model in models:
+            date = str(datetime.fromtimestamp(model["timestamp"], tz=timezone.utc))
+            print(f'{model["id"]: <{pad_id}} | ', end='')
+            print(f'{model["name"]: <{pad_name}} | ', end='')
+            print(f'{model["hash"]: <{pad_hash}} | ', end='')
+            print(f'{date: <{pad_date}} | ', end='')
+            print(f'{model["parameters"]: <{pad_parameters}} | ', end='')
+            print(f'{model["parent_id"] or "": <{pad_parent_id}}')
+
 
     def __print_model(self, model: dict[str, Any]) -> None:
         print(f'Model id:         {model["id"]}')
@@ -278,6 +310,21 @@ class QualiaDatabase(ExperimentTracking):
 
             for metric in source:
                 print(f'        {metric["name"]}: {" " * (max_name_length - len(metric["name"]))}{metric["value"]}')
+
+    def __handle_list_command(self, subcommand: str, *args: str) -> None:
+        if subcommand == 'models':
+            self.__handle_list_model_command()
+        else:
+            logger.error('Invalid subcommand %s', subcommand)
+
+    def __handle_list_model_command(self) -> None:
+        if self.__cur is None:
+            logger.error('Database not initialized')
+            return
+
+        models = self.__get_models(self.__cur)
+
+        self.__print_models(models)
 
     def __handle_show_model_command(self, *args: str) -> None:
         if len(args) < 1:
@@ -318,7 +365,13 @@ class QualiaDatabase(ExperimentTracking):
             logger.error('Invalid subcommand %s', subcommand)
 
     def handle_command(self, command: str, *args: str) -> None:
-        if command == 'show':
+        if command == 'list':
+            if len(args) < 1:
+                logger.error('Subcommand required')
+                return
+
+            self.__handle_list_command(*args)
+        elif command == 'show':
             if len(args) < 1:
                 logger.error('Subcommand required')
                 return
