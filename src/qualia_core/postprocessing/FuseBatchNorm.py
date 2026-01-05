@@ -106,6 +106,7 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
         trainresult.framework.summary(fused_model)
 
         acc = trainresult.acc
+        metrics = trainresult.metrics
         if self.__evaluate:
             logger.info('Evaluation on test dataset after BatchNorm/Conv fusion')
             metrics = trainresult.framework.evaluate(fused_model,
@@ -120,7 +121,16 @@ class FuseBatchNorm(PostProcessing[nn.Module]):
         new_model_conf = copy.deepcopy(model_conf)
         new_model_conf.get('params', {})['batch_norm'] = False
 
-        return (dataclasses.replace(trainresult, name=model_name, model=fused_model, acc=acc),
+        # Reuse original quantization memory factor
+        mem_params = trainresult.framework.n_params(fused_model) * (trainresult.mem_params // trainresult.params)
+
+        return (dataclasses.replace(trainresult,
+                                    name=model_name,
+                                    model=fused_model,
+                                    params=trainresult.framework.n_params(fused_model),
+                                    mem_params=mem_params,
+                                    acc=acc,
+                                    metrics=metrics),
                 new_model_conf)
 
     @override
