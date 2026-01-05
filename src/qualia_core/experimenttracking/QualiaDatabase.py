@@ -100,6 +100,7 @@ class QualiaDatabase(ExperimentTracking):
 
     __con: sqlite3.Connection | None = None
     __cur: sqlite3.Cursor | None = None
+    __ref_count: int = 0
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         super().__init__()
@@ -164,10 +165,17 @@ class QualiaDatabase(ExperimentTracking):
 
     @override
     def start(self, name: str | None = None) -> None:
+
+        if self.__con is not None:
+            logger.warning('Database is already opened, incrementing reference count')
+            self.__ref_count += 1
+            return
+
         if not self.__db_path.exists():
             self.__create_database(self.__db_path)
 
         self.__con = sqlite3.connect(self.__db_path, isolation_level=None)
+        self.__ref_count += 1
         self.__con.row_factory = sqlite3.Row
         self.__cur = self.__con.cursor()
         _ = self.__cur.execute('PRAGMA foreign_keys = 1')
@@ -258,9 +266,16 @@ class QualiaDatabase(ExperimentTracking):
 
     @override
     def stop(self) -> None:
+        if self.__ref_count > 1:
+            logger.info('Decrementing reference count')
+            self.__ref_count -= 1
+            return
+
         if self.__con:
             self.__con.close()
             logger.info('Database closed')
+
+            self.__ref_count = 0
 
     def __print_models(self, models: list[dict[str, Any]]) -> None:
         pad_id = max(len(str(max(m['id'] for m in models))), len('ID'))
