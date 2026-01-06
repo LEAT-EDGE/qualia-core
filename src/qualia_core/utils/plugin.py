@@ -10,16 +10,25 @@ from typing import Final
 from qualia_core.typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from types import ModuleType  # noqa: TCH003
+    from types import ModuleType
 
 logger = logging.getLogger(__name__)
 
-import_package_names: Final[list[str]] = ['dataset', 'deployment', 'preprocessing', 'learningframework', 'postprocessing']
+import_package_names: Final[list[str]] = [
+    'dataset',
+    'deployment',
+    'experimenttracking',
+    'preprocessing',
+    'learningframework',
+    'postprocessing',
+]
+
 
 @dataclass
 class QualiaComponent:
     dataset: ModuleType | None = None
     deployment: ModuleType | None = None
+    experimenttracking: ModuleType | None = None
     learningframework: ModuleType | None = None
     postprocessing: ModuleType | None = None
     preprocessing: ModuleType | None = None
@@ -28,12 +37,14 @@ class QualiaComponent:
     def package_names(self) -> tuple[str, ...]:
         return tuple(field.name for field in dataclasses.fields(self) if getattr(self, field.name) is not None)
 
+
 def import_package_from_plugin(plugin_name: str, package_name: str) -> ModuleType | None:
     if importlib.util.find_spec(f'{plugin_name}.{package_name}') is None:
         logger.info('%s module not found in "%s" plugin', package_name, plugin_name)
         return None
 
     return importlib.import_module(f'{plugin_name}.{package_name}')
+
 
 def load_plugin(plugin_name: str) -> QualiaComponent:
 
@@ -46,6 +57,7 @@ def load_plugin(plugin_name: str) -> QualiaComponent:
     logger.info("Loaded component '%s' with packages %s", plugin_name, component.package_names())
 
     return component
+
 
 def load_plugins(plugin_names: list[str]) -> QualiaComponent:
     packages = load_plugin('qualia_core')
