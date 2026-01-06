@@ -12,13 +12,14 @@ from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import CSVLogger, Logger
 
 if TYPE_CHECKING:
-    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation  # noqa: TCH001
-    from qualia_core.datamodel.RawDataModel import RawDataModel  # noqa: TCH001
-    from qualia_core.learningframework.LearningFramework import LearningFramework  # noqa: TCH001
+    from qualia_core.dataaugmentation.DataAugmentation import DataAugmentation
+    from qualia_core.datamodel.RawDataModel import RawDataModel
+    from qualia_core.learningframework.LearningFramework import LearningFramework
     from qualia_core.typing import ConfigDict
-    from qualia_core.utils.plugin import QualiaComponent  # noqa: TCH001
+    from qualia_core.utils.plugin import QualiaComponent
 
 logger = logging.getLogger(__name__)
+
 
 class LearningModelLoggerFields(NamedTuple):
     name: str
@@ -26,6 +27,7 @@ class LearningModelLoggerFields(NamedTuple):
     params: int
     mem_params: int
     accuracy: float
+
 
 class Train:
     def __call__(self,  # noqa: C901
@@ -38,13 +40,13 @@ class Train:
 
         log: CSVLogger[LearningModelLoggerFields] = CSVLogger('learningmodel')
         loggers['learningmodel'] = log
-        log.fields = LearningModelLoggerFields # Write column names
+        log.fields = LearningModelLoggerFields  # Write column names
 
         experimenttracking = config.get('experimenttracking', None)
 
         (Path('out')/'learningmodel').mkdir(parents=True, exist_ok=True)
 
-        for i in range(config['bench']['first_run'], config['bench']['last_run']+1):
+        for i in range(config['bench']['first_run'], config['bench']['last_run'] + 1):
             for m in config['model']:
                 if m.get('disabled', False):
                     continue
@@ -70,7 +72,6 @@ class Train:
                                  config['bench'].get('plugins', []),
                                  learningframework.__class__.__name__)
                     raise ModuleNotFoundError
-
 
                 trainresult = train(datamodel=data,
                         train_epochs=m.get('epochs', 0),
@@ -98,12 +99,13 @@ class Train:
                     et.log_trainresult(trainresult=trainresult)
 
                 for postprocessing in config.get('postprocessing', []):
-                    ppp = {k: v for k,v in postprocessing.get('params', {}).items()} # Workaround tomlkit bug where some nested dict would lose their items
+                    ppp = {k: v for k, v in postprocessing.get('params', {}).items()}  # Workaround tomlkit bug where some nested dict would lose their items
+                    postprocessing_inst = getattr(qualia.postprocessing, postprocessing['kind'])(**ppp)
 
                     # Set parent model hash of postprocessed model to the hash of the model just trained
                     trainresult.parent_model_hash = trainresult.model_hash
 
-                    trainresult, m = getattr(qualia.postprocessing, postprocessing['kind'])(**ppp)(
+                    trainresult, m = postprocessing_inst(
                         trainresult=trainresult,
                         model_conf=m)
                     if trainresult.log:
@@ -120,7 +122,7 @@ class Train:
 
                         # Only log if postprocessed model is being exported as we need the file to compute the new hash
                         if et and isinstance(et, QualiaDatabase):
-                            et.log_trainresult(trainresult=trainresult)
+                            postprocessing_inst.log_trainresult(et, trainresult=trainresult)
 
                 if et is not None:
                     et.stop()

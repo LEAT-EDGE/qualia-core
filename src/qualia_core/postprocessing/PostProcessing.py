@@ -7,7 +7,9 @@ from qualia_core.learningframework.LearningFramework import LearningFramework, T
 from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
 
 if TYPE_CHECKING:
-    from qualia_core.qualia import TrainResult  # noqa: TC001
+    from qualia_core.experimenttracking.QualiaDatabase import QualiaDatabase
+    from qualia_core.qualia import TrainResult
+
 
 class PostProcessing(ABC, Generic[T]):
     @abstractmethod
@@ -31,3 +33,6 @@ class PostProcessing(ABC, Generic[T]):
                       model_conf: ModelConfigDict,
                       framework: LearningFramework[T]) -> tuple[T, ModelConfigDict]:
         return model, model_conf
+
+    def log_trainresult(self, qualiadatabase: QualiaDatabase, trainresult: TrainResult) -> int | None:
+        return qualiadatabase.log_trainresult(trainresult=trainresult)

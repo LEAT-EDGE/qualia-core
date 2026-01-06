@@ -4,7 +4,6 @@ import copy
 import dataclasses
 import logging
 import sys
-from collections.abc import Generator
 from pathlib import Path
 from typing import Any, Callable, NamedTuple, cast
 
@@ -18,12 +17,15 @@ from qualia_core.utils.merge_dict import merge_dict
 from .PostProcessing import PostProcessing
 
 if TYPE_CHECKING:
-    import keras  # type: ignore[import-untyped]  # noqa: TCH002
-    import numpy.typing  # noqa: TCH002
+    from collections.abc import Generator
 
-    from qualia_core.datamodel.RawDataModel import RawData  # noqa: TCH001
-    from qualia_core.learningframework.LearningFramework import LearningFramework, T  # noqa: TCH001
-    from qualia_core.qualia import TrainResult  # noqa: TCH001
+    import keras  # type: ignore[import-untyped]
+    import numpy as np
+
+    from qualia_core.datamodel.RawDataModel import RawData
+    from qualia_core.experimenttracking.QualiaDatabase import QualiaDatabase
+    from qualia_core.learningframework.LearningFramework import LearningFramework, T
+    from qualia_core.qualia import TrainResult
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -32,16 +34,18 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
 class QuantizationAwareTrainingLoggerFields(NamedTuple):
     i: int
     name: str
     step: str
     width: int
-    metrics: dict[str, int | float | numpy.typing.NDArray[Any]]
+    metrics: dict[str, int | float | np.ndarray[Any, Any]]
+
 
 class QuantizationAwareTraining(PostProcessing[nn.Module]):
 
-    def __init__(self,  # noqa: PLR0913
+    def __init__(self,
                  epochs: int = 1,
                  batch_size: int = 32,
                  model: RecursiveConfigDict | None = None,
@@ -78,7 +82,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                    trainset: RawData,
                    testset: RawData,
                    trainresult: TrainResult,
-                   step: str) -> tuple[dict[str, int | float | numpy.typing.NDArray[Any]], str]:
+                   step: str) -> tuple[dict[str, int | float | np.ndarray[Any, Any]], str]:
         logger.info('Evaluation on train dataset')
         name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_{step}_eval_train'
         metrics = framework.evaluate(model,
@@ -89,7 +93,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                                      dataset_type='train',
                                      name=name)
 
-        if len(testset.x) > 0: # Don't evaluate if testset is empty
+        if len(testset.x) > 0:  # Don't evaluate if testset is empty
             logger.info('Evaluation on test dataset')
             name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_{step}_eval_test'
             metrics = framework.evaluate(model,
@@ -108,7 +112,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                            testset: RawData,
                            trainresult: TrainResult,
                            step: str,
-                           step_msg: str) -> dict[str, int | float | numpy.typing.NDArray[Any]]:
+                           step_msg: str) -> dict[str, int | float | np.ndarray[Any, Any]]:
         logger.info('Evaluation %s', step_msg)
         metrics, name = self.__evaluate(framework,
                                         model,
@@ -134,7 +138,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
 
         qmodel_params: ModelParamsConfigDict = copy.deepcopy(self.qmodel_params)
 
-        if 'update' in model_conf :
+        if 'update' in model_conf:
             qmodel_params['quant_params'].update(model_conf['update']['quant_params'])
 
         if 'params' in model_conf:
@@ -146,9 +150,9 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
         self.force_q: int | None = qmodel_params['quant_params'].get('force_q', None)
 
         prefix = 'Quantized'
-        if self.quant_framework is not None :
-            prefix = prefix + self.quant_framework
-            if self.quant_framework == 'brevitas' :
+        if self.quant_framework is not None:
+            prefix += self.quant_framework
+            if self.quant_framework == 'brevitas':
                 import torch
                 torch.use_deterministic_algorithms(mode=True)
 
@@ -171,29 +175,29 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                         validationset=trainresult.datamodel.sets.valid,
                         epochs=1,
                         batch_size=self.batch_size,
-                        optimizer=None, # Disable optimizer
+                        optimizer=None,  # Disable optimizer
                         dataaugmentations=trainresult.dataaugmentations,
                         experimenttracking=trainresult.experimenttracking,
                         name=name,
-                        precision=32) # Force precision=32 since 'mixed-16' won't work without optimizer, related: https://github.com/Lightning-AI/lightning/issues/17407
+                        precision=32)  # Force precision=32 since 'mixed-16' won't work without optimizer, related: https://github.com/Lightning-AI/lightning/issues/17407
 
     def _quantization_aware_training(self,
                                      framework: LearningFramework[T],
                                      trainresult: TrainResult,
                                      quantized_model: T) -> T:
-            logger.info('Performing quantization-aware training for %s epochs', self.epochs)
-            # restore optimizer with overwritten params from QAT config
-            optimizer = trainresult.optimizer if self.qoptimizer is None else merge_dict(self.qoptimizer, trainresult.optimizer)
-            name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_post_train'
-            return framework.train(quantized_model,
-                            trainset=trainresult.datamodel.sets.train,
-                            validationset=trainresult.datamodel.sets.valid,
-                            epochs=self.epochs,
-                            batch_size=self.batch_size,
-                            optimizer=optimizer,
-                            dataaugmentations=trainresult.dataaugmentations,
-                            experimenttracking=trainresult.experimenttracking,
-                            name=name)
+        logger.info('Performing quantization-aware training for %s epochs', self.epochs)
+        # restore optimizer with overwritten params from QAT config
+        optimizer = trainresult.optimizer if self.qoptimizer is None else merge_dict(self.qoptimizer, trainresult.optimizer)
+        name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_post_train'
+        return framework.train(quantized_model,
+                        trainset=trainresult.datamodel.sets.train,
+                        validationset=trainresult.datamodel.sets.valid,
+                        epochs=self.epochs,
+                        batch_size=self.batch_size,
+                        optimizer=optimizer,
+                        dataaugmentations=trainresult.dataaugmentations,
+                        experimenttracking=trainresult.experimenttracking,
+                        name=name)
 
     def __export_activation_ranges(self,
                                    model: nn.Module,
@@ -210,20 +214,21 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
         logger.info('Exporting activation ranges to %s', path)
 
         with path.open('w') as f:
-            for name, m in cast(Generator[tuple[str, nn.Module], None, None], model.named_modules()):
-                if len(name) > 0: # _Namespace.create_name tries to access first character without any check for empty string
-                    name = _snake_case(name) # convert module name to identifier, '.' replaced with '_', this is what torch.fx uses
+            for name, m in cast('Generator[tuple[str, nn.Module], None, None]', model.named_modules()):
+                if len(name) > 0:  # _Namespace.create_name tries to access first character without any check for empty string
+                    # Convert module name to identifier, '.' replaced with '_', this is what torch.fx uses
+                    name = _snake_case(name)
                     name = namespace.create_name(name, m)
                 if isinstance(m, (QuantizedLayer, *quantized_layers)):
                     q = f'{name},{m.input_q},{m.activation_q},{m.weights_q},{m.bias_q}'
                     q += f',{m.input_round_mode},{m.activation_round_mode},{m.weights_round_mode}'
                     print(q, file=f)
                     logger.info('%s', q)
-                elif not isinstance(m, Quantizer): # Skip Quantizer modules as they need no quantization themselves
+                elif not isinstance(m, Quantizer):  # Skip Quantizer modules as they need no quantization themselves
                     logger.info("Layer '%s' of type '%s' not quantized", name, type(m))
 
     @override
-    def __call__(self, trainresult: TrainResult, model_conf: ModelConfigDict) -> tuple[ TrainResult, ModelConfigDict]:
+    def __call__(self, trainresult: TrainResult, model_conf: ModelConfigDict) -> tuple[TrainResult, ModelConfigDict]:
         framework = trainresult.framework
         if not isinstance(framework, PyTorch):
             logger.error('Framework %s is not compatible', type(framework))
@@ -263,7 +268,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                                 step='PTQ',
                                 step_msg='after quantization without training (PTQ)')
 
-        if self.epochs > 0: # Do not attempt quantization-aware training if epochs==0
+        if self.epochs > 0:  # Do not attempt quantization-aware training if epochs==0
             quantized_model = self._quantization_aware_training(framework=framework,
                                               trainresult=trainresult,
                                               quantized_model=quantized_model)
@@ -300,3 +305,15 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
     def process_mem_params(self, mem_params: int) -> Callable[[LearningFramework[nn.Module | keras.Model],
                                                                nn.Module | keras.Model], int]:
         return lambda framework, model: (framework.n_params(model) * self.width) // 8
+
+    @override
+    def log_trainresult(self, qualiadatabase: QualiaDatabase, trainresult: TrainResult) -> int | None:
+        """Log the new model with its metrics and record quantization metadata as well."""
+        model_id = super().log_trainresult(qualiadatabase=qualiadatabase, trainresult=trainresult)
+        if model_id is None:
+            logger.error('Could not save quantization metadata in QualiaDatabase: model saved in QualiaDatabase')
+            return model_id
+
+        qualiadatabase.log_quantization(model_id=model_id, bits=self.width, epochs=self.epochs)
+
+        return model_id

@@ -49,6 +49,15 @@ class QualiaDatabase(ExperimentTracking):
         UNIQUE(model_id, source, name, value),
         FOREIGN KEY(model_id) REFERENCES models(id)
     );
+    CREATE TABLE IF NOT EXISTS quantization (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        model_id INTEGER,
+        bits INTEGER,
+        epochs INTEGER,
+
+        UNIQUE(model_id),
+        FOREIGN KEY(model_id) REFERENCES models(id)
+    );
     """
 
     # Incremental schema upgrades
@@ -81,12 +90,28 @@ class QualiaDatabase(ExperimentTracking):
         """
         ALTER TABLE metrics ADD COLUMN source TEXT;
         """,
+        """
+        CREATE TABLE IF NOT EXISTS quantization (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            model_id INTEGER,
+            bits INTEGER,
+
+            FOREIGN KEY(model_id) REFERENCES models(id)
+        );
+        """,
+        """
+        ALTER TABLE quantization ADD COLUMN epochs INTEGER;
+        """,
+        """
+        CREATE UNIQUE INDEX _ ON quantization(model_id);
+        """,
     ]
 
     __queries: Final[dict[str, str]] = {
         'insert_model': """INSERT INTO models(parent_id, timestamp, name, parameters, hash)
                            VALUES (:parent_id, :timestamp, :name, :parameters, :hash)""",
         'insert_metric': 'INSERT OR IGNORE INTO metrics(model_id, source, name, value) VALUES (:model_id, :source, :name, :value)',
+        'insert_quantization': 'INSERT OR REPLACE INTO quantization(model_id, bits, epochs) VALUES(:model_id, :bits, :epochs)',
         'lookup_model_hash': 'SELECT id FROM models WHERE hash = :model_hash ORDER BY timestamp DESC',
         'lookup_model_name_and_hash': """SELECT id FROM models
                                          WHERE name = :model_name AND hash = :model_hash ORDER BY timestamp DESC""",
@@ -96,6 +121,7 @@ class QualiaDatabase(ExperimentTracking):
         'get_models': 'SELECT * from models',
         'get_model': 'SELECT * from models WHERE id = :model_id',
         'get_metrics': 'SELECT * from metrics WHERE model_id = :model_id',
+        'get_quantization': 'SELECT * from quantization WHERE model_id = :model_id',
     }
 
     __con: sqlite3.Connection | None = None
@@ -163,6 +189,9 @@ class QualiaDatabase(ExperimentTracking):
     def __get_metrics(self, cur: sqlite3.Cursor, model_id: int) -> list[dict[str, Any]]:
         return cur.execute(self.__queries['get_metrics'], {'model_id': model_id}).fetchall()
 
+    def __get_quantization(self, cur: sqlite3.Cursor, model_id: int) -> dict[str, Any] | None:
+        return cur.execute(self.__queries['get_quantization'], {'model_id': model_id}).fetchone()
+
     @override
     def start(self, name: str | None = None) -> None:
 
@@ -184,16 +213,16 @@ class QualiaDatabase(ExperimentTracking):
 
         self.__upgrade_database_schema(self.__con, self.__cur)
 
-    def log_trainresult(self, trainresult: TrainResult) -> None:
+    def log_trainresult(self, trainresult: TrainResult) -> int | None:
         from qualia_core.learningframework.PyTorch import PyTorch
 
         if not isinstance(trainresult.framework, PyTorch):
             logger.error('Only PyTorch LearningFramework is supported')
-            return
+            return None
 
         if not self.__con or not self.__cur:
             logger.error('Database not initialized')
-            return
+            return None
 
         parent_id = (self.__lookup_model_hash(self.__cur, trainresult.parent_model_hash)
                      if trainresult.parent_model_hash is not None else None)
@@ -229,6 +258,8 @@ class QualiaDatabase(ExperimentTracking):
         _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
         self.__con.commit()
 
+        return model_id
+
     def log_stats(self, model_name: str, model_hash: str, stats: Stats) -> None:
         if not self.__con or not self.__cur:
             logger.error('Database not initialized')
@@ -258,6 +289,14 @@ class QualiaDatabase(ExperimentTracking):
                             } for name in ('avg_time', 'ram_size', 'rom_size'))
 
         _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
+        self.__con.commit()
+
+    def log_quantization(self, model_id: int, bits: int, epochs: int) -> None:
+        if not self.__con or not self.__cur:
+            logger.error('Database not initialized')
+            return
+
+        _ = self.__cur.execute(self.__queries['insert_quantization'], {'model_id': model_id, 'bits': bits, 'epochs': epochs})
         self.__con.commit()
 
     @override
@@ -312,6 +351,15 @@ class QualiaDatabase(ExperimentTracking):
         print(f'Model parameters: {model["parameters"]}')
         print(f'Parent model id:  {model["parent_id"]}')
 
+    def __print_quantization(self, quantization: dict[str, Any]) -> None:
+        print('Quantization:')
+        print(f'    Bits:   {quantization["bits"]}')
+        print(f'    Epochs: {quantization["epochs"]}', end='')
+        if quantization['epochs']:
+            print(' (QAT)')
+        else:
+            print(' (PTQ)')
+
     def __print_metrics(self, metrics: list[dict[str, Any]]) -> None:
         max_name_length = 0
         metrics_by_source: dict[str, list[dict[str, Any]]] = {}
@@ -363,8 +411,11 @@ class QualiaDatabase(ExperimentTracking):
 
             self.__print_model(model)
 
-            metrics = self.__get_metrics(self.__cur, model_id)
+            quantization = self.__get_quantization(self.__cur, model_id)
+            if quantization:
+                self.__print_quantization(quantization)
 
+            metrics = self.__get_metrics(self.__cur, model_id)
             self.__print_metrics(metrics)
 
             print()
