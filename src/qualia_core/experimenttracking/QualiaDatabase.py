@@ -482,3 +482,7 @@ class QualiaDatabase(ExperimentTracking):
     @property
     def __sql_schema_version(self) -> int:
         return len(self.__sql_schema_upgrades)
+
+    @property
+    def logger(self) -> None:
+        return None
