@@ -58,6 +58,14 @@ class QualiaDatabase(ExperimentTracking):
         UNIQUE(model_id),
         FOREIGN KEY(model_id) REFERENCES models(id)
     );
+
+    CREATE TABLE IF NOT EXISTS plugins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        schema_version INTEGER,
+
+        UNIQUE(name)
+    );
     """
 
     # Incremental schema upgrades
@@ -105,9 +113,19 @@ class QualiaDatabase(ExperimentTracking):
         """
         CREATE UNIQUE INDEX _ ON quantization(model_id);
         """,
+        """
+        CREATE TABLE IF NOT EXISTS plugins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            schema_version INTEGER,
+
+            UNIQUE(name)
+        );
+        """,
     ]
 
     __queries: Final[dict[str, str]] = {
+        'get_schema_version': 'PRAGMA user_version',
         'insert_model': """INSERT INTO models(parent_id, timestamp, name, parameters, hash)
                            VALUES (:parent_id, :timestamp, :name, :parameters, :hash)""",
         'insert_metric': 'INSERT OR IGNORE INTO metrics(model_id, source, name, value) VALUES (:model_id, :source, :name, :value)',
@@ -124,8 +142,8 @@ class QualiaDatabase(ExperimentTracking):
         'get_quantization': 'SELECT * from quantization WHERE model_id = :model_id',
     }
 
-    __con: sqlite3.Connection | None = None
-    __cur: sqlite3.Cursor | None = None
+    _con: sqlite3.Connection | None = None
+    _cur: sqlite3.Cursor | None = None
     __ref_count: int = 0
 
     def __init__(self, db_path: str | Path | None = None) -> None:
@@ -146,10 +164,10 @@ class QualiaDatabase(ExperimentTracking):
         _ = cur.execute(f'PRAGMA user_version = {version}')
 
     def __get_schema_version(self, cur: sqlite3.Cursor) -> int:
-        res = cur.execute('PRAGMA user_version').fetchone()
+        res = cur.execute(self.__queries['get_schema_version']).fetchone()
         return res[0] if res is not None else 0
 
-    def __upgrade_database_schema(self, con: sqlite3.Connection, cur: sqlite3.Cursor) -> None:
+    def _upgrade_database_schema(self, con: sqlite3.Connection, cur: sqlite3.Cursor) -> None:
         # Perform schema upgrades if needed
         current_version = self.__get_schema_version(cur)
         latest_version = self.__sql_schema_version
@@ -195,7 +213,7 @@ class QualiaDatabase(ExperimentTracking):
     @override
     def start(self, name: str | None = None) -> None:
 
-        if self.__con is not None:
+        if self._con is not None:
             logger.warning('Database is already opened, incrementing reference count')
             self.__ref_count += 1
             return
@@ -203,15 +221,15 @@ class QualiaDatabase(ExperimentTracking):
         if not self.__db_path.exists():
             self.__create_database(self.__db_path)
 
-        self.__con = sqlite3.connect(self.__db_path, isolation_level=None)
+        self._con = sqlite3.connect(self.__db_path, isolation_level=None)
         self.__ref_count += 1
-        self.__con.row_factory = sqlite3.Row
-        self.__cur = self.__con.cursor()
-        _ = self.__cur.execute('PRAGMA foreign_keys = 1')
+        self._con.row_factory = sqlite3.Row
+        self._cur = self._con.cursor()
+        _ = self._cur.execute('PRAGMA foreign_keys = 1')
 
         logger.info('Opened database at %s', self.__db_path)
 
-        self.__upgrade_database_schema(self.__con, self.__cur)
+        self._upgrade_database_schema(self._con, self._cur)
 
     def log_trainresult(self, trainresult: TrainResult) -> int | None:
         from qualia_core.learningframework.PyTorch import PyTorch
@@ -220,11 +238,11 @@ class QualiaDatabase(ExperimentTracking):
             logger.error('Only PyTorch LearningFramework is supported')
             return None
 
-        if not self.__con or not self.__cur:
+        if not self._con or not self._cur:
             logger.error('Database not initialized')
             return None
 
-        parent_id = (self.__lookup_model_hash(self.__cur, trainresult.parent_model_hash)
+        parent_id = (self.__lookup_model_hash(self._cur, trainresult.parent_model_hash)
                      if trainresult.parent_model_hash is not None else None)
 
         # Insert model record
@@ -237,13 +255,13 @@ class QualiaDatabase(ExperimentTracking):
         }
 
         # Avoid duplicate rows by looking up if the exact entry (excluding timestamp) already exsits in the database first
-        model_id = self.__lookup_model(self.__cur, values)
+        model_id = self.__lookup_model(self._cur, values)
 
         if model_id is None:
-            _ = self.__cur.execute(self.__queries['insert_model'], values)
-            self.__con.commit()
+            _ = self._cur.execute(self.__queries['insert_model'], values)
+            self._con.commit()
 
-            model_id = self.__cur.lastrowid
+            model_id = self._cur.lastrowid
 
         # Insert each metric record
         metrics = [
@@ -255,17 +273,17 @@ class QualiaDatabase(ExperimentTracking):
             for name, value in trainresult.metrics.items()
         ]
 
-        _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
-        self.__con.commit()
+        _ = self._cur.executemany(self.__queries['insert_metric'], metrics)
+        self._con.commit()
 
         return model_id
 
     def log_stats(self, model_name: str, model_hash: str, stats: Stats) -> None:
-        if not self.__con or not self.__cur:
+        if not self._con or not self._cur:
             logger.error('Database not initialized')
             return
 
-        model_id = self.__lookup_model_name_and_hash(self.__cur, model_name, model_hash)
+        model_id = self.__lookup_model_name_and_hash(self._cur, model_name, model_hash)
 
         if model_id is None:
             logger.warning('Could not find model in database, target evaluation results will not be recorded (name=%s, hash=%s)',
@@ -288,16 +306,16 @@ class QualiaDatabase(ExperimentTracking):
                             'value': getattr(stats, name),
                             } for name in ('avg_time', 'ram_size', 'rom_size'))
 
-        _ = self.__cur.executemany(self.__queries['insert_metric'], metrics)
-        self.__con.commit()
+        _ = self._cur.executemany(self.__queries['insert_metric'], metrics)
+        self._con.commit()
 
     def log_quantization(self, model_id: int, bits: int, epochs: int) -> None:
-        if not self.__con or not self.__cur:
+        if not self._con or not self._cur:
             logger.error('Database not initialized')
             return
 
-        _ = self.__cur.execute(self.__queries['insert_quantization'], {'model_id': model_id, 'bits': bits, 'epochs': epochs})
-        self.__con.commit()
+        _ = self._cur.execute(self.__queries['insert_quantization'], {'model_id': model_id, 'bits': bits, 'epochs': epochs})
+        self._con.commit()
 
     @override
     def _hyperparameters(self, params: RecursiveConfigDict) -> None:
@@ -310,13 +328,13 @@ class QualiaDatabase(ExperimentTracking):
             self.__ref_count -= 1
             return
 
-        if self.__con:
-            self.__con.close()
+        if self._con:
+            self._con.close()
             logger.info('Database closed')
 
             self.__ref_count = 0
 
-    def __print_models(self, models: list[dict[str, Any]]) -> None:
+    def _print_models(self, models: list[dict[str, Any]]) -> None:
         if not models:
             print('No model in database')
             return
@@ -347,7 +365,7 @@ class QualiaDatabase(ExperimentTracking):
             print(f'{model["parent_id"] or "": <{pad_parent_id}}')
 
 
-    def __print_model(self, model: dict[str, Any]) -> None:
+    def _print_model(self, model: dict[str, Any]) -> None:
         print(f'Model id:         {model["id"]}')
         print(f'Model name:       {model["name"]}')
         print(f'Model hash:       {model["hash"]}')
@@ -385,41 +403,41 @@ class QualiaDatabase(ExperimentTracking):
             logger.error('Invalid subcommand %s', subcommand)
 
     def __handle_list_model_command(self) -> None:
-        if self.__cur is None:
+        if self._cur is None:
             logger.error('Database not initialized')
             return
 
-        models = self.__get_models(self.__cur)
+        models = self.__get_models(self._cur)
 
-        self.__print_models(models)
+        self._print_models(models)
 
     def __handle_show_model_command(self, *args: str) -> None:
         if len(args) < 1:
             logger.error('Model hash required')
             return
 
-        if self.__cur is None:
+        if self._cur is None:
             logger.error('Database not initialized')
             return
 
-        model_id = self.__lookup_model_hash(self.__cur, args[0])
+        model_id = self.__lookup_model_hash(self._cur, args[0])
         if model_id is None:
             logger.error('Model hash %s not found', args[0])
             return
 
         while model_id is not None:
-            model = self.__get_model(self.__cur, model_id)
+            model = self.__get_model(self._cur, model_id)
             if model is None:
                 logger.error('Model %d not found', model_id)
                 return
 
-            self.__print_model(model)
+            self._print_model(model)
 
-            quantization = self.__get_quantization(self.__cur, model_id)
+            quantization = self.__get_quantization(self._cur, model_id)
             if quantization:
                 self.__print_quantization(quantization)
 
-            metrics = self.__get_metrics(self.__cur, model_id)
+            metrics = self.__get_metrics(self._cur, model_id)
             self.__print_metrics(metrics)
 
             print()
