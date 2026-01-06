@@ -317,6 +317,10 @@ class QualiaDatabase(ExperimentTracking):
             self.__ref_count = 0
 
     def __print_models(self, models: list[dict[str, Any]]) -> None:
+        if not models:
+            print('No model in database')
+            return
+
         pad_id = max(len(str(max(m['id'] for m in models))), len('ID'))
         pad_name = max(*(len(m['name']) for m in models), len('Name'))
         pad_hash = max(*(len(m['hash']) for m in models), len('Hash'))
