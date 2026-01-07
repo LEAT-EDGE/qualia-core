@@ -352,10 +352,10 @@ class QualiaDatabase(ExperimentTracking):
 
             self.__ref_count = 0
 
-    def _print_models(self, models: list[dict[str, Any]]) -> None:
+    def _print_models(self, models: list[dict[str, Any]]) -> str:
         if not models:
-            print('No model in database')
-            return
+            logger.info('No model in database')
+            return ''
 
         pad_id = max(len(str(max(m['id'] for m in models))), len('ID'))
         pad_name = max(*(len(m['name']) for m in models), len('Name'))
@@ -370,132 +370,156 @@ class QualiaDatabase(ExperimentTracking):
         header += f'{"Date": <{pad_date}} | '
         header += f'{"Parameters": <{pad_parameters}} | '
         header += f'{"Parent": <{pad_parent_id}}'
-        print(header)
-        print('—' * len(header))
+
+        s = header
+        s += '\n'
+        s += '—' * len(header)
+        s += '\n'
 
         for model in models:
-            date = str(datetime.fromtimestamp(model["timestamp"], tz=timezone.utc))
-            print(f'{model["id"]: <{pad_id}} | ', end='')
-            print(f'{model["name"]: <{pad_name}} | ', end='')
-            print(f'{model["hash"]: <{pad_hash}} | ', end='')
-            print(f'{date: <{pad_date}} | ', end='')
-            print(f'{model["parameters"]: <{pad_parameters}} | ', end='')
-            print(f'{model["parent_id"] or "": <{pad_parent_id}}')
+            date = str(datetime.fromtimestamp(model['timestamp'], tz=timezone.utc))
+            s += f'{model["id"]: <{pad_id}} | '
+            s += f'{model["name"]: <{pad_name}} | '
+            s += f'{model["hash"]: <{pad_hash}} | '
+            s += f'{date: <{pad_date}} | '
+            s += f'{model["parameters"]: <{pad_parameters}} | '
+            s += f'{model["parent_id"] or "": <{pad_parent_id}}'
+            s += '\n'
+
+        return s
 
 
-    def _print_model(self, model: dict[str, Any]) -> None:
-        print(f'Model id:         {model["id"]}')
-        print(f'Model name:       {model["name"]}')
-        print(f'Model hash:       {model["hash"]}')
-        print(f'Model date:       {datetime.fromtimestamp(model["timestamp"], tz=timezone.utc)}')
-        print(f'Model parameters: {model["parameters"]}')
-        print(f'Parent model id:  {model["parent_id"]}')
+    def _print_model(self, model: dict[str, Any]) -> str:
+        s = f'Model id:         {model["id"]}\n'
+        s += f'Model name:       {model["name"]}\n'
+        s += f'Model hash:       {model["hash"]}\n'
+        s += f'Model date:       {datetime.fromtimestamp(model["timestamp"], tz=timezone.utc)}\n'
+        s += f'Model parameters: {model["parameters"]}\n'
+        s += f'Parent model id:  {model["parent_id"]}\n'
 
-    def __print_quantization(self, quantization: dict[str, Any]) -> None:
-        print('Quantization:')
-        print(f'    Bits:   {quantization["bits"]}')
-        print(f'    Epochs: {quantization["epochs"]}', end='')
+        return s
+
+    def __print_quantization(self, quantization: dict[str, Any]) -> str:
+        s = 'Quantization:\n'
+        s += f'    Bits:   {quantization["bits"]}\n'
+        s += f'    Epochs: {quantization["epochs"]}'
         if quantization['epochs']:
-            print(' (QAT)')
+            s += ' (QAT)'
         else:
-            print(' (PTQ)')
+            s += ' (PTQ)'
+        s += '\n'
 
-    def __print_metrics(self, metrics: list[dict[str, Any]]) -> None:
+        return s
+
+    def __print_metrics(self, metrics: list[dict[str, Any]]) -> str:
         max_name_length = 0
         metrics_by_source: dict[str, list[dict[str, Any]]] = {}
         for metric in metrics:
             metrics_by_source.setdefault(metric['source'], []).append(metric)
             max_name_length = max(max_name_length, len(metric['name']))
 
-        print('Metrics:')
+        s = 'Metrics:\n'
         for source_name, source in metrics_by_source.items():
-            print(f'    Source: {source_name}')
+            s += f'    Source: {source_name}\n'
 
             for metric in source:
-                print(f'        {metric["name"]}: {" " * (max_name_length - len(metric["name"]))}{metric["value"]}')
+                s += f'        {metric["name"]}: {" " * (max_name_length - len(metric["name"]))}{metric["value"]}\n'
 
-    def __handle_list_command(self, subcommand: str, *args: str) -> None:
+        return s
+
+    def __handle_list_command(self, subcommand: str, *args: str) -> str:
         if subcommand == 'models':
-            self.__handle_list_model_command()
-        else:
-            logger.error('Invalid subcommand %s', subcommand)
+            return self.__handle_list_model_command()
 
-    def __handle_list_model_command(self) -> None:
+        logger.error('Invalid subcommand %s', subcommand)
+        return ''
+
+    def __handle_list_model_command(self) -> str:
         if self._cur is None:
             logger.error('Database not initialized')
-            return
+            return ''
 
         models = self.__get_models(self._cur)
 
-        self._print_models(models)
+        return self._print_models(models)
 
-    def __handle_show_model_command(self, *args: str) -> None:
+    def __handle_show_model_command(self, *args: str) -> str:
         if len(args) < 1:
             logger.error('Model hash required')
-            return
+            return ''
 
         if self._cur is None:
             logger.error('Database not initialized')
-            return
+            return ''
 
         model_id = self.__lookup_model_last(self._cur) if args[0] == 'last' else self._lookup_model_hash(self._cur, args[0])
 
         if model_id is None:
             logger.error('Model hash %s not found', args[0])
-            return
+            return ''
+
+        s = ''
 
         while model_id is not None:
             model = self.__get_model(self._cur, model_id)
             if model is None:
                 logger.error('Model %d not found', model_id)
-                return
+                return ''
 
-            self._print_model(model)
+            s += self._print_model(model)
 
             quantization = self.__get_quantization(self._cur, model_id)
             if quantization:
-                self.__print_quantization(quantization)
+                s += self.__print_quantization(quantization)
 
             metrics = self.__get_metrics(self._cur, model_id)
-            self.__print_metrics(metrics)
+            s += self.__print_metrics(metrics)
 
-            print()
+            s += '\n'
 
             model_id = model['parent_id']
             if model_id is not None:
-                print('Parent model')
+                s += 'Parent model\n'
 
-    def __handle_show_command(self, subcommand: str, *args: str) -> None:
+        return s
+
+    def __handle_show_command(self, subcommand: str, *args: str) -> str:
         if subcommand == 'model':
-            self.__handle_show_model_command(*args)
-        else:
-            logger.error('Invalid subcommand %s', subcommand)
+            return self.__handle_show_model_command(*args)
 
-    def handle_command(self, command: str, *args: str) -> None:
+        logger.error('Invalid subcommand %s', subcommand)
+        return s
+
+    def handle_command(self, command: str, *args: str) -> str:
         if command == 'list':
             if len(args) < 1:
                 logger.error('Subcommand required')
-                return
+                return ''
 
-            self.__handle_list_command(*args)
-        elif command == 'show':
+            return self.__handle_list_command(*args)
+
+        if command == 'show':
             if len(args) < 1:
                 logger.error('Subcommand required')
-                return
+                return ''
 
-            self.__handle_show_command(*args)
-        elif command == 'help':
-            self.print_cli_help()
-        else:
-            logger.error('Invalid command %s', command)
-            self.print_cli_help()
+            return self.__handle_show_command(*args)
+
+        if command == 'help':
+            return self.print_cli_help()
+
+        logger.error('Invalid command %s', command)
+        return self.print_cli_help()
 
     @classmethod
-    def print_cli_help(cls) -> None:
-        print('Usage: {sys.argv[0]} <command> <args>', file=sys.stderr)
-        print('    command:')
-        print('        - help')
-        print('        - show')
+    def print_cli_help(cls) -> str:
+        s = 'Usage: {sys.argv[0]} <command> <args>\n'
+        s += '    command:\n'
+        s += '        - help\n'
+        s += '        - list models\n'
+        s += '        - show model [last|<hash>]\n'
+
+        return s
 
     @classmethod
     def cli(cls) -> None:
@@ -505,7 +529,7 @@ class QualiaDatabase(ExperimentTracking):
         setup_root_logger(colored=True)
 
         if len(sys.argv) < 2:
-            cls.print_cli_help()
+            print(cls.print_cli_help(), file=sys.stderr)
             return
 
         qualia_database = cls()
@@ -522,7 +546,7 @@ class QualiaDatabase(ExperimentTracking):
                 qualia_database: QualiaDatabase = qualia.experimenttracking.QualiaDatabase.QualiaDatabase()
                 qualia_database.start()
 
-        qualia_database.handle_command(*sys.argv[1:])
+        print(qualia_database.handle_command(*sys.argv[1:]))
 
         qualia_database.stop()
 
