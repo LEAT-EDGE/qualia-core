@@ -281,6 +281,7 @@ class QualiaDatabase(ExperimentTracking):
              'value': value,
              }
             for name, value in trainresult.metrics.items()
+            if name not in {'cm', 'ncm'}  # Skip confusion matrix
         ]
 
         _ = self._cur.executemany(self.__queries['insert_metric'], metrics)
