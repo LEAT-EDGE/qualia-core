@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Final
 
+import qualia_core.utils.plugin
 from qualia_core.typing import TYPE_CHECKING
 
 from .ExperimentTracking import ExperimentTracking
@@ -140,6 +141,7 @@ class QualiaDatabase(ExperimentTracking):
         'get_model': 'SELECT * from models WHERE id = :model_id',
         'get_metrics': 'SELECT * from metrics WHERE model_id = :model_id',
         'get_quantization': 'SELECT * from quantization WHERE model_id = :model_id',
+        'get_plugins': 'SELECT * from plugins',
     }
 
     _con: sqlite3.Connection | None = None
@@ -209,6 +211,9 @@ class QualiaDatabase(ExperimentTracking):
 
     def __get_quantization(self, cur: sqlite3.Cursor, model_id: int) -> dict[str, Any] | None:
         return cur.execute(self.__queries['get_quantization'], {'model_id': model_id}).fetchone()
+
+    def __get_plugins(self, cur: sqlite3.Cursor) -> list[dict[str, Any]]:
+        return cur.execute(self.__queries['get_plugins']).fetchall()
 
     @override
     def start(self, name: str | None = None) -> None:
@@ -316,6 +321,13 @@ class QualiaDatabase(ExperimentTracking):
 
         _ = self._cur.execute(self.__queries['insert_quantization'], {'model_id': model_id, 'bits': bits, 'epochs': epochs})
         self._con.commit()
+
+    def get_plugins(self) -> list[dict[str, Any]]:
+        if not self._con or not self._cur:
+            logger.error('Database not initialized')
+            return []
+
+        return self.__get_plugins(self._cur)
 
     @override
     def _hyperparameters(self, params: RecursiveConfigDict) -> None:
@@ -492,6 +504,16 @@ class QualiaDatabase(ExperimentTracking):
         qualia_database = cls()
 
         qualia_database.start()
+
+        # Instantiate QualiaDatabase from plugin if available
+        plugins = qualia_database.get_plugins()
+        if plugins:
+            qualia = qualia_core.utils.plugin.load_plugins([plugin['name'] for plugin in plugins])
+            if qualia.experimenttracking:
+                logger.info('Reloading QualiaDatabase from plugin %s', qualia.experimenttracking.QualiaDatabase.__name__)
+                qualia_database.stop()
+                qualia_database: QualiaDatabase = qualia.experimenttracking.QualiaDatabase.QualiaDatabase()
+                qualia_database.start()
 
         qualia_database.handle_command(*sys.argv[1:])
 
