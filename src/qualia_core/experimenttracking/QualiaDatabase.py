@@ -137,6 +137,7 @@ class QualiaDatabase(ExperimentTracking):
         'lookup_model': """SELECT id FROM models
                            WHERE parent_id IS :parent_id AND name = :name AND parameters = :parameters AND hash = :hash
                            ORDER BY timestamp DESC""",
+        'lookup_model_last': 'SELECT id FROM models ORDER BY timestamp DESC',
         'get_models': 'SELECT * from models',
         'get_model': 'SELECT * from models WHERE id = :model_id',
         'get_metrics': 'SELECT * from metrics WHERE model_id = :model_id',
@@ -190,13 +191,17 @@ class QualiaDatabase(ExperimentTracking):
         res = cur.execute(self.__queries['lookup_model'], values).fetchone()
         return res[0] if res is not None else None
 
-    def __lookup_model_hash(self, cur: sqlite3.Cursor, model_hash: str) -> int | None:
+    def _lookup_model_hash(self, cur: sqlite3.Cursor, model_hash: str) -> int | None:
         res = cur.execute(self.__queries['lookup_model_hash'], {'model_hash': model_hash}).fetchone()
         return res[0] if res is not None else None
 
     def __lookup_model_name_and_hash(self, cur: sqlite3.Cursor, model_name: str, model_hash: str) -> int | None:
         res = cur.execute(self.__queries['lookup_model_name_and_hash'],
                           {'model_name': model_name, 'model_hash': model_hash}).fetchone()
+        return res[0] if res is not None else None
+
+    def __lookup_model_last(self, cur: sqlite3.Cursor) -> int | None:
+        res = cur.execute(self.__queries['lookup_model_last']).fetchone()
         return res[0] if res is not None else None
 
     def __get_models(self, cur: sqlite3.Cursor) -> list[dict[str, Any]]:
@@ -247,7 +252,7 @@ class QualiaDatabase(ExperimentTracking):
             logger.error('Database not initialized')
             return None
 
-        parent_id = (self.__lookup_model_hash(self._cur, trainresult.parent_model_hash)
+        parent_id = (self._lookup_model_hash(self._cur, trainresult.parent_model_hash)
                      if trainresult.parent_model_hash is not None else None)
 
         # Insert model record
@@ -432,7 +437,8 @@ class QualiaDatabase(ExperimentTracking):
             logger.error('Database not initialized')
             return
 
-        model_id = self.__lookup_model_hash(self._cur, args[0])
+        model_id = self.__lookup_model_last(self._cur) if args[0] == 'last' else self._lookup_model_hash(self._cur, args[0])
+
         if model_id is None:
             logger.error('Model hash %s not found', args[0])
             return
