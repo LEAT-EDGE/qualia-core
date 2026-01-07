@@ -546,7 +546,12 @@ class QualiaDatabase(ExperimentTracking):
                 qualia_database: QualiaDatabase = qualia.experimenttracking.QualiaDatabase.QualiaDatabase()
                 qualia_database.start()
 
-        print(qualia_database.handle_command(*sys.argv[1:]))
+        s = qualia_database.handle_command(*sys.argv[1:])
+
+        print(s)
+
+        with (Path('logs') / 'qualia_database.txt').open('w') as f:
+            print(s, file=f)
 
         qualia_database.stop()
 
