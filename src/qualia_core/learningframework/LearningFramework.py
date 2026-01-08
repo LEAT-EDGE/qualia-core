@@ -74,7 +74,7 @@ class LearningFramework(ABC, Generic[T]):
             return None
 
         # hashlib.file_digest() requires Python 3.11
-        if sys.version_info < (3, 12):
+        if sys.version_info < (3, 11):
             logger.error('Python 3.11 or newer required')
             raise NotImplementedError
 
