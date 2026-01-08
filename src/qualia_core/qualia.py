@@ -154,13 +154,12 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
                                          name=f'{model_name}_r{iteration}_eval_test')
             metrics.update(test_metrics)  # Add or update test metrics to train metrics
 
-    # We trained a new model, maybe derived from a parent model, record its hash
+    # We trained a new model, maybe derived from a parent model, record its hash before saving new model
     # Otherwise if model hasn't been trained, no parent relationship is established as it is effectively the same model
     parent_model_hash = framework.hash_model(model_path) if train and model_path is not None else None
 
     # Do not save loaded model that hasn't been retrained
     if train or not load:
-
         model_path = framework.export(new_model, f'{model_name}_r{iteration}')
 
     # Hash new model

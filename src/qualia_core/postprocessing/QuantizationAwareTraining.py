@@ -311,7 +311,7 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
         """Log the new model with its metrics and record quantization metadata as well."""
         model_id = super().log_trainresult(qualiadatabase=qualiadatabase, trainresult=trainresult)
         if model_id is None:
-            logger.error('Could not save quantization metadata in QualiaDatabase: model saved in QualiaDatabase')
+            logger.error('Could not save quantization metadata in QualiaDatabase: model not saved in QualiaDatabase')
             return model_id
 
         qualiadatabase.log_quantization(model_id=model_id, bits=self.width, epochs=self.epochs)
