@@ -68,7 +68,11 @@ class LearningFramework(ABC, Generic[T]):
     def export(self, model: T, name: str) -> Path:
         pass
 
-    def hash_model(self, path: Path) -> str:
+    def hash_model(self, path: Path) -> str | None:
+        if not path.is_file():
+            logger.error('%s not found, cannot compute hash.', path)
+            return None
+
         # hashlib.file_digest() requires Python 3.11
         if sys.version_info < (3, 12):
             logger.error('Python 3.11 or newer required')
