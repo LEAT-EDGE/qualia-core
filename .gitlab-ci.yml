@@ -23,6 +23,7 @@ default:
     - unzip -q stm32ai-linux-8.1.0.zip -d ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities
     - pacman -U --noconfirm /mnt/hdd/Software/ArchLinux/execstack-20130503-9-x86_64.pkg.tar.zst
     - execstack -c ~/STM32Cube/Repository/Packs/STMicroelectronics/X-CUBE-AI/8.1.0/Utilities/linux/onnxruntime/capi/onnxruntime_pybind11_state.cpython-39-x86_64-linux-gnu.so
+    - curl https://github.com/tensorflow/tensorflow/commit/00931720105b0c427715ddc4b1bff3f46748970e.patch | patch -p1 -d /usr/lib/python3.14/site-packages/
 
 stages:          # List of stages for jobs, and their order of execution
   - test
