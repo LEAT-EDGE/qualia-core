@@ -53,6 +53,54 @@ class QuantizedLayer:
         raise NotImplementedError
 
     @property
+    def input_bits(self) -> int | None:
+        """Total number of bits used to encode the input in case of fixed-point quantization.
+
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
+
+        :return: Total bits for the input or ``None`` if not applicable.
+        """
+        if self.quantizer_input is None:
+            return None
+        return self.quantizer_input.bits
+
+    @property
+    def activation_bits(self) -> int | None:
+        """Total number of bits used to encode the output in case of fixed-point quantization.
+
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
+
+        :return: Total bits for the output or ``None`` if not applicable.
+        """
+        if self.quantizer_act is None:
+            return None
+        return self.quantizer_act.bits
+
+    @property
+    def weights_bits(self) -> int | None:
+        """Total number of bits used to encode the weights in case of fixed-point quantization.
+
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
+
+        :return: Total bits for the weights or ``None`` if not applicable.
+        """
+        if self.quantizer_w is None:
+            return None
+        return self.quantizer_w.bits
+
+    @property
+    def bias_bits(self) -> int | None:
+        """Total number of bits used to encode the biases in case of fixed-point quantization.
+
+        See :meth:`qualia_core.learningmodel.pytorch.layers.Quantizer.Quantizer.fractional_bits`.
+
+        :return: Total bits for the biases or ``None`` if not applicable.
+        """
+        if self.quantizer_bias is None:
+            return None
+        return self.quantizer_bias.bits
+
+    @property
     def input_q(self) -> int | None:
         """Number of bits used to encode the fractional part of the input in case of fixed-point quantization.
 
