@@ -71,7 +71,7 @@ class DeployConfigDict(TypedDict):
     converter: ConverterConfigDict
     deployer: NotRequired[DeployerConfigDict]
     evaluator: NotRequired[EvaluatorConfigDict]
-    quantize: list[str]
+    quantize: NotRequired[list[str]]
     optimize: NotRequired[list[str]]
     compress: NotRequired[list[int]]
     limit: NotRequired[int]
