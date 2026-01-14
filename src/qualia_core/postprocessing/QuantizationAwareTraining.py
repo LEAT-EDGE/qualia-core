@@ -220,8 +220,9 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
                     name = _snake_case(name)
                     name = namespace.create_name(name, m)
                 if isinstance(m, (QuantizedLayer, *quantized_layers)):
-                    q = f'{name},{m.input_q},{m.activation_q},{m.weights_q},{m.bias_q}'
-                    q += f',{m.input_round_mode},{m.activation_round_mode},{m.weights_round_mode}'
+                    q = f'{name},{m.input_bits},{m.activation_bits},{m.weights_bits},{m.bias_bits},'
+                    q += f'{m.input_q},{m.activation_q},{m.weights_q},{m.bias_q},'
+                    q += f'{m.input_round_mode},{m.activation_round_mode},{m.weights_round_mode}'
                     print(q, file=f)
                     logger.info('%s', q)
                 elif not isinstance(m, Quantizer):  # Skip Quantizer modules as they need no quantization themselves
