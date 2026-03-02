@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import itertools
+from typing import Any
+
+import colorful as cf  # type: ignore[import-untyped]
+
+from qualia_core.qualia import deploy, gen_tag, instantiate_model
+from qualia_core.typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from qualia_core.datamodel.RawDataModel import RawDataModel
+    from qualia_core.learningframework.LearningFramework import LearningFramework
+    from qualia_core.postprocessing.Converter import Converter
+    from qualia_core.typing import ConfigDict
+    from qualia_core.utils.plugin import QualiaComponent
+
+
+class Deploy:
+    def __call__(self,  # noqa: PLR0913
+                 qualia: QualiaComponent,
+                 learningframework: LearningFramework[Any],
+                 converter: type[Converter[Any]],
+                 deployers: ModuleType,
+                 data: RawDataModel,
+                 config: ConfigDict) -> dict[str, Any]:
+
+        for i in range(config['bench']['first_run'], config['bench']['last_run'] + 1):
+            for m, q, o, c in itertools.product(config['model'],
+                                                config['deploy'].get('quantize', [None]),
+                                                config['deploy'].get('optimize', ['']),
+                                                config['deploy'].get('compress', [1])):
+                if m.get('disabled', False):
+                    continue
+
+                # Postprocessings can change model name, frameworks, mem_params
+                model_name = m['name']
+                fmem_params = lambda framework, model: framework.n_params(model) * 4  # By default models have 4-bytes params
+                for postprocessing in config.get('postprocessing', []):
+                    ppp = {k: v for k,v in postprocessing.get('params', {}).items()}  # Workaround tomlkit bug where some nested dict would lose their items
+                    pp = getattr(qualia.postprocessing, postprocessing['kind'])(**ppp)
+                    model_name = pp.process_name(model_name)
+                    learningframework = pp.process_framework(learningframework)
+                    #mem_params = pp.process_mem_params(mem_params) #FIXME: handled by converter instead
+
+                #model = framework.load(f'{model_name}_r{i}', m['kind'])
+
+
+                # Instantiate model
+                model, model_path = instantiate_model(dataset=data.sets.test,
+                                                      framework=learningframework,
+                                                      model=getattr(learningframework.learningmodels, m['kind']),
+                                                      model_params=m.get('params', {}),
+                                                      model_name=model_name,
+                                                      iteration=i,
+                                                      load=False, # Model params will be loaded after postprocessings
+                                                      )
+
+                # Postprocessings can change model topology with PyTorch, needs to be done after instantiating model with new name
+                for postprocessing in config.get('postprocessing', []):
+                    pp = getattr(qualia.postprocessing, postprocessing['kind'])(**postprocessing.get('params', {}))
+                    model, m = pp.process_model(model, m, framework=learningframework)
+
+                # Show model architecture
+                learningframework.summary(model)
+
+                # Load weights after topology optionally changed
+                model, model_path = learningframework.load(f'{model_name}_r{i}', model)
+
+                # Converter can affect mem_params if there is quantization
+                if not converter:
+                    converter = getattr(m['kind'], 'converter', None)
+                fmem_params = converter(quantize=q).process_mem_params(fmem_params) if converter else fmem_params
+
+                tag = gen_tag(model_name, q, o, i, c)
+                print(f'{cf.bold}Deploying {cf.blue}{model_name}{cf.close_fg_color}, run {cf.red}{i}{cf.close_fg_color}, tag {cf.yellow}{tag}{cf.reset}')
+                deploy(model_kind=m['kind'],
+                       deploy_target=config['deploy']['target'],
+                       tag=tag,
+                       deployers=deployers,
+                       deployer_params=config['deploy'].get('deployer', {}).get('params', {}))
+
+        return {}

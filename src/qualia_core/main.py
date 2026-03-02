@@ -106,6 +106,14 @@ def qualia(action: str,
                                                    deployers=deployers,
                                                    data=data,
                                                    config=config))
+    elif action == 'deploy':
+        deploy_and_evaluate_command = command.Deploy()
+        loggers.update(deploy_and_evaluate_command(qualia=qualia,
+                                                   learningframework=learningframework,
+                                                   converter=converter,
+                                                   deployers=deployers,
+                                                   data=data,
+                                                   config=config))
     elif action == 'evaluate':
         evaluate_command = command.Evaluate()
         loggers.update(evaluate_command(qualia=qualia,
