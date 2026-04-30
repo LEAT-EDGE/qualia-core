@@ -8,13 +8,16 @@ from pathlib import Path
 
 from qualia_core.typing import TYPE_CHECKING
 
-# We are inside a TYPE_CHECKING block but our custom TYPE_CHECKING constant triggers TCH001-TCH003 so ignore them
 if TYPE_CHECKING:
-    from importlib.abc import Traversable  # noqa: TCH003
-    from importlib.readers import MultiplexedPath  # noqa: TCH003
+    if sys.version_info >= (3, 11):
+        from importlib.resources.abc import Traversable
+    else:
+        from importlib.abc import Traversable
 
+    from importlib.readers import MultiplexedPath
 
 logger = logging.getLogger(__name__)
+
 
 def resources_to_path(resources: Path | MultiplexedPath | Traversable) -> Path:
     """Convert a (static type) Traversable to a Path if the underlying dynamic type is MultiplexedPath.
@@ -30,10 +33,10 @@ def resources_to_path(resources: Path | MultiplexedPath | Traversable) -> Path:
     :raise ValueError: When conversion fails because ``resources`` was not a :class:`importlib.readers.MultiplexedPath` on Python
         >= 3.10 or a :class:`pathlib.Path`
     """
-    if isinstance(resources, Path): # Already Path objected, no need for hackery
+    if isinstance(resources, Path):  # Already Path objected, no need for hackery
         return resources
 
-    if sys.version_info >= (3, 10): # Python 3.10 may return MultiplexedPath
+    if sys.version_info >= (3, 10):  # Python 3.10 may return MultiplexedPath
         from importlib.readers import MultiplexedPath
         if isinstance(resources, MultiplexedPath):
             return resources / '' # / operator applies to underlying Path
@@ -46,7 +49,7 @@ def resources_to_path(resources: Path | MultiplexedPath | Traversable) -> Path:
 
 def lookup_file(search_paths: list[Path], filename: Path) -> Path | None:
     for search_path in search_paths:
-        file_path = search_path/Path(filename)
+        file_path = search_path / Path(filename)
         if file_path.exists():
             return file_path
     return None
