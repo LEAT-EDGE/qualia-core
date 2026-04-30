@@ -85,7 +85,7 @@ html_theme_options = {
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
-    'PyTorch': ('https://pytorch.org/docs/stable/', None),
+    'PyTorch': ('https://docs.pytorch.org/docs/main/', None),
 }
 
 show_authors = True
