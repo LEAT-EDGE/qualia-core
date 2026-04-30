@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 from importlib.resources import files
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any
 
 from qualia_core.deployment.toolchain import NucleiStudio
@@ -16,8 +17,9 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
-    from qualia_core.postprocessing.QualiaCodeGen import QualiaCodeGen  # noqa: TCH001
+if NATIVE_TYPE_CHECKING:
+    from qualia_core.postprocessing.Converter import Converter
+    from qualia_core.postprocessing.QualiaCodeGen import QualiaCodeGen
 
 if sys.version_info >= (3, 12):
     from typing import override

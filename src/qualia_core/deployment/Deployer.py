@@ -3,29 +3,33 @@ from __future__ import annotations
 import logging
 import sys
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any
 
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.process import subprocesstee
 
-# We are inside a TYPE_CHECKING block but our custom TYPE_CHECKING constant triggers TCH001-TCH003 so ignore them
 if TYPE_CHECKING:
-    from pathlib import Path  # noqa: TCH003
+    from pathlib import Path
 
-    from qualia_core.evaluation.Evaluator import Evaluator  # noqa: TCH001
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
+    from qualia_core.evaluation.Evaluator import Evaluator
 
-    from .Deploy import Deploy  # noqa: TCH001
+    from .Deploy import Deploy
 
     if sys.version_info >= (3, 11):
         from typing import Self
     else:
         from typing_extensions import Self
 
+if NATIVE_TYPE_CHECKING:
+    from qualia_core.postprocessing.Converter import Converter
+
+
 logger = logging.getLogger(__name__)
 
+
 class Deployer(ABC):
-    evaluator: type[Evaluator] # Suggested evaluator
+    evaluator: type[Evaluator]  # Suggested evaluator
 
     @abstractmethod
     def prepare(self, tag: str, model: Converter[Any], optimize: str, compression: int) -> Self | None:

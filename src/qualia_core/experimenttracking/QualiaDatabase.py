@@ -6,6 +6,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any, Final
 
 import qualia_core.utils.plugin
@@ -14,9 +15,12 @@ from qualia_core.typing import TYPE_CHECKING
 from .ExperimentTracking import ExperimentTracking
 
 if TYPE_CHECKING:
+    from qualia_core.typing import RecursiveConfigDict
+
+# Cannot use qualia_core.typing.TYPE_CHECKING for this otherwise it triggers circular imports
+if NATIVE_TYPE_CHECKING:
     from qualia_core.evaluation.Stats import Stats
     from qualia_core.qualia import TrainResult
-    from qualia_core.typing import RecursiveConfigDict
 
 if sys.version_info >= (3, 12):
     from typing import override

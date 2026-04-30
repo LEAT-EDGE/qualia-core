@@ -7,6 +7,7 @@ import os
 import sys
 from enum import IntEnum
 from pathlib import Path
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any, ClassVar, cast
 
 import numpy as np
@@ -16,7 +17,9 @@ from qualia_core.dataset.RawDataset import RawDataset
 from qualia_core.typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence  # noqa: TC003
+    from collections.abc import Sequence
+
+if NATIVE_TYPE_CHECKING:
     from ctypes import _CDataType
 
 if sys.version_info >= (3, 12):

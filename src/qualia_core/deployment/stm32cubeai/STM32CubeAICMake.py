@@ -5,6 +5,7 @@ import os
 import stat
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any
 
 from qualia_core.deployment.toolchain.CMake import CMake
@@ -17,8 +18,9 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TC001
-    from qualia_core.postprocessing.Keras2TFLite import Keras2TFLite  # noqa: TC001
+if NATIVE_TYPE_CHECKING:
+    from qualia_core.postprocessing.Converter import Converter
+    from qualia_core.postprocessing.Keras2TFLite import Keras2TFLite
 
 if sys.version_info >= (3, 12):
     from typing import override

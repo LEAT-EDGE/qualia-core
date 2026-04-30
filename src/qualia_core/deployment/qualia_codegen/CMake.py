@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any
 
 from qualia_core.deployment.toolchain.CMake import CMake as ToolchainCMake
@@ -14,9 +15,10 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
-    from pathlib import Path  # noqa: TC003
+    from pathlib import Path
 
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TC001
+if NATIVE_TYPE_CHECKING:
+    from qualia_core.postprocessing.Converter import Converter
 
 if sys.version_info >= (3, 12):
     from typing import override
@@ -24,6 +26,7 @@ else:
     from typing_extensions import override
 
 logger = logging.getLogger(__name__)
+
 
 class CMake(ToolchainCMake):
     evaluator = QualiaEvaluator # Suggested evaluator

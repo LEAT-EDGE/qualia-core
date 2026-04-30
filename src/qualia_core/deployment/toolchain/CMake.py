@@ -3,28 +3,14 @@ from __future__ import annotations
 import logging
 import re
 import shutil
-import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from qualia_core.deployment.Deployer import Deployer
-from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.process import subprocesstee
 
-if TYPE_CHECKING:
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
-
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TC001
-
-if sys.version_info >= (3, 12):
-    from typing import override
-else:
-    from typing_extensions import override
-
 logger = logging.getLogger(__name__)
+
 
 class CMake(Deployer):
     def __init__(self,
@@ -55,9 +41,9 @@ class CMake(Deployer):
 
         :param outdir: CMake project output directory
         """
-        (outdir/'CMakeCache.txt').unlink(missing_ok=True)
-        if (outdir/'CMakeFiles').exists():
-            shutil.rmtree(outdir/'CMakeFiles')
+        (outdir / 'CMakeCache.txt').unlink(missing_ok=True)
+        if (outdir / 'CMakeFiles').exists():
+            shutil.rmtree(outdir / 'CMakeFiles')
 
     def __get_cmake_version(self) -> tuple[int, int, int]:
         _, cmake_version_outputs = subprocesstee.run('cmake', '--version')
@@ -79,11 +65,11 @@ class CMake(Deployer):
             return (0, 0, 0)
 
         # Return type is necessarily 3-element tuple as we checked list length just before
-        return cast(tuple[int, int, int], tuple(int(d) for d in cmake_version_list))
+        return cast('tuple[int, int, int]', tuple(int(d) for d in cmake_version_list))
 
     def _run_cmake(self, args: tuple[str, ...], projectdir: Path, outdir: Path) -> bool:
         generator = 'Ninja'
-        if not shutil.which('ninja'): # Fallback to "make" if "ninja" is not found
+        if not shutil.which('ninja'):  # Fallback to "make" if "ninja" is not found
             generator = 'Unix Makefiles'
 
         # --fresh only supported starting from CMake 3.24, otherwise clean build dir manually

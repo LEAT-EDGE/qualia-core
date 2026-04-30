@@ -4,6 +4,7 @@ import logging
 import shutil
 import sys
 from abc import abstractmethod
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any
 
 from qualia_core.deployment.Deploy import Deploy
@@ -17,9 +18,10 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
-    from pathlib import Path  # noqa: TCH003
+    from pathlib import Path
 
-    from qualia_core.postprocessing.Converter import Converter  # noqa: TCH001
+if NATIVE_TYPE_CHECKING:
+    from qualia_core.postprocessing.Converter import Converter
 
 if sys.version_info >= (3, 12):
     from typing import override

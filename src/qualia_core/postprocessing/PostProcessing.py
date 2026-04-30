@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING as NATIVE_TYPE_CHECKING
 from typing import Any, Callable, Generic
 
 from qualia_core.learningframework.LearningFramework import LearningFramework, T
@@ -8,6 +9,9 @@ from qualia_core.typing import TYPE_CHECKING, ModelConfigDict
 
 if TYPE_CHECKING:
     from qualia_core.experimenttracking.QualiaDatabase import QualiaDatabase
+
+# Cannot use qualia_core.typing.TYPE_CHECKING for this otherwise it triggers circular imports
+if NATIVE_TYPE_CHECKING:
     from qualia_core.qualia import TrainResult
 
 
