@@ -53,7 +53,8 @@ class NucleoH7S3L8(CMake):
                modeldir: Path,
                optimize: str,
                outdir: Path) -> bool:
-        args = ('-D', f'MODEL_DIR={modeldir.resolve()!s}')
+        args = ('-D', f'MODEL_DIR={modeldir.resolve()!s}',
+                '-D', f'CMAKE_TOOLCHAIN_FILE={(self._projectdir / "Toolchain-arm-none-eabi.cmake").resolve()!s}')
         if optimize == 'cmsis-nn':
             args = (*args, '-D', 'WITH_CMSIS_NN=True')
         if self.__sram:
