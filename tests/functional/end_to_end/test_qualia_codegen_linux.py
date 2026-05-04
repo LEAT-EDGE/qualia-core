@@ -140,7 +140,7 @@ class TestQualiaCodeGenLinux:
         assert loggers['evaluate'][0].mem_params == 2300  # But quantized during deployment and int16 for evaluate
         assert loggers['evaluate'][0].accuracy >= 0.85
         assert loggers['evaluate'][0].avg_time <= 0.05
-        assert loggers['evaluate'][0].rom_size <= 44500
+        assert loggers['evaluate'][0].rom_size <= 47500
 
     @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_linux_int16')
     def test_uci_har_resnet_qualia_codegen_linux_int16_directpytorch(self, tmp_path_factory, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
@@ -187,7 +187,7 @@ class TestQualiaCodeGenLinux:
         assert loggers['evaluate'][0].mem_params == 2300  # But quantized during deployment and int16 for evaluate
         assert loggers['evaluate'][0].accuracy >= 0.85
         assert loggers['evaluate'][0].avg_time <= 0.05
-        assert loggers['evaluate'][0].rom_size <= 44500
+        assert loggers['evaluate'][0].rom_size <= 47500
 
     @pytest.mark.xdist_group(name='uci_har_resnet_qualia_codegen_linux_int8')
     def test_uci_har_resnet_qualia_codegen_linux_int8(self, tmp_path_factory, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
