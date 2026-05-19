@@ -31,7 +31,7 @@ class NucleoL452REP(CMake):
 
         self.__core_clock_48mhz = core_clock_48mhz
 
-        self.__size_bin = 'arm-none-eabi-size'
+        self._size_bin = 'arm-none-eabi-size'
 
     @override
     def _validate_optimize(self, optimize: str) -> None:
@@ -60,10 +60,10 @@ class NucleoL452REP(CMake):
                          '-f', 'interface/stlink.cfg',
                          '-f', 'target/stm32l4x.cfg',
                          '-c', 'init',
-                         '-c', 'reset halt; flash write_image erase ./NucleoL452REP; reset; shutdown',
+                         '-c', 'reset halt; flash write_image erase ./NucleoL452REP.elf; reset; shutdown',
                          cwd=self._outdir/tag):
             return None
 
-        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
-                      ram_size=self._ram_size(self._outdir/tag/'NucleoL452REP', str(self.__size_bin)),
+        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL452REP.elf', str(self._size_bin)),
+                      ram_size=self._ram_size(self._outdir/tag/'NucleoL452REP.elf', str(self._size_bin)),
                       evaluator=self.evaluator)
