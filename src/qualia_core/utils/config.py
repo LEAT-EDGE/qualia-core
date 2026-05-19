@@ -82,11 +82,11 @@ def merge_model_template(config: RecursiveConfigDict) -> RecursiveConfigDict:
     return config
 
 
-def load_config(path: Path, args: RecursiveConfigDict) -> tuple[ConfigDict | None, str]:
+def load_config(path: Path, args: RecursiveConfigDict | None = None) -> tuple[ConfigDict | None, str]:
     # Parse config file
     config, configname = parse_config(path)
     # Overwrite config file params with command line arguments
-    config_overwritten = merge_dict(args, config, merge_lists=True)
+    config_overwritten = merge_dict(args, config, merge_lists=True) if args is not None else config
 
     # Default include file search path
     # First path takes precedence
