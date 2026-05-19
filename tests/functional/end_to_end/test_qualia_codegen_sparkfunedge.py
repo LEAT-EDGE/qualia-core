@@ -13,8 +13,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_float32(self, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_float32.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_float32.toml')
         loggers = fixture_uci_har_resnet_train_float32
 
         assert 'learningmodel' in loggers
@@ -41,8 +40,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_float32_deploy_and_evaluate(self):
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_float32.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_float32.toml')
         loggers = main.qualia('deploy_and_evaluate', config, configname)
 
         assert 'evaluate' in loggers
@@ -61,8 +59,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_int16(self, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int16.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int16.toml')
         loggers = fixture_uci_har_resnet_train_int16
 
         assert 'learningmodel' in loggers
@@ -94,8 +91,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_int16_deploy_and_evaluate(self):
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int16.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int16.toml')
         loggers = main.qualia('deploy_and_evaluate', config, configname)
 
         assert 'evaluate' in loggers
@@ -114,8 +110,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_int8(self, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int8.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int8.toml')
         loggers = fixture_uci_har_resnet_train_int8
 
         assert 'learningmodel' in loggers
@@ -147,8 +142,7 @@ class TestQualiaCodeGenSparkFunEdge:
     def test_uci_har_resnet_qualia_codegen_sparkfunedge_int8_deploy_and_evaluate(self):
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int8.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_SparkFunEdge_int8.toml')
         loggers = main.qualia('deploy_and_evaluate', config, configname)
 
         assert 'evaluate' in loggers
