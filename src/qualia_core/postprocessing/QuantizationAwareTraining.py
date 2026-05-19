@@ -191,7 +191,9 @@ class QuantizationAwareTraining(PostProcessing[nn.Module]):
         name = f'{trainresult.name}_q{self.width}_r{trainresult.i}_post_train'
         return framework.train(quantized_model,
                         trainset=trainresult.datamodel.sets.train,
-                        validationset=trainresult.datamodel.sets.valid,
+                        validationset=(trainresult.datamodel.sets.valid
+                                       if not trainresult.use_test_as_valid
+                                       else trainresult.datamodel.sets.test),
                         epochs=self.epochs,
                         batch_size=self.batch_size,
                         optimizer=optimizer,
