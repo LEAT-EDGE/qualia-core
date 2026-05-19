@@ -8,11 +8,12 @@ from qualia_core.typing import TYPE_CHECKING, ConfigDict
 from qualia_core.utils.merge_dict import merge_dict
 
 if TYPE_CHECKING:
-    from pathlib import Path  # noqa: TCH003
+    from pathlib import Path
 
     from qualia_core.typing import RecursiveConfigDict
 
 logger = logging.getLogger(__name__)
+
 
 def validate_config_dict(config: RecursiveConfigDict) -> ConfigDict | None:
     ta = TypeAdapter(ConfigDict)
@@ -44,6 +45,7 @@ def validate_config_dict(config: RecursiveConfigDict) -> ConfigDict | None:
 
     return validated_config
 
+
 def parse_config(path: Path) -> tuple[RecursiveConfigDict, str]:
     import tomlkit
 
@@ -53,6 +55,10 @@ def parse_config(path: Path) -> tuple[RecursiveConfigDict, str]:
     # Convert to built-in Python types
     config: RecursiveConfigDict = toml_config.unwrap()
 
+    return config, path.stem
+
+
+def merge_model_template(config: RecursiveConfigDict) -> RecursiveConfigDict:
     # Merge settings from template into individual models
     if 'model_template' in config:
         models = config['model']
@@ -72,5 +78,4 @@ def parse_config(path: Path) -> tuple[RecursiveConfigDict, str]:
                 raise TypeError
             models[i] = merge_dict(model, model_template)
 
-    return config, path.stem
-
+    return config

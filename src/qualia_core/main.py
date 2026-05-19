@@ -182,6 +182,8 @@ def main() -> int:
             logger.warning('Include file "%s" not found', filename)
             logger.warning('Search paths: %s', include_search_paths)
 
+    config_overwritten = qualia_core.utils.config.merge_model_template(config_overwritten)
+
     validated_config = qualia_core.utils.config.validate_config_dict(config_overwritten)
     if validated_config is None:
         logger.error('Could not load configuration.')
