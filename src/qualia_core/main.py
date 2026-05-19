@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +15,6 @@ import qualia_core.utils.plugin
 from qualia_core.typing import TYPE_CHECKING
 from qualia_core.utils.logger import Logger
 from qualia_core.utils.logger.setup_root_logger import setup_root_logger
-from qualia_core.utils.merge_dict import merge_dict
-from qualia_core.utils.path import lookup_file, resources_to_path
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -26,6 +23,7 @@ if TYPE_CHECKING:
     from qualia_core.typing import ConfigDict
 
 logger = logging.getLogger(__name__)
+
 
 def qualia(action: str,
            config: ConfigDict,
@@ -136,6 +134,7 @@ def qualia(action: str,
 
     return {k: v.content for k, v in loggers.items()}
 
+
 def main() -> int:
     cf.use_style('solarized')  # type: ignore[untyped-def]
 
@@ -145,51 +144,14 @@ def main() -> int:
 
     setup_root_logger(colored=True)
 
-    # Parse config file
-    config, configname = qualia_core.utils.config.parse_config(Path(sys.argv[1]))
-    # Parse command line args
-    config_overwrite = qualia_core.utils.args.parse_args(sys.argv[3:])
-    # Overwrite config file params with command line arguments
-    config_overwritten = merge_dict(config_overwrite, config, merge_lists=True)
+    config, configname = qualia_core.utils.config.load_config(path=Path(sys.argv[1]),
+                                                              args=qualia_core.utils.args.parse_args(sys.argv[3:]))
 
-    # Default include file search path
-    # First path takes precedence
-    # - Search conf subdir inside the current directory
-    # - Search conf directory of qualia-core, if installed as editable
-    # - Search conf directory of all plugins, if installed as editable
-    include_search_paths = [Path('conf'),
-                            resources_to_path(files('qualia_core')).parent.parent/'conf',
-                            *[resources_to_path(files(p)).parent.parent/'conf'
-                                for p in config_overwritten['bench'].get('plugins', [])]]
-
-    # Prepend paths specified in config file or command line args to search path
-    additional_include_search_paths = [Path(path) for path in config_overwritten.get('include_search_paths', [])]
-    include_search_paths = additional_include_search_paths + include_search_paths
-
-    # Load include files
-    includes: list[str] = config_overwritten.get('includes', [])
-    while includes:
-        filename = Path(includes.pop(0))
-        file_path = lookup_file(search_paths=include_search_paths, filename=filename)
-        if file_path:
-            logger.info('Including "%s"', file_path)
-            config_include, _ = qualia_core.utils.config.parse_config(file_path)
-            # Included file may include additional files, add them to includes list
-            includes += config_include.get('includes', [])
-            # Main config file and command line args take precedence over included file
-            config_overwritten = merge_dict(config_overwritten, config_include, merge_lists=True)
-        else:
-            logger.warning('Include file "%s" not found', filename)
-            logger.warning('Search paths: %s', include_search_paths)
-
-    config_overwritten = qualia_core.utils.config.merge_model_template(config_overwritten)
-
-    validated_config = qualia_core.utils.config.validate_config_dict(config_overwritten)
-    if validated_config is None:
+    if config is None:
         logger.error('Could not load configuration.')
         return 1
 
-    loggers = qualia(sys.argv[2], config=validated_config, configname=configname)
+    loggers = qualia(sys.argv[2], config=config, configname=configname)
     logger.info('%s', loggers)
     return 0
 
