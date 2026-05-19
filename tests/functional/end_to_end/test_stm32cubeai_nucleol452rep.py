@@ -14,8 +14,7 @@ class TestSTM32CubeAINucleoL452REP:
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_float32_prepare_deploy(self, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32.toml')
         loggers = fixture_uci_har_resnet_train_float32
 
         assert 'learningmodel' in loggers
@@ -44,8 +43,7 @@ class TestSTM32CubeAINucleoL452REP:
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_float32_deploy_and_evaluate(self):
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_float32.toml')
         loggers = main.qualia('deploy_and_evaluate', config, configname)
 
         assert len(loggers['evaluate']) == 1
@@ -64,8 +62,7 @@ class TestSTM32CubeAINucleoL452REP:
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_int8_prepare_deploy(self, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_int8.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_int8.toml')
         loggers = fixture_uci_har_resnet_train_int8
 
         assert 'learningmodel' in loggers
@@ -99,8 +96,7 @@ class TestSTM32CubeAINucleoL452REP:
     def test_uci_har_resnet_stm32cubeai_nucleol452rep_int8_deploy_and_evaluate(self):
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_int8.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_STM32CubeAI_NucleoL452REP_int8.toml')
         loggers = main.qualia('deploy_and_evaluate', config, configname)
 
         assert len(loggers['evaluate']) == 1
