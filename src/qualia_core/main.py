@@ -167,11 +167,15 @@ def main() -> int:
     include_search_paths = additional_include_search_paths + include_search_paths
 
     # Load include files
-    for filename in config_overwritten.get('includes', []):
+    includes: list[str] = config_overwritten.get('includes', [])
+    while includes:
+        filename = Path(includes.pop(0))
         file_path = lookup_file(search_paths=include_search_paths, filename=filename)
         if file_path:
             logger.info('Including "%s"', file_path)
             config_include, _ = qualia_core.utils.config.parse_config(file_path)
+            # Included file may include additional files, add them to includes list
+            includes += config_include.get('includes', [])
             # Main config file and command line args take precedence over included file
             config_overwritten = merge_dict(config_overwritten, config_include, merge_lists=True)
         else:
