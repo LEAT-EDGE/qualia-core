@@ -36,6 +36,7 @@ class TrainResult:
     datamodel: DataModel[RawData]
     trainset: RawData
     testset: RawData
+    use_test_as_valid: bool
     framework: LearningFramework[Any]
     batch_size: int
     optimizer: Any
@@ -175,6 +176,7 @@ def train(datamodel: RawDataModel,  # noqa: PLR0913
                        datamodel=datamodel,
                        trainset=datamodel.sets.train,
                        testset=datamodel.sets.test,
+                       use_test_as_valid=use_test_as_valid,
                        framework=framework,
                        batch_size=batch_size,
                        optimizer=optimizer,
