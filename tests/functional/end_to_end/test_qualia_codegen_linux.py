@@ -13,8 +13,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_float32(self, tmp_path_factory, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_float32.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_float32.toml')
         loggers = fixture_uci_har_resnet_train_float32
 
         print(f'{loggers=}')
@@ -58,8 +57,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_float32_directpytorch(self, tmp_path_factory, fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_float32_directpytorch.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_float32_directpytorch.toml')
         loggers = fixture_uci_har_resnet_train_float32
 
         assert 'learningmodel' in loggers
@@ -99,8 +97,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_int16(self, tmp_path_factory, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int16.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int16.toml')
         loggers = fixture_uci_har_resnet_train_int16
 
         assert 'learningmodel' in loggers
@@ -146,8 +143,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_int16_directpytorch(self, tmp_path_factory, fixture_uci_har_resnet_train_int16: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int16_directpytorch.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int16_directpytorch.toml')
         loggers = fixture_uci_har_resnet_train_int16
 
         assert 'learningmodel' in loggers
@@ -193,8 +189,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_int8(self, tmp_path_factory, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int8.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int8.toml')
         loggers = fixture_uci_har_resnet_train_int8
 
         assert 'learningmodel' in loggers
@@ -240,8 +235,7 @@ class TestQualiaCodeGenLinux:
     def test_uci_har_resnet_qualia_codegen_linux_int8_directpytorch(self, tmp_path_factory, fixture_uci_har_resnet_train_int8: Callable[[], dict]) -> None:
         from qualia_core import main
         import qualia_core.utils.config
-        configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int8_directpytorch.toml')
-        config = qualia_core.utils.config.validate_config_dict(configf)
+        config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_QualiaCodeGen_Linux_int8_directpytorch.toml')
         loggers = fixture_uci_har_resnet_train_int8
 
         assert 'learningmodel' in loggers

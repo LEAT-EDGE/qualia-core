@@ -9,31 +9,27 @@ import pytest
 def uci_har_preprocess_data() -> dict:
     import qualia_core.utils.config
     from qualia_core import main
-    configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_float32.toml')
-    config = qualia_core.utils.config.validate_config_dict(configf)
+    config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_float32.toml')
     return main.qualia('preprocess_data', config, configname)
 
 def uci_har_resnet_train_float32(fixture_uci_har_preprocess_data: Callable[[], dict]) -> dict:
     from qualia_core import main
     import qualia_core.utils.config
-    configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_float32.toml')
-    config = qualia_core.utils.config.validate_config_dict(configf)
+    config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_float32.toml')
     return {**main.qualia('train', config, configname), **fixture_uci_har_preprocess_data}
 
 def uci_har_resnet_train_int16(fixture_uci_har_preprocess_data: Callable[[], dict],
                                fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> dict:
     from qualia_core import main
     import qualia_core.utils.config
-    configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_int16.toml')
-    config = qualia_core.utils.config.validate_config_dict(configf)
+    config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_int16.toml')
     return {**main.qualia('train', config, configname), **fixture_uci_har_preprocess_data}
 
 def uci_har_resnet_train_int8(fixture_uci_har_preprocess_data: Callable[[], dict],
                               fixture_uci_har_resnet_train_float32: Callable[[], dict]) -> dict:
     from qualia_core import main
     import qualia_core.utils.config
-    configf, configname = qualia_core.utils.config.parse_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_int8.toml')
-    config = qualia_core.utils.config.validate_config_dict(configf)
+    config, configname = qualia_core.utils.config.load_config(Path('conf')/'tests'/'UCI-HAR_ResNetv1_train_int8.toml')
     return {**main.qualia('train', config, configname), **fixture_uci_har_preprocess_data}
 
 def xdist_shared(worker_id: str, tmp_path_factory, name: str, callback: Callable[[], dict]):
