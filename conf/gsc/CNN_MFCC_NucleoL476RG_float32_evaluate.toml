@@ -1,0 +1,4 @@
+includes = ['targets/NucleoL476RG.tomli', 'gsc/CNN_MFCC_float32_train.toml']
+
+[bench]
+name = "GSC_CNN_MFCC_NucleoL476RG_float32_train"

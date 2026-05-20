@@ -1,0 +1,7 @@
+includes = ['targets/NucleoL476RG.tomli', 'gsc/CNN_MFCC_int16_evaluate.toml']
+
+[bench]
+name = "GSC_CNN_MFCC_NucleoL476RG_int16_evaluate"
+
+[deploy]
+optimize.0 = 'cmsis-nn'
