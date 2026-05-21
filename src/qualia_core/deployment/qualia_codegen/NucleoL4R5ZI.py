@@ -19,7 +19,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-class NucleoL476RG(NucleoL452REP):
+class NucleoL4R5ZI(NucleoL452REP):
     evaluator = QualiaEvaluator  # Suggested evaluator
 
     def __init__(self,
@@ -27,8 +27,8 @@ class NucleoL476RG(NucleoL452REP):
                  outdir: str | Path | None = None,
                  core_clock_48mhz: bool = False) -> None:  # noqa: FBT001, FBT002
         super().__init__(projectdir=projectdir if projectdir is not None else
-                            resources_to_path(files('qualia_codegen_core.examples'))/'NucleoL476RG',
-                         outdir=outdir if outdir is not None else Path('out')/'deploy'/'NucleoL476RG',
+                            resources_to_path(files('qualia_codegen_core.examples'))/'NucleoL4R5ZI',
+                         outdir=outdir if outdir is not None else Path('out')/'deploy'/'NucleoL4R5ZI',
                          core_clock_48mhz=core_clock_48mhz)
 
     @override
@@ -37,10 +37,10 @@ class NucleoL476RG(NucleoL452REP):
                          '-f', 'interface/stlink.cfg',
                          '-f', 'target/stm32l4x.cfg',
                          '-c', 'init',
-                         '-c', 'reset halt; flash write_image erase ./NucleoL476RG.elf; reset; shutdown',
+                         '-c', 'reset halt; flash write_image erase ./NucleoL4R5ZI.elf; reset; shutdown',
                          cwd=self._outdir/tag):
             return None
 
-        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL476RG.elf', str(self._size_bin)),
-                      ram_size=self._ram_size(self._outdir/tag/'NucleoL476RG.elf', str(self._size_bin)),
+        return Deploy(rom_size=self._rom_size(self._outdir/tag/'NucleoL4R5ZI.elf', str(self._size_bin)),
+                      ram_size=self._ram_size(self._outdir/tag/'NucleoL4R5ZI.elf', str(self._size_bin)),
                       evaluator=self.evaluator)
