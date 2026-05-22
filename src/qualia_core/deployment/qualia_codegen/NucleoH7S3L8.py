@@ -67,28 +67,23 @@ class NucleoH7S3L8(CMake):
     def __run_openocd(self) -> bool:
         return self._run('openocd',
                          '-f', 'interface/stlink-dap.cfg',
-                         '-f', 'target/stm32h7rx.cfg')
+                         '-f', 'target/stm32h7rsx.cfg')
 
     def __run_gdb(self, elf: Path) -> bool:
         return self._run('arm-none-eabi-gdb',
                          str(elf),
                          '-ex', 'set confirm off',
-                         '-ex', 'target remote localhost:3333',
+                         '-ex', 'target extended-remote localhost:3333',
                          '-ex', 'monitor [target current] configure -event gdb-detach {shutdown}',
                          '-ex', 'monitor reset halt',
                          '-ex', 'load',
-                         '-ex', 'continue&',
+                         '-ex', 'shell sleep 2',
+                         '-ex', 'monitor resume',
+                         '-ex', 'disconnect',
                          '-ex', 'quit')
 
     @override
     def deploy(self, tag: str) -> Deploy | None:
-        # if not self._run('openocd',
-        #                  '-f', 'interface/stlink.cfg',
-        #                  '-f', 'target/stm32h7x.cfg',
-        #                  '-c', 'init',
-        #                  '-c', 'reset halt; flash write_image erase ./NucleoH7S3L8; reset; shutdown',
-        #                  cwd=self._outdir/tag):
-
         # Flash Boot to MCU's internal Flash
         elf = self._outdir/tag/'NucleoH7S3L8' if not self.__extflash else self._outdir/tag/'NucleoH7S3L8ExtFlash_Boot'
         elf = elf.rename(elf.with_suffix('.elf')) if elf.exists() else elf.with_suffix('.elf')
