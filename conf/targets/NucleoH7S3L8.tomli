@@ -1,0 +1,9 @@
+[deploy]
+target = 'NucleoH7S3L8'
+evaluator.params.baudrate = 10000000
+#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_002D00403033511835393935-*'
+evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_*'
+deployer.params.extflash = false
+deployer.params.sram = true
+deployer.params.core_clock_740mhz = false
+converter.kind = 'QualiaCodeGen'
