@@ -1,6 +1,6 @@
 [deploy]
 target = 'NucleoH7A3ZIQ'
-evaluator.params.baudrate = 921600
-#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_0672FF505057717867025732-*'
-evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_*'
+evaluator.params.baudrate = 2500000
+#evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_002D00403033511835393935-*'
+evaluator.params.dev = '/dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_*'
 converter.kind = 'QualiaCodeGen'
