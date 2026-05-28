@@ -1,0 +1,4 @@
+includes = ['targets/NucleoH7A3ZIQ.tomli', 'gsc/CNN_MFCC_int16_evaluate.toml']
+
+[bench]
+name = "GSC_CNN_MFCC_NucleoH7A3ZIQ_int16_evaluate"
