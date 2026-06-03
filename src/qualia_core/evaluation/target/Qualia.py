@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
+import numpy as np
+
 from qualia_core.evaluation.Evaluator import Evaluator
 from qualia_core.evaluation.Stats import Stats
 from qualia_core.typing import TYPE_CHECKING
@@ -121,7 +123,9 @@ class Qualia(Evaluator):
         log.fields = Result
 
         for i, line in enumerate(test_x):
-            msg = ','.join(map(str, line.flatten())) + '\r\n'
+            msg = ','.join(np.format_float_positional(x, precision=5) for x in line.flatten()) + '\r\n'
+            if len(msg) > 32767:
+                raise ValueError
             _ = s.write(msg.encode('cp437')) # Send test vector
 
             r = s.readline() # Read acknowledge
