@@ -1,0 +1,7 @@
+includes = ['targets/NucleoH7A3ZIQ.tomli', 'cifar10/ResNetv1_int16_evaluate.toml']
+
+[bench]
+name = "CIFAR10_ResNetv1_int16_evaluate_NucleoH7A3ZIQ"
+
+[deploy]
+optimize.0 = 'cmsis-nn'

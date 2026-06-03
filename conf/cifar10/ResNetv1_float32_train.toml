@@ -18,21 +18,67 @@ compress = [1]
 [dataset]
 kind = "CIFAR10"
 params.path = "data/cifar-10-batches-py/"
+params.dtype = "uint8" # Keep uint8 dtype instead of converting to float32 for AutoAugment
 
 [[preprocessing]]
 kind = "Class2BinMatrix"
 params.classes = 10
 
-[[preprocessing]]
-kind = "Normalize"
-params.method = 'z-score'
-params.axis = 0
-params.debug = true
+[[data_augmentation]]
+kind = "AutoAugment"
+params.policy = "CIFAR10"
+params.before = false
+params.after = true
+#params.before = true
+#params.after = false
+
+# Convert to Float32 and scale by 255 after AutoAugment
+[[data_augmentation]]
+kind = "IntToFloat32"
+params.scale = true
+params.before = false
+params.after = true
+params.evaluate = true
+
+[[data_augmentation]]
+kind = "HorizontalFlip"
+params.before = false
+params.after = true
+
+[[data_augmentation]]
+kind = "Crop"
+params.size = [32, 32]
+params.padding = [4, 4]
+params.before = false
+params.after = true
+
+#[[data_augmentation]]
+#kind = "GaussianNoise"
+#params.sigma = 0.005
+
+#[[data_augmentation]]
+#kind = "Rotation2D"
+#params.angle = [-5, 5]
+
+#[[data_augmentation]]
+#kind = "ResizedCrop"
+#params.size = [32, 32]
+#params.scale = [0.85, 1.05]
+#params.ratio = [0.9, 1.1]
+
+# [[data_augmentation]]
+# kind = "Mixup"
+# params.before = false
+# params.after = true
+
+[[postprocessing]]
+kind = "FuseBatchNorm"
+export = true
 
 [model_template]
-kind = "ResNet"
-epochs = 60
-batch_size = 512
+kind = "ResNetStride"
+epochs = 1
+batch_size = 256
 params.prepool 		= 1
 params.strides		= [1, 2]
 params.num_blocks	= [2]
@@ -54,6 +100,7 @@ params.gamma		= 0.1
 name = "cifar10_resnetv1_8"
 params.filters 		= [8, 8]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -62,6 +109,7 @@ disabled = true
 name = "cifar10_resnetv1_16"
 params.filters 		= [16, 16]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -70,6 +118,7 @@ disabled = true
 name = "cifar10_resnetv1_24"
 params.filters 		= [24, 24]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -78,6 +127,7 @@ disabled = true
 name = "cifar10_resnetv1_32"
 params.filters 		= [32, 32]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -86,6 +136,7 @@ disabled = true
 name = "cifar10_resnetv1_40"
 params.filters 		= [40, 40]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -94,6 +145,7 @@ disabled = true
 name = "cifar10_resnetv1_48"
 params.filters 		= [48, 48]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -102,6 +154,7 @@ disabled = true
 name = "cifar10_resnetv1_64"
 params.filters 		= [64, 64]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
@@ -110,17 +163,29 @@ disabled = true
 name = "cifar10_resnetv1_80"
 params.filters 		= [80, 80]
 params.kernel_sizes 	= [3, 3]
+params.pool_sizes   = [ 1,  1]
 params.paddings		= [1, 1]
 params.batch_norm 	= true
 disabled = true
 
+[[model]]
+name = "cifar10_resnetv1-8"
+params.filters      = [16, 16, 16, 16]
+params.kernel_sizes = [ 3,  3,  3,  3]
+params.pool_sizes   = [ 1,  1,  1,  1]
+params.num_blocks   = [     1,  1,  1]
+params.strides      = [ 1,  1,  2,  2]
+params.paddings     = [ 1,  1,  1,  1]
+params.batch_norm   = true
+disabled = false
 
 [[model]]
 name = "cifar10_resnetv1-14"
 params.filters 		= [64, 64, 128, 256]
 params.kernel_sizes 	= [7, 3, 3, 3]
+params.pool_sizes   = [ 1,  1,  1,  1]
 params.strides		= [1, 2, 2, 2]
 params.paddings		= [3, 1, 1, 1]
 params.num_blocks	= [2, 2, 2]
 params.batch_norm 	= true
-disabled = false
+disabled = true

@@ -1,0 +1,27 @@
+includes = ['cifar10/ResNetv1_float32_train.toml']
+
+[bench]
+name = "CIFAR10_ResNetv1_int16_evaluate"
+
+[deploy]
+# Overwrite 'float32' instead of prepend to list
+quantize.0 = 'int16'
+
+# Insert after FuseBatchNorm from base config file
+[postprocessing.1]
+# Not actually doing QAT since epochs=0, only used to generate activation ranges for QualiaCodeGen
+kind = "QuantizationAwareTrainingFX"
+export = true
+params.evaluate_before = false
+params.epochs = 0
+params.batch_size = 512
+params.model.params.quant_params.bits           = 16
+params.model.params.quant_params.quantype       = "fxp"
+params.model.params.quant_params.roundtype      = "nearest"
+params.model.params.quant_params.range_setting  = "minmax"
+params.model.params.quant_params.LSQ            = false
+params.model.params.quant_params.force_q        = 9
+
+[model_template]
+train = false
+load = true
