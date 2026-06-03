@@ -1,3 +1,4 @@
+from .EDU32F103 import EDU32F103
 from .Linux import Linux
 from .LonganNano import LonganNano
 from .NucleoH7A3ZIQ import NucleoH7A3ZIQ
@@ -10,6 +11,7 @@ from .SparkFunEdge import SparkFunEdge
 from .Windows import Windows
 
 __all__ = [
+    'EDU32F103',
     'Linux',
     'LonganNano',
     'NucleoH7A3ZIQ',
