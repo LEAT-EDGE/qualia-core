@@ -34,8 +34,7 @@ class EDU32F103(NucleoL452REP):
     @override
     def deploy(self, tag: str) -> Deploy | None:
         if not self._run('openocd',
-                         '-f', 'interface/ftdi/tigard.cfg',
-                         '-f', 'target/stm32f1x.cfg',
+                         '-f', str(self._projectdir / 'openocd.cfg'),
                          '-c', 'init',
                          '-c', 'reset halt; flash write_image erase ./EDU32F103.elf; reset; shutdown',
                          cwd=self._outdir/tag):
