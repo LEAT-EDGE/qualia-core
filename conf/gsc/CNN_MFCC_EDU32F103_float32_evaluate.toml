@@ -1,0 +1,4 @@
+includes = ['targets/EDU32F103.tomli', 'gsc/CNN_MFCC_float32_train.toml']
+
+[bench]
+name = "GSC_CNN_MFCC_EDU32F103_float32_train"

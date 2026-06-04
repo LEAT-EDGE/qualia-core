@@ -1,0 +1,7 @@
+[deploy]
+target = 'EDU32F103'
+deployer.params.core_clock_48mhz = false # 72 MHz clock by default
+evaluator.params.baudrate = 921600
+# evaluator.params.dev = '/dev/serial/by-id/usb-piernov_EDU32F103_v0.4_JTAG_UART_0015-if01-port0'
+evaluator.params.dev = '/dev/serial/by-id/usb-piernov_EDU32F103_*_JTAG_UART_*-if01-port0'
+converter.kind = 'QualiaCodeGen'
