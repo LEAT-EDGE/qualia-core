@@ -104,7 +104,7 @@ class QuantizedCNN(LearningModelPyTorch):
                                                                activation=nn.ReLU() if fused_relu and not batch_norm else None)
 
                 if batch_norm:
-                    layers[f'bn{i}_dw'] = layers_t.QuantizedBatchNorm(out_filters,
+                    layers[f'bn{i}_dw'] = layers_t.QuantizedBatchNorm(in_filters,
                                                                       quant_params=quant_params,
                                                                       activation=nn.ReLU() if fused_relu else None)
 
