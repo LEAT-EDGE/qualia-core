@@ -34,7 +34,10 @@ class CMSISMFCC(DataAugmentationPyTorch):
                  melkwargs: MelConfigDict,
                  evaluate: bool = False,  # noqa: FBT001, FBT002
                  before: bool = False,  # noqa: FBT001, FBT002
-                 after: bool = True) -> None:  # noqa: FBT001, FBT002
+                 after: bool = True,  # noqa: FBT001, FBT002
+                 dims: int = 1,
+                 drop_mfcc: int = 0,
+                 max_frames: int | None = None) -> None:
         import cmsisdsp  # type: ignore[import-untyped]
         import cmsisdsp.mfcc  # type: ignore[import-untyped]
 
@@ -42,6 +45,19 @@ class CMSISMFCC(DataAugmentationPyTorch):
 
         self.__n_mfcc = n_mfcc
         self.__n_fft = melkwargs['n_fft']
+        self.__dims = dims
+        self.__drop_mfcc = drop_mfcc
+        self.__out_n_mfcc = n_mfcc - drop_mfcc
+        self.__max_frames = max_frames
+        if self.__dims not in (1, 2):
+            logger.error('Only dims=1 or dims=2 supported, got: %s', dims)
+            raise ValueError
+        if self.__drop_mfcc < 0 or self.__drop_mfcc >= self.__n_mfcc:
+            logger.error('drop_mfcc must be in [0, n_mfcc), got drop_mfcc=%s n_mfcc=%s', drop_mfcc, n_mfcc)
+            raise ValueError
+        if self.__max_frames is not None and self.__max_frames <= 0:
+            logger.error('max_frames must be positive or None, got: %s', max_frames)
+            raise ValueError
 
         # Numpy Hann window
         #window = np.hanning(melkwargs['n_fft'])
@@ -126,13 +142,17 @@ class CMSISMFCC(DataAugmentationPyTorch):
     def apply(self, x: torch.Tensor, y: torch.Tensor, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
         import cmsisdsp  # type: ignore[import-untyped]
 
-        output_shape_channels_last = (x.shape[0], x.shape[-1] // self.__n_fft, x.shape[1], self.__n_mfcc)
+        frames = x.shape[-1] // self.__n_fft
+        if self.__max_frames is not None:
+            frames = min(frames, self.__max_frames)
+
+        output_shape_channels_last = (x.shape[0], frames, x.shape[1], self.__out_n_mfcc)
 
         # Drop extra samples that cannot be covered by a full window
-        max_length = (x.shape[2] // self.__n_fft) * self.__n_fft
+        max_length = frames * self.__n_fft
         x_truncated = x[:,:,:max_length]
 
-        x_windowed = x_truncated.reshape((x.shape[0], x.shape[1], x.shape[2] // self.__n_fft, self.__n_fft))
+        x_windowed = x_truncated.reshape((x.shape[0], x.shape[1], frames, self.__n_fft))
         x_windowed_cpu = x_windowed.cpu().numpy() # Need to process on CPU to call CMSIS-DSP
 
         x_mfcc = np.zeros(output_shape_channels_last)
@@ -142,12 +162,16 @@ class CMSISMFCC(DataAugmentationPyTorch):
         for i, input_vector in enumerate(x_windowed_cpu):
             for j, channel in enumerate(input_vector):
                 for k, window in enumerate(channel):
-                    x_mfcc[i][k][j] = cmsisdsp.arm_mfcc_f32(self.__mfccf32,
-                                                            window,
-                                                            tmp)
+                    mfcc = cmsisdsp.arm_mfcc_f32(self.__mfccf32,
+                                                 window,
+                                                 tmp)
+                    x_mfcc[i][k][j] = mfcc[self.__drop_mfcc:self.__drop_mfcc + self.__out_n_mfcc]
 
-        x_mfcc_concat_channels = x_mfcc.reshape(x_mfcc.shape[0], x_mfcc.shape[1], x_mfcc.shape[2] * x_mfcc.shape[3])
-        x_mfcc_channels_first = x_mfcc_concat_channels.swapaxes(1, 2)
+        if self.__dims == 2:
+            x_mfcc_channels_first = x_mfcc.transpose(0, 2, 1, 3)
+        else:
+            x_mfcc_concat_channels = x_mfcc.reshape(x_mfcc.shape[0], x_mfcc.shape[1], x_mfcc.shape[2] * x_mfcc.shape[3])
+            x_mfcc_channels_first = x_mfcc_concat_channels.swapaxes(1, 2)
 
         return torch.tensor(x_mfcc_channels_first, dtype=x.dtype, device=x.device), y
 
