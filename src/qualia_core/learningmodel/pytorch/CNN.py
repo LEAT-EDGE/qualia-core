@@ -94,7 +94,7 @@ class CNN(LearningModelPyTorch):
                                                       bias=not batch_norm)
 
                 if batch_norm:
-                    layers[f'bn{i}_dw'] = layers_t.BatchNorm(out_filters)
+                    layers[f'bn{i}_dw'] = layers_t.BatchNorm(in_filters)
 
                 layers[f'relu{i}_dw'] = nn.ReLU()
 
